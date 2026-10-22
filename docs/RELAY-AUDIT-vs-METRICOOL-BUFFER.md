@@ -2,6 +2,7 @@
 
 **Audit date:** 22 October 2026  
 **Relay version:** 0.1.0 (local, self-hosted)  
+**Origin repository:** https://origin.cursor.com/ttrg/relay  
 **Benchmarks:** Metricool and Buffer public feature sets and pricing  
 **Method:** Relay source/API/tool inventory, live connection tests, official benchmark pages
 
