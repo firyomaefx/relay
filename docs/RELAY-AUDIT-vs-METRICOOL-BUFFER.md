@@ -328,6 +328,12 @@ Replies are **never automatic**; the scheduler never calls reply tools.
 
 ## 7. Connection verification (22 Oct 2026)
 
+**Always-on supervisor:** `tools/relay-supervisor.ps1` runs at login, checks the
+console, HTTP MCP, both tunnels and the tray app every 30 seconds, restarts
+anything that is down, and writes `.data/relay-supervisor.json` plus a rolling
+log. Autostart is installed with `tools/install-relay-autostart.ps1`.
+See [docs/ALWAYS-ON.md](ALWAYS-ON.md).
+
 | Client | Status | Evidence |
 |---|---|---|
 | Relay server | ✅ healthy | `/api/health` ok; 5 accounts connected |

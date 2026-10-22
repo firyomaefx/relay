@@ -293,6 +293,22 @@ npm run mcp         # build + run the MCP server in a terminal
 - This is a single-user local tool. Do not run it as a multi-tenant service without adding
   proper auth, rate limiting and per-user data separation.
 
+## Always-on supervisor
+
+Relay can run like a background app. The supervisor keeps the console, HTTP MCP endpoint, tunnels and tray app alive, and restarts anything that stops.
+
+```powershell
+.\tools\install-relay-autostart.ps1
+```
+
+Status:
+
+```powershell
+Get-Content .data\relay-supervisor.json
+```
+
+See [docs/ALWAYS-ON.md](docs/ALWAYS-ON.md) for details.
+
 ## Known limitations
 
 - Simulated mode is the default; live posting requires your own developer app credentials.
