@@ -1,0 +1,44 @@
+---
+description: Relay audit versus Metricool and Buffer, plus how to operate Relay from Cursor/Claude/Grok.
+globs:
+  - "docs/RELAY-AUDIT-vs-METRICOOL-BUFFER.md"
+  - "apps/**"
+  - "packages/**"
+alwaysApply: false
+---
+
+# Relay audit context for Cursor
+
+Full audit: `docs/RELAY-AUDIT-vs-METRICOOL-BUFFER.md`.
+
+Relay is a local, MCP-native publisher for X, Threads, TikTok, YouTube and Instagram.
+It is strong at publishing, scheduling, validation, Threads comment replies and
+agent automation. It is **not** yet a Metricool/Buffer replacement for analytics,
+unified inbox, approvals, calendar, media library, link-in-bio, ads or teams.
+
+## What to remember
+
+- Relay MCP tools: `relay_accounts`, `relay_connect`, `relay_disconnect`,
+  `relay_post`, `relay_validate`, `relay_queue`, `relay_cancel`,
+  `relay_history`, `relay_threads_comments`, `relay_threads_autoreply`,
+  `relay_threads_reply`, `relay_limits`, `relay_console`.
+- Always call `relay_validate` before `relay_post`.
+- Threads replies are explicit-only; never auto-post a reply.
+- YouTube is one video per post; quota ≈ 6 uploads/day.
+- Instagram needs a public media URL and a Business/Creator account.
+- X needs pay-per-use credits; Threads needs the Meta app in good standing.
+- Keep one Relay server running so the scheduler can publish queued posts.
+
+## Common commands
+
+```powershell
+npm run batch -- content/plans/week.json --dry-run
+npm run batch -- content/plans/week.json
+npm run youtube-max -- --dir "C:\path\to\videos" --privacy public
+```
+
+## Gaps to prioritize
+
+P0: analytics, unified inbox, approvals/roles, calendar + media library.
+P1: LinkedIn/Facebook/Pinterest/Bluesky/GBP, link-in-bio, built-in AI, integrations, mobile/PWA.
+P2: ads, competitors, hashtags, white-label reports, hosted API/webhooks.

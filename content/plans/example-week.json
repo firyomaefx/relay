@@ -1,0 +1,16 @@
+{
+  "name": "example-week",
+  "items": [
+    {
+      "platforms": ["threads"],
+      "text": "Duit Poket tip: track every RM5 you spend for one week. Small leaks sink big budgets.",
+      "scheduleAt": "2026-10-27T09:00:00+08:00",
+      "options": { "threads": {} }
+    },
+    {
+      "platforms": ["threads"],
+      "text": "Three-question money check-in:\n\n1. What did I spend on wants?\n2. What can I cancel today?\n3. What is one bill I can pay early?",
+      "scheduleAt": "2026-10-28T09:00:00+08:00"
+    }
+  ]
+}

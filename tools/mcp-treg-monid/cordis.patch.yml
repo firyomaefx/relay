@@ -1,0 +1,28 @@
+# Connects the treg tool catalog (https://treg.to/mcp/) and the Monid workflow
+# server (https://mcp.monid.ai/v1) as native MCP tool namespaces.
+#
+# Tokens are the same per-org / per-account bearer tokens already stored in the
+# user's own Claude config (C:\Users\User\.claude.json). They are kept in this
+# local bundle rather than in conversation text; rotate them there and here
+# together if they are ever revoked.
+- insert:
+    - id: mcp-treg
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: treg
+        transport: streamable-http
+        url: https://treg.to/mcp/
+        headers:
+          Authorization: 'Bearer eyJ1aWQiOjE4NjcyLCJ0diI6MCwiYXVkIjoiaWRlbnRpdHkiLCJvcmciOiJ0dHJnIiwia2ciOjAsInNjcCI6InRlYW0ifQ.wxCC0yrUk1FeuFyNS3xweB6jMCszUfnQYFRmIzvM6PU'
+        toolCallTimeoutMs: 600000
+        failOnStartupError: false
+    - id: mcp-monid
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: monid
+        transport: streamable-http
+        url: https://mcp.monid.ai/v1
+        headers:
+          Authorization: 'Bearer monid_live_kvsrpAonGTajsn6wWjoZHo2x'
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false

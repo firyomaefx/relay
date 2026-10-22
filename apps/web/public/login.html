@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#050506" />
+  <meta name="description" content="Relay console sign in." />
+  <meta name="robots" content="noindex" />
+  <title>Relay · Sign in</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/login.js" defer></script>
+</head>
+<body class="auth-page">
+  <div class="ambient" aria-hidden="true">
+    <span class="orb orb-violet"></span>
+    <span class="orb orb-emerald"></span>
+    <span class="orb orb-rose"></span>
+  </div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <main class="auth-shell">
+    <div class="auth-brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6.5 23.5 16 7l9.5 16.5" />
+          <circle cx="16" cy="7" r="2.3" />
+          <circle cx="6.5" cy="23.5" r="2.3" />
+          <circle cx="25.5" cy="23.5" r="2.3" />
+        </svg>
+      </span>
+      <span class="brand-text">
+        <span class="brand-word">Relay</span>
+        <span class="brand-sub">local console</span>
+      </span>
+    </div>
+
+    <div class="bezel auth-card">
+      <section class="panel">
+        <p class="eyebrow">Protected workspace</p>
+        <h1 class="auth-title">Welcome back.</h1>
+        <p class="auth-lede">This console is locked with <code>RELAY_CONSOLE_PASSWORD</code>. Enter the password to open your drafts, accounts and queue.</p>
+
+        <form class="auth-form" id="loginForm" novalidate>
+          <div>
+            <label class="auth-label" for="password">Console password</label>
+            <input class="input" id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required autofocus />
+          </div>
+          <p class="auth-error" id="loginError" role="alert" hidden></p>
+          <button class="primary-btn" id="loginBtn" type="submit">
+            <span id="loginLabel">Unlock console</span>
+            <span class="btn-orb" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9.5 7H17v7.5" /></svg>
+            </span>
+          </button>
+        </form>
+
+        <p class="auth-foot">The session lasts 12 hours and is stored in a signed, HttpOnly cookie. Leave <code>RELAY_CONSOLE_PASSWORD</code> unset for passwordless access on localhost.</p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

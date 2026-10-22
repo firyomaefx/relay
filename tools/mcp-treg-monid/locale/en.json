@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "treg + Monid MCP Connections",
+    "description": "Connects the treg tool catalog (treg.to) and the Monid workflow server (mcp.monid.ai) so their tools are callable by the agent as mcp__treg__* and mcp__monid__*."
+  }
+}

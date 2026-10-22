@@ -1,0 +1,7 @@
+{
+  "name": "relay-tests",
+  "private": true,
+  "type": "module",
+  "description": "Test-only package boundary so `node --test tests/` resolves this directory to index.mjs on Node versions that no longer expand directory arguments.",
+  "main": "index.mjs"
+}
