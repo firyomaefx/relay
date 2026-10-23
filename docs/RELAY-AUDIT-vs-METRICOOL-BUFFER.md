@@ -249,20 +249,20 @@ node apps\mcp\dist\index.js --http --port 4320 --data-dir .data `
 ```
 
 The bearer token is generated once at `.data/mcp-http-token`. Publish only the
-MCP port through a dedicated HTTPS tunnel:
+MCP port through the named Cloudflare tunnel:
 
 ```powershell
-cloudflared tunnel --url http://127.0.0.1:4320
+cloudflared tunnel --config C:\Users\User\.cloudflared\config.yml run relay
 ```
 
-Grok Bot endpoint: `https://<mcp-tunnel>/mcp` with header
+Grok Bot endpoint: `https://mcp.duitpoket.fun/mcp` with header
 `Authorization: Bearer <token>`.
 
 Ask Grok Bot:
 
 ```markdown
 Add this remote MCP server to my account: name=Relay, transport=streamable HTTP,
-URL=https://<mcp-tunnel>/mcp, Authorization header: Bearer <token>.
+URL=https://mcp.duitpoket.fun/mcp, Authorization header: Bearer <token>.
 Then call relay_accounts.
 ```
 
@@ -270,8 +270,7 @@ Security rules for this endpoint:
 
 - Never expose port 4320 without the bearer token.
 - Use a tunnel dedicated to 4320 (do not reuse the console tunnel).
-- Quick-tunnel URLs change on restart; for a permanent connector use a named
-  Cloudflare tunnel or a stable HTTPS domain.
+- The named tunnel keeps permanent hostnames; restarting it does not change the URL.
 - Rotate `.data/mcp-http-token` and update the connector if the token leaks.
 
 ### E. Cursor
@@ -339,7 +338,7 @@ See [docs/ALWAYS-ON.md](ALWAYS-ON.md).
 | Relay server | ✅ healthy | `/api/health` ok; 5 accounts connected |
 | Claude Desktop | ✅ configured | `relay` MCP entry; 2 `relay-mcp` processes; 13 tools; restart Claude after config changes |
 | Grok CLI | ✅ connected | `~/.grok/config.toml` relay entry; `grok mcp doctor relay` → handshake OK, 13 tools |
-| Grok Bot app | ✅ connected | Remote HTTPS MCP `https://aspects-waves-basically-targets.trycloudflare.com/mcp`; bearer token; 13 tools; `relay_accounts` returned 5 accounts |
+| Grok Bot app | ⚠️ endpoint ready | Stable HTTPS MCP `https://mcp.duitpoket.fun/mcp` returns 13 tools with the bearer token; update the existing connector URL in Grok Bot from the old quick tunnel |
 | Cursor | ✅ configured | `~/.cursor/mcp.json` relay entry; restart Cursor to load |
 
 If a client shows no Relay tools:
@@ -358,8 +357,8 @@ If a client shows no Relay tools:
 - **TikTok** — unaudited apps can only post privately or as drafts.
 - **YouTube** — default quota ≈ 6 uploads/day; video-only.
 - **Instagram** — Business/Creator account, public media URL, JPEG images.
-- **Tunnel dependency** — Threads/Instagram OAuth and local-media publishing need the HTTPS tunnel; if it restarts, update redirect URIs.
-- **Remote MCP tunnel** — Grok Bot uses a separate quick tunnel to port 4320. If that tunnel restarts, the URL changes and must be updated in Grok Bot; use a named tunnel for permanence.
+- **Tunnel dependency** — Threads/Instagram OAuth and local-media publishing use the stable `relay.duitpoket.fun` named tunnel; the hostname does not change on restart.
+- **Remote MCP tunnel** — Grok Bot uses the stable `mcp.duitpoket.fun/mcp` endpoint on the same named Cloudflare tunnel; no URL changes on restart.
 - **Single machine** — no cloud redundancy; if the laptop sleeps, scheduled posts wait.
 - **Security** — the console binds to localhost, but a public tunnel exposes OAuth callbacks and `/media`; keep tokens encrypted and rotate if leaked.
 

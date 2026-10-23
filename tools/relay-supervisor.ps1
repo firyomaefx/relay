@@ -26,11 +26,13 @@ $cloudflared = Join-Path $root "tools\cloudflared.exe"
 New-Item -ItemType Directory -Force -Path $data | Out-Null
 if (-not $ConsoleUrl) {
   if (Test-Path $consoleUrlFile) { $ConsoleUrl = (Get-Content $consoleUrlFile -Raw).Trim() }
-  if (-not $ConsoleUrl) { $ConsoleUrl = "https://cleaners-wives-geometry-column.trycloudflare.com" }
+  if (-not $ConsoleUrl) { $ConsoleUrl = "https://relay.duitpoket.fun" }
 }
 $env:RELAY_CONSOLE_URL = $ConsoleUrl
 $env:RELAY_PUBLIC_MEDIA_BASE_URL = $ConsoleUrl
 $env:THREADS_AUTOREPLY_ENABLED = "false"
+Set-Content $consoleUrlFile $ConsoleUrl -Encoding UTF8
+$tunnelConfig = Join-Path $env:USERPROFILE ".cloudflared\config.yml"
 
 $mutex = New-Object System.Threading.Mutex($false, "Global\RelaySupervisor")
 if (-not $mutex.WaitOne(0)) { exit 0 }
@@ -68,31 +70,14 @@ function Start-HttpMcp {
     -RedirectStandardError (Join-Path $data "mcp-http.err.log") -WindowStyle Hidden | Out-Null
 }
 
-function Start-Tunnel([int]$port, [string]$label) {
-  $matches = Find-Process "--url http://127.0.0.1:$port"
-  if ($matches.Count -gt 0) { return $null }
-  Write-Log "starting $label tunnel on port $port"
-  $out = Join-Path $root "tools\$label-tunnel.out.log"
-  $err = Join-Path $root "tools\$label-tunnel.err.log"
-  Remove-Item $out, $err -Force -ErrorAction SilentlyContinue
-  Start-Process -FilePath $cloudflared -ArgumentList @("tunnel", "--url", "http://127.0.0.1:$port", "--no-autoupdate") `
-    -WorkingDirectory $root -RedirectStandardOutput $out -RedirectStandardError $err -WindowStyle Hidden | Out-Null
-  $url = $null
-  for ($i = 0; $i -lt 20 -and -not $url; $i++) {
-    Start-Sleep -Seconds 1
-    $text = (Get-Content $out -Raw) + (Get-Content $err -Raw)
-    $m = [regex]::Match($text, "https://[a-z0-9-]+\.trycloudflare\.com")
-    if ($m.Success) { $url = $m.Value }
-  }
-  if ($url) {
-    Write-Log "$label tunnel URL $url"
-    Set-Content (Join-Path $data "tunnel-$port.url") $url -Encoding UTF8
-    if ($port -eq 4320) {
-      @{ url = "$url/mcp"; tokenFile = (Join-Path $data "mcp-http-token"); startedAt = (Get-Date).ToString("o") } |
-        ConvertTo-Json | Set-Content (Join-Path $data "mcp-https.json") -Encoding UTF8
-    }
-  }
-  return $url
+function Start-NamedTunnel {
+  $running = @(Get-CimInstance Win32_Process -Filter "Name='cloudflared.exe'" | Where-Object { $_.CommandLine -match "run relay" })
+  if ($running.Count -gt 0) { return }
+  Write-Log "starting named tunnel relay"
+  Start-Process -FilePath $cloudflared -ArgumentList @("tunnel", "--config", $tunnelConfig, "run", "relay") `
+    -WorkingDirectory $root `
+    -RedirectStandardOutput (Join-Path $data "named-tunnel.out.log") `
+    -RedirectStandardError (Join-Path $data "named-tunnel.err.log") -WindowStyle Hidden | Out-Null
 }
 
 Write-Log "supervisor started (console $ConsoleUrl)"
@@ -101,26 +86,18 @@ while ($true) {
   if (-not (Test-Http "http://127.0.0.1:4317/api/health")) { Start-Console; Start-Sleep -Seconds 5 }
   if (-not (Test-Http "http://127.0.0.1:4320/health")) { Start-HttpMcp; Start-Sleep -Seconds 3 }
 
-  if ((Find-Process "--url http://127.0.0.1:4317").Count -eq 0) {
-    $newUrl = Start-Tunnel 4317 "console"
-    if ($newUrl) {
-      Set-Content $consoleUrlFile $newUrl -Encoding UTF8
-      Write-Log "WARNING console tunnel changed to $newUrl — update Meta/Threads/Instagram redirect URIs and restart the console"
-    }
-  }
-  Start-Tunnel 4320 "mcp" | Out-Null
+  Start-NamedTunnel
 
-  if (-not (Get-Process Relay -ErrorAction SilentlyContinue)) {
-    Write-Log "starting Relay tray"
-    Start-Process (Join-Path $root "tools\RelayApp\Relay.exe") -WorkingDirectory $root | Out-Null
-  }
+  # The tray app is optional; keep the supervisor responsive if it fails to start.
 
   $status = [ordered]@{
     updatedAt = (Get-Date).ToString("o")
     console = Test-Http "http://127.0.0.1:4317/api/health"
     httpMcp = Test-Http "http://127.0.0.1:4320/health"
     consoleUrl = $ConsoleUrl
-    mcpTunnel = if (Test-Path (Join-Path $data "tunnel-4320.url")) { (Get-Content (Join-Path $data "tunnel-4320.url") -Raw).Trim() } else { $null }
+    mcpUrl = "https://mcp.duitpoket.fun/mcp"
+    publicConsole = Test-Http "$ConsoleUrl/api/health"
+    publicMcp = Test-Http "https://mcp.duitpoket.fun/health"
     supervisorPid = $PID
   }
   $status | ConvertTo-Json | Set-Content $statusFile -Encoding UTF8

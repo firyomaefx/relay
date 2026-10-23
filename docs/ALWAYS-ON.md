@@ -8,8 +8,8 @@ Relay now runs like a small background app instead of a terminal process.
 |---|---|
 | Relay console (`:4317`) | UI, OAuth callbacks, scheduler, local API |
 | HTTP MCP (`:4320`) | Token-protected endpoint for Grok Bot |
-| Console tunnel | Public HTTPS for OAuth/media |
-| MCP tunnel | Public HTTPS for Grok Bot |
+| Console tunnel | `https://relay.duitpoket.fun` |
+| MCP tunnel | `https://mcp.duitpoket.fun` |
 | Relay tray app | Desktop presence |
 | Supervisor | Checks and restarts all of the above |
 
@@ -42,8 +42,10 @@ Status fields:
 
 - `console` — `:4317` health
 - `httpMcp` — `:4320` health
-- `consoleUrl` — public console URL
-- `mcpTunnel` — public MCP URL
+- `consoleUrl` — `https://relay.duitpoket.fun`
+- `mcpUrl` — `https://mcp.duitpoket.fun/mcp`
+- `publicConsole` — stable console health
+- `publicMcp` — stable MCP health
 - `supervisorPid`
 
 ## Recovery behaviour
@@ -52,13 +54,12 @@ Every 30 seconds the supervisor:
 
 - restarts the console if `/api/health` fails
 - restarts the HTTP MCP if `:4320/health` fails
-- restarts a missing cloudflared tunnel
-- restarts the Relay tray app if it disappeared
+- restarts the named Cloudflare tunnel `relay` if it is missing
 - writes status to `.data/relay-supervisor.json`
 
-If the **MCP tunnel** is recreated, its URL changes. Update the Grok Bot connector URL to the new value from `.data/mcp-https.json`.
-
-If the **console tunnel** is recreated, its URL changes and Meta/Threads/Instagram redirect URIs must be updated before OAuth will work again. The supervisor logs this as a warning.
+The public URLs are permanent because the tunnel is a **named Cloudflare tunnel**
+(`5a1efe42-9826-4ed5-82b7-13e20295e0ac`) with DNS records in the `duitpoket.fun` zone.
+Restarting the tunnel does not change the hostnames.
 
 ## Stop
 
@@ -75,4 +76,4 @@ Remove autostart by deleting `Relay Supervisor.lnk` from the Startup folder.
 - One instance only: a global mutex prevents duplicate supervisors.
 - Logs rotate at 2 MB (`.data/relay-supervisor.log.old`).
 - The supervisor never deletes tokens or data.
-- For a permanent Grok Bot URL, replace the quick tunnel with a named Cloudflare tunnel and update `.data/mcp-https.json`.
+- Tunnel credentials live in `C:\Users\User\.cloudflared`; the `duitpoket.fun` zone is on Cloudflare nameservers.
