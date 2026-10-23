@@ -336,10 +336,10 @@ See [docs/ALWAYS-ON.md](ALWAYS-ON.md).
 | Client | Status | Evidence |
 |---|---|---|
 | Relay server | ✅ healthy | `/api/health` ok; 5 accounts connected |
-| Claude Desktop | ✅ configured | `relay` MCP entry; 2 `relay-mcp` processes; 13 tools; restart Claude after config changes |
-| Grok CLI | ✅ connected | `~/.grok/config.toml` relay entry; `grok mcp doctor relay` → handshake OK, 13 tools |
-| Grok Bot app | ⚠️ endpoint ready | Stable HTTPS MCP `https://mcp.duitpoket.fun/mcp` returns 13 tools with the bearer token; update the existing connector URL in Grok Bot from the old quick tunnel |
-| Cursor | ✅ configured | `~/.cursor/mcp.json` relay entry; restart Cursor to load |
+| Claude Desktop | ✅ configured | `relay` MCP entry uses `--console-url https://relay.duitpoket.fun`; stdio handshake returned 13 tools; restart Claude to load the new argument |
+| Grok CLI | ✅ connected | `~/.grok/config.toml` relay entry uses `https://relay.duitpoket.fun`; `grok mcp doctor relay` → handshake OK, 13 tools |
+| Grok Bot app | ✅ updated | Remote HTTPS MCP `https://mcp.duitpoket.fun/mcp`; bearer token; 13 tools; `relay_accounts` returned 5 accounts; console/media both report `https://relay.duitpoket.fun` |
+| Cursor | ✅ configured | `~/.cursor/mcp.json` relay entry uses `https://relay.duitpoket.fun`; restart Cursor to load |
 
 If a client shows no Relay tools:
 
