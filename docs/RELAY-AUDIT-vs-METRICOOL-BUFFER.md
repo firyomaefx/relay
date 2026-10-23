@@ -359,6 +359,7 @@ If a client shows no Relay tools:
 - **Instagram** — Business/Creator account, public media URL, JPEG images.
 - **Tunnel dependency** — Threads/Instagram OAuth and local-media publishing use the stable `relay.duitpoket.fun` named tunnel; the hostname does not change on restart.
 - **Remote MCP tunnel** — Grok Bot uses the stable `mcp.duitpoket.fun/mcp` endpoint on the same named Cloudflare tunnel; no URL changes on restart.
+- **Meta redirect URIs** — existing Threads/Instagram tokens keep working, but reconnect flows need the Meta app redirect URIs changed from the old quick-tunnel host to `https://relay.duitpoket.fun/auth/callback/<platform>`. The Meta app dashboard was redirecting to the Apps list at cutover time.
 - **Single machine** — no cloud redundancy; if the laptop sleeps, scheduled posts wait.
 - **Security** — the console binds to localhost, but a public tunnel exposes OAuth callbacks and `/media`; keep tokens encrypted and rotate if leaked.
 
