@@ -38,7 +38,10 @@ export function normalizeFor(platform: PlatformId, draft: PostDraft): ResolvedPo
   const parts: ResolvedPart[] = thread
     ? thread.map((part) => ({ text: (part.text ?? "").trim(), media: part.media ?? [] }))
     : [{ text: (draft.text ?? "").trim(), media: draft.media ?? [] }];
-  return { platform, parts, options: draft.options?.[platform] ?? {} };
+  const options = { ...(draft.options?.[platform] ?? {}) };
+  const topReplyTo = (draft.replyToId ?? draft.parentPostId)?.toString().trim();
+  if (platform === "threads" && topReplyTo && !options.replyToId) options.replyToId = topReplyTo;
+  return { platform, parts, options };
 }
 
 function textLength(value: string): number {
@@ -269,6 +272,12 @@ export async function validateDraft(
       if (!allowed.includes(platformOptions.tiktokPrivacy)) {
         addIssue({ platform, code: "option_invalid", message: `Unsupported TikTok privacy: ${platformOptions.tiktokPrivacy}` });
       }
+    }
+    if (platform === "threads" && platformOptions.replyToId && !/^\d+$/.test(String(platformOptions.replyToId).trim())) {
+      addIssue({ platform, code: "option_invalid", message: "Threads replyToId must be a numeric published post id" });
+    }
+    if (platform !== "threads" && platformOptions.replyToId) {
+      addIssue({ platform, code: "option_unsupported", message: "replyToId is only supported on Threads" });
     }
     if (platform !== "x" && platformOptions.quotePostId) {
       addIssue({ platform, code: "option_unsupported", message: "quotePostId is only supported on X" });

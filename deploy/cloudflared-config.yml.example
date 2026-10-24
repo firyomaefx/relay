@@ -1,0 +1,10 @@
+﻿# /etc/cloudflared/config.yml  (copy the tunnel credentials JSON from the laptop; never commit it)
+# Same host split as the laptop: console on relay.duitpoket.fun, MCP on mcp.duitpoket.fun
+tunnel: 5a1efe42-9826-4ed5-82b7-13e20295e0ac
+credentials-file: /etc/cloudflared/5a1efe42-9826-4ed5-82b7-13e20295e0ac.json
+ingress:
+  - hostname: relay.duitpoket.fun
+    service: http://127.0.0.1:4317
+  - hostname: mcp.duitpoket.fun
+    service: http://127.0.0.1:4320
+  - service: http_status:404

@@ -33,7 +33,7 @@ function makeContext({ onFetch, readMedia, dataDir } = {}) {
   const calls = [];
   const ctx = {
     dataDir: dataDir ?? process.cwd(),
-    env: {},
+    env: { RELAY_THREADS_REPLY_SETTLE_MS: "0", RELAY_THREADS_NOT_FOUND_BACKOFF_MS: "0", RELAY_THREADS_POLL_INTERVAL_MS: "0" },
     logger: () => {},
     fetch: async (url, init = {}) => {
       const call = { url: String(url), init };
@@ -590,6 +590,7 @@ test("Threads calls onPartPublished for every published part", async () => {
         publishCount += 1;
         return { id: `threads-post-${publishCount}` };
       }
+      if (method === "GET" && url.searchParams.get("fields") === "status,error_message") return { status: "FINISHED" };
       throw new Error(`Unexpected Threads request: ${method} ${call.url}`);
     },
   });

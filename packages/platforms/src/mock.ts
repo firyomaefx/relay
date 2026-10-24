@@ -25,9 +25,13 @@ export function mockScopes(platform: PlatformId): string[] {
     case "tiktok":
       return ["user.info.basic", "video.publish", "video.upload"];
     case "youtube":
-      return ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"];
+      return [
+        "https://www.googleapis.com/auth/youtube.upload",
+        "https://www.googleapis.com/auth/youtube.readonly",
+        "https://www.googleapis.com/auth/youtube.force-ssl",
+      ];
     case "instagram":
-      return ["instagram_business_basic", "instagram_business_content_publish"];
+      return ["instagram_business_basic", "instagram_business_content_publish", "instagram_business_manage_comments"];
   }
 }
 

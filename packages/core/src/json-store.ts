@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { RelayError } from "./errors.js";
+import { emptyCommentsState, type CommentsState } from "./comments.js";
 import type { EncryptedBlob } from "./secret-box.js";
 import type { Account, PlatformId, PostRecord, QueueJob, ThreadsAutoReplyState } from "./types.js";
 
@@ -24,6 +25,8 @@ export interface DbData {
   queue: QueueJob[];
   oauth: Record<string, PendingAuth>;
   threadsAutoReply: ThreadsAutoReplyState;
+  /** Seen / replied comment ids for relay_comments_new and relay_reply. */
+  comments: CommentsState;
 }
 
 export function emptyThreadsAutoReplyState(): ThreadsAutoReplyState {
@@ -37,7 +40,7 @@ export function emptyThreadsAutoReplyState(): ThreadsAutoReplyState {
 }
 
 function emptyDb(): DbData {
-  return { version: 2, accounts: {}, posts: [], queue: [], oauth: {}, threadsAutoReply: emptyThreadsAutoReplyState() };
+  return { version: 2, accounts: {}, posts: [], queue: [], oauth: {}, threadsAutoReply: emptyThreadsAutoReplyState(), comments: emptyCommentsState() };
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -86,7 +89,7 @@ export class JsonStore {
   /** Applies a synchronous mutation and persists the whole document. */
   async mutate<T>(fn: (db: DbData) => T): Promise<T> {
     const run = this.chain.then(async () => {
-      await this.withLock(async () => {
+      return this.withLock(async () => {
         this.data = await this.reload();
         const result = fn(this.data);
         await this.persist();
@@ -151,6 +154,7 @@ export class JsonStore {
 function normalize(raw: string): DbData {
   const parsed = JSON.parse(raw) as Partial<DbData>;
   const storedAutoReply = parsed.threadsAutoReply;
+  const storedComments = parsed.comments;
   return {
     version: typeof parsed.version === "number" ? parsed.version : 2,
     accounts: parsed.accounts ?? {},
@@ -164,6 +168,11 @@ function normalize(raw: string): DbData {
       windows: Array.isArray(storedAutoReply?.windows) ? storedAutoReply.windows : [],
       seenPostIds: Array.isArray(storedAutoReply?.seenPostIds) ? storedAutoReply.seenPostIds : [],
       ...(storedAutoReply?.lastDiscoveryAt ? { lastDiscoveryAt: storedAutoReply.lastDiscoveryAt } : {}),
+    },
+    comments: {
+      seen: Array.isArray(storedComments?.seen) ? storedComments.seen : [],
+      replied: Array.isArray(storedComments?.replied) ? storedComments.replied : [],
+      templateCursor: typeof storedComments?.templateCursor === "number" ? storedComments.templateCursor : 0,
     },
   };
 }

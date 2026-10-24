@@ -28,6 +28,11 @@ export const MCP_TOOL_NAMES = [
   "relay_threads_comments",
   "relay_threads_autoreply",
   "relay_threads_reply",
+  "relay_comments_new",
+  "relay_reply",
+  "relay_article",
+  "relay_article_validate",
+  "relay_delete",
   "relay_limits",
   "relay_console",
 ];

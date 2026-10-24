@@ -12,3 +12,14 @@ vendor/
 *.mp4
 *.log
 
+
+.env.*
+!.env.example
+!deploy/.env.example
+backups/
+logs/
+*.token
+mcp-http-token
+.cloudflared/
+*.pem
+credentials*.json

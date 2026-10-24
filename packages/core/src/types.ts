@@ -45,6 +45,11 @@ export interface PlatformOptions {
    */
   tiktokAutoAddMusic?: boolean;
   disableComment?: boolean;
+  /**
+   * Threads: publish the parts as a reply chain under an existing PUBLISHED
+   * post id (part 1 replies to it, part 2 replies to part 1, ...).
+   */
+  replyToId?: string;
   /** X: quote-tweet an existing post by id. */
   quotePostId?: string;
   /** YouTube: video visibility. Defaults to public. */
@@ -77,6 +82,131 @@ export interface PostDraft {
   /** ISO-8601 timestamp. When in the future the post is queued instead of published. */
   scheduleAt?: string;
   options?: Partial<Record<PlatformId, PlatformOptions>>;
+  /** Threads shorthand for options.threads.replyToId (alias: parentPostId). */
+  replyToId?: string;
+  parentPostId?: string;
+}
+
+/** One block of an X Article body (maps onto the DraftJS block types X accepts). */
+export type ArticleBlockType =
+  | "header-one"
+  | "header-two"
+  | "header-three"
+  | "unstyled"
+  | "blockquote"
+  | "unordered-list-item"
+  | "ordered-list-item"
+  /** An inline image: text is a single space and `image` carries the file. */
+  | "atomic";
+
+/** An inline Article image. X uploads the file directly, so `path` is required. */
+export interface ArticleImage extends MediaItem {
+  /** Caption shown under the image on X (optional). */
+  caption?: string;
+}
+
+export interface ArticleBlock {
+  type: ArticleBlockType;
+  text: string;
+  /** Set on "atomic" blocks only. */
+  image?: ArticleImage;
+}
+
+export interface ArticleImageInput {
+  path?: string;
+  url?: string;
+  altText?: string;
+  caption?: string;
+}
+
+/** One body section: optional heading, then paragraphs, then an optional image. */
+export interface ArticleSection {
+  heading?: string;
+  paragraphs?: string[];
+  image?: ArticleImageInput;
+}
+
+export interface ArticleImageInfo {
+  path: string;
+  mimeType?: string;
+  bytes: number;
+  width?: number;
+  height?: number;
+}
+
+/** Input for an X Article: give `body` (sections) or `bodyMarkdown`, not both. */
+export interface ArticleDraft {
+  title: string;
+  body?: ArticleSection[];
+  bodyMarkdown?: string;
+  /** Optional cover image. X uploads the file directly, so `path` is required. */
+  cover?: MediaItem;
+  /** ISO-8601. When in the future the article is queued instead of published. */
+  scheduleAt?: string;
+}
+
+export interface ResolvedArticle {
+  title: string;
+  blocks: ArticleBlock[];
+  cover?: MediaItem;
+}
+
+export interface ArticleValidationReport {
+  ok: boolean;
+  issues: ValidationIssue[];
+  normalized?: ResolvedArticle;
+  stats?: { blocks: number; chars: number; words: number; images?: number; imageFiles?: ArticleImageInfo[] };
+}
+
+export interface CreateArticleResult {
+  scheduled: boolean;
+  jobId?: string;
+  scheduleAt?: string;
+  results: PostResult[];
+  report: ArticleValidationReport;
+}
+
+export interface ArticlePublishInput {
+  account: Account;
+  tokens: OAuthTokens | null;
+  article: ResolvedArticle;
+}
+
+export interface DeletePostInput {
+  account: Account;
+  tokens: OAuthTokens | null;
+}
+
+export interface DeletePostResult {
+  deleted: boolean;
+  /** True when the delete was simulated (mock mode). */
+  mock: boolean;
+  /** The platform said the post does not exist (already deleted). */
+  alreadyGone?: boolean;
+}
+
+export interface DeleteTarget {
+  platform: PlatformId;
+  postId: string;
+  url?: string;
+}
+
+export type DeleteStatus = "deleted" | "already_gone" | "unsupported" | "failed";
+
+export interface DeletePostOutcome {
+  platform: PlatformId;
+  postId: string;
+  status: DeleteStatus;
+  mock: boolean;
+  error?: string;
+  code?: string;
+}
+
+export interface RemoveQueueJobResult {
+  found: boolean;
+  removed: boolean;
+  status?: QueueStatus;
+  job?: QueueJob;
 }
 
 export interface ResolvedPart {
@@ -311,9 +441,33 @@ export interface ThreadsAutoReplyState extends ThreadsAutoReplyLog {
   seenPostIds: string[];
 }
 
+/** One comment on one of the connected account's own posts (Threads, Instagram, YouTube). */
+export interface OwnComment {
+  platform: "threads" | "instagram" | "youtube";
+  postId: string;
+  commentId: string;
+  author: string;
+  text: string;
+  createdAt: string;
+  postCaption?: string;
+}
+
+export interface OwnCommentsInput {
+  account: Account;
+  tokens: OAuthTokens | null;
+  /** Epoch ms. Only posts/comments newer than this are wanted. */
+  sinceMs: number;
+  /** Max own posts (or videos) to look at. */
+  limitPosts: number;
+  /** Stop collecting after about this many comments. */
+  maxComments: number;
+}
+
 export interface ThreadsCommentsInput {
   account: Account;
   tokens: OAuthTokens | null;
+  /** Epoch ms. When set, posts published before it are listed but their conversation is not fetched. */
+  sinceMs?: number;
   /** Maximum number of recent posts to inspect (the conversation is read for each). */
   limitPosts: number;
 }
@@ -345,6 +499,8 @@ export interface PlatformAdapter {
   refresh?(ctx: AdapterContext, tokens: OAuthTokens): Promise<OAuthTokens>;
   /** Read-only: recent posts plus their replies. Currently implemented by Threads. */
   readComments?(ctx: AdapterContext, input: ThreadsCommentsInput): Promise<ThreadsCommentsResult>;
+  /** Read-only: comments on the account's own recent posts. Implemented by Instagram and YouTube. */
+  readOwnComments?(ctx: AdapterContext, input: OwnCommentsInput): Promise<OwnComment[]>;
   /** Read-only: the account's own recent posts (used to discover newly published posts). */
   listOwnPosts?(ctx: AdapterContext, input: ThreadsPostsInput): Promise<ThreadsOwnPost[]>;
   /**
@@ -357,6 +513,13 @@ export interface PlatformAdapter {
     text: string,
     input: ThreadsReplyAuth,
   ): Promise<ThreadsReplyResult>;
+  /** X only: create a draft Article and publish it. */
+  publishArticle?(ctx: AdapterContext, input: ArticlePublishInput): Promise<PublishResult>;
+  /**
+   * EXPLICIT-ONLY: delete one published post. Implemented by X and Threads. The
+   * scheduler never calls this.
+   */
+  deletePost?(ctx: AdapterContext, postId: string, input: DeletePostInput): Promise<DeletePostResult>;
 }
 
 export interface ValidationIssue {
@@ -396,6 +559,8 @@ export interface PostResult {
   /** SHA-256 of the normalized content, used by the duplicate guard. */
   contentHash?: string;
   details?: Record<string, unknown>;
+  /** Posts deleted on the platform through relay_delete. */
+  deletions?: { postId: string; deletedAt: string; mock?: boolean }[];
   publishedAt: string;
 }
 
@@ -408,6 +573,9 @@ export interface PostRecord {
   draft: PostDraft;
   results: PostResult[];
   status?: PostRecordStatus;
+  /** "article" for X Articles. Absent for normal posts. */
+  kind?: "post" | "article";
+  article?: ArticleDraft;
 }
 
 export type QueueStatus = "pending" | "running" | "done" | "failed" | "canceled";
@@ -421,6 +589,11 @@ export interface QueueJob {
   attempts: number;
   lastError?: string;
   results?: PostResult[];
+  /** "article" for X Articles. Absent for normal posts. */
+  kind?: "post" | "article";
+  article?: ArticleDraft;
+  /** Content hash of a queued article, used to refuse duplicates. */
+  contentHash?: string;
 }
 
 export interface PlatformStatus {

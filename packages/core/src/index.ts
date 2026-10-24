@@ -6,5 +6,7 @@ export * from "./credentials.js";
 export * from "./media.js";
 export * from "./lock.js";
 export * from "./validation.js";
+export * from "./article.js";
 export * from "./autoreply.js";
+export * from "./comments.js";
 export * from "./service.js";

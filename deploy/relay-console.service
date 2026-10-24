@@ -1,0 +1,15 @@
+[Unit]
+Description=Relay console (web + API, port 4317)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=relay
+WorkingDirectory=/opt/relay
+EnvironmentFile=/etc/relay/relay.env
+ExecStart=/usr/bin/node apps/web/dist/index.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

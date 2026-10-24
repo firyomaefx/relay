@@ -11,9 +11,15 @@ import type {
   ProfileInfo,
   PublishInput,
   PublishResult,
+  OwnComment,
+  OwnCommentsInput,
+  ThreadsReplyAuth,
+  ThreadsReplyResult,
 } from "@relay/core";
+import { randomUUID } from "node:crypto";
 import { mockProfile, mockPublish, mockScopes } from "../mock.js";
 import {
+  asArray,
   asObject,
   authHeaders,
   formBody,
@@ -31,7 +37,12 @@ const LONG_LIVED_TOKEN_URL = "https://graph.instagram.com/access_token";
 const REFRESH_TOKEN_URL = "https://graph.instagram.com/refresh_access_token";
 const GRAPH_URL = "https://graph.instagram.com/v23.0";
 const PROFILE_FIELDS = "user_id,username,account_type,profile_picture_url";
-const SCOPES = ["instagram_business_basic", "instagram_business_content_publish"] as const;
+const SCOPES = [
+  "instagram_business_basic",
+  "instagram_business_content_publish",
+  "instagram_business_manage_comments",
+] as const;
+const MAX_COMMENT_REPLY = 2200;
 
 const CONTAINER_POLL_LIMIT = 60;
 const CONTAINER_POLL_INTERVAL_MS = 2000;
@@ -269,6 +280,127 @@ export class InstagramAdapter implements PlatformAdapter {
         shareToFeed: item.kind === "video" ? options.instagramShareToFeed !== false : true,
       },
     };
+  }
+
+  /**
+   * READ-ONLY: comments on the account's recent media. Only media published
+   * inside the window and with comments_count > 0 are read (one call each).
+   * Needs the instagram_business_manage_comments scope.
+   */
+  async readOwnComments(ctx: AdapterContext, input: OwnCommentsInput): Promise<OwnComment[]> {
+    if (!this.isLive(ctx) || !input.tokens) return [];
+    const tokens = input.tokens;
+    const userId = await this.resolveUserId(ctx, input.account, tokens);
+    const own = input.account.handle.replace(/^@/, "").trim().toLowerCase();
+    const headers = authHeaders(tokens.accessToken);
+    const limit = Math.max(1, Math.min(50, Math.floor(input.limitPosts)));
+
+    const mediaJson = await this.commentFetch(
+      ctx,
+      "Instagram recent media",
+      `${GRAPH_URL}/${userId}/media?fields=id,caption,timestamp,comments_count&limit=${limit}`,
+      { headers },
+    );
+    const out: OwnComment[] = [];
+    for (const entry of asArray(asObject(mediaJson)?.data)) {
+      const media = asObject(entry);
+      const mediaId = getString(media, "id");
+      if (!mediaId) continue;
+      const published = Date.parse(getString(media, "timestamp") ?? "");
+      if (Number.isFinite(published) && published < input.sinceMs) continue;
+      const count = media?.comments_count;
+      if (typeof count === "number" && count === 0) continue;
+
+      const commentsJson = await this.commentFetch(
+        ctx,
+        `Instagram comments for ${mediaId}`,
+        `${GRAPH_URL}/${encodeURIComponent(mediaId)}/comments?fields=id,text,timestamp,username,replies{id,username}&limit=50`,
+        { headers },
+      );
+      for (const item of asArray(asObject(commentsJson)?.data)) {
+        const comment = asObject(item);
+        const id = getString(comment, "id");
+        if (!id) continue;
+        const username = getString(comment, "username") ?? "unknown";
+        if (username.replace(/^@/, "").trim().toLowerCase() === own) continue;
+        // Skip comments the account already answered (for example from the app).
+        const replies = asArray(asObject(comment?.replies)?.data);
+        const answered = replies.some((reply) => {
+          const name = getString(asObject(reply), "username");
+          return Boolean(name) && name!.replace(/^@/, "").trim().toLowerCase() === own;
+        });
+        if (answered) continue;
+        out.push({
+          platform: "instagram",
+          postId: mediaId,
+          commentId: id,
+          author: username,
+          text: getString(comment, "text") ?? "",
+          createdAt: getString(comment, "timestamp") ?? ctx.now().toISOString(),
+          ...(getString(media, "caption") ? { postCaption: getString(media, "caption") } : {}),
+        });
+        if (out.length >= input.maxComments) return out;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * EXPLICIT-ONLY: reply to one top-level comment (POST /{comment-id}/replies).
+   * Needs the instagram_business_manage_comments scope.
+   */
+  async replyToComment(
+    ctx: AdapterContext,
+    commentId: string,
+    text: string,
+    input: ThreadsReplyAuth,
+  ): Promise<ThreadsReplyResult> {
+    const target = typeof commentId === "string" ? commentId.trim() : "";
+    if (!target) throw new RelayError("An Instagram comment id is required.", "instagram_reply_comment_id_invalid", undefined, 400);
+    const body = typeof text === "string" ? text.trim() : "";
+    if (!body) throw new RelayError("Reply text is required.", "instagram_reply_text_required", undefined, 400);
+    const length = Array.from(body).length;
+    if (length > MAX_COMMENT_REPLY) {
+      throw new RelayError(
+        `Instagram replies allow at most ${MAX_COMMENT_REPLY} characters; this reply has ${length}.`,
+        "instagram_reply_text_too_long",
+        { maxLength: MAX_COMMENT_REPLY, length },
+        400,
+      );
+    }
+    if (!this.isLive(ctx) || !input.tokens) {
+      return { id: `mock_instagram_reply_${randomUUID()}`, mock: true };
+    }
+    const json = await this.commentFetch(ctx, "Instagram comment reply", `${GRAPH_URL}/${encodeURIComponent(target)}/replies`, {
+      method: "POST",
+      headers: { ...authHeaders(input.tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
+      body: formBody({ message: body }),
+    });
+    const id = getString(asObject(json), "id");
+    if (!id) throw new RelayError("Instagram did not return a reply id", "instagram_reply_id_missing", json, 502);
+    return { id, mock: false };
+  }
+
+  /** providerFetch that turns Meta permission failures into comments_scope_missing. */
+  private async commentFetch(ctx: AdapterContext, label: string, url: string, init: RequestInit): Promise<unknown> {
+    try {
+      return await providerFetch(ctx, label, url, init);
+    } catch (error) {
+      // Meta tags permission errors (code 10 / 200-299) as OAuthException, which providerFetch reports as an AuthError.
+      if (error instanceof RelayError && (error.code === "provider_error" || error.code === "auth_error")) {
+        const provider = asObject(asObject(error.details)?.provider);
+        const code = Number(provider?.code);
+        if (code === 10 || (code >= 200 && code <= 299) || /permission|scope/i.test(error.message)) {
+          throw new RelayError(
+            `Instagram: needs reconnect for comments. Reconnect Instagram so it can grant instagram_business_manage_comments, and make sure the Meta app has that permission. (${error.message})`,
+            "comments_scope_missing",
+            error.details,
+            403,
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   private async resolveUserId(ctx: AdapterContext, account: PublishInput["account"], tokens: OAuthTokens): Promise<string> {

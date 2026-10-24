@@ -48,6 +48,9 @@ const STATIC_EXTENSIONS = new Set([
   ".webmanifest",
 ]);
 
+// Only these file types are ever served publicly from the media folder.
+const PUBLIC_MEDIA_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov"]);
+
 const MEDIA_KINDS_BY_EXTENSION: Record<string, "image" | "video"> = {
   ".jpg": "image",
   ".jpeg": "image",
@@ -537,7 +540,7 @@ async function handleAuthCallback(
 
 async function serveMedia(req: IncomingMessage, res: ServerResponse, name: string, deps: HandlerDeps): Promise<void> {
   const mediaDir = path.resolve(deps.relay().mediaDir);
-  if (!/^[A-Za-z0-9._-]+$/.test(name) || name.startsWith(".") || name.includes("..")) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,150}$/.test(name) || name.includes("..") || !PUBLIC_MEDIA_EXTENSIONS.has(path.extname(name).toLowerCase())) {
     throw new RelayError("Media not found", "media_not_found", undefined, 404);
   }
   const filePath = path.join(mediaDir, name);

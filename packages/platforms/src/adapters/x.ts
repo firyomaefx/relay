@@ -1,6 +1,11 @@
-import { ConfigurationError, RelayError } from "@relay/core";
+import { randomUUID } from "node:crypto";
+import { AuthError, ConfigurationError, RelayError } from "@relay/core";
 import type {
+  MediaItem,
   AdapterContext,
+  ArticlePublishInput,
+  DeletePostInput,
+  DeletePostResult,
   AuthorizeRequest,
   AuthorizeResult,
   ConnectResult,
@@ -215,6 +220,169 @@ export class XAdapter implements PlatformAdapter {
         quotePostId: quotePostId ?? null,
       },
     };
+  }
+
+  /**
+   * Publishes an X Article: POST /2/articles/draft, then POST /2/articles/{id}/publish.
+   * Both need the tweet.write scope; a cover image also needs media.write.
+   * An AuthError can only come from steps before the draft exists, so the core
+   * service may retry it after a token refresh without creating a second draft.
+   */
+  async publishArticle(ctx: AdapterContext, input: ArticlePublishInput): Promise<PublishResult> {
+    const { article } = input;
+    if (!this.isLive(ctx) || !input.tokens) {
+      return {
+        platformPostId: `mock_x_article_${randomUUID()}`,
+        mock: true,
+        details: {
+          simulated: true,
+          handle: input.account.handle,
+          title: article.title,
+          blocks: article.blocks.length,
+          cover: Boolean(article.cover),
+          images: article.blocks.filter((block) => block.type === "atomic" && block.image).length,
+        },
+      };
+    }
+    const tokens = input.tokens;
+    // Every upload happens before the draft exists. The error names the step that failed,
+    // and nothing is created or published on X unless all of them worked.
+    const uploadedByPath = new Map<string, string>();
+    const uploadImage = async (item: MediaItem, label: string): Promise<string> => {
+      const cacheKey = item.path ?? "";
+      const cached = cacheKey ? uploadedByPath.get(cacheKey) : undefined;
+      if (cached) return cached;
+      try {
+        const blob = await ctx.readMedia(item);
+        const mediaId = await this.uploadMedia(ctx, tokens, blob, "image");
+        if (cacheKey) uploadedByPath.set(cacheKey, mediaId);
+        return mediaId;
+      } catch (error) {
+        if (error instanceof AuthError) throw error;
+        if (error instanceof RelayError) {
+          throw new RelayError(`${label} failed: ${error.message}`, error.code, error.details, error.statusCode);
+        }
+        throw new RelayError(
+          `${label} failed: ${error instanceof Error ? error.message : String(error)}`,
+          "x_article_media_failed",
+          undefined,
+          502,
+        );
+      }
+    };
+
+    let coverMedia: { media_category: string; media_id: string } | undefined;
+    if (article.cover) {
+      const mediaId = await uploadImage(article.cover, "Cover image upload");
+      coverMedia = { media_category: "tweet_image", media_id: mediaId };
+    }
+
+    // Inline images are DraftJS atomic blocks. The block text is one space, entity_ranges
+    // points at an entry of the entities array (by index), and the entity carries the media id.
+    const entities: Array<Record<string, unknown>> = [];
+    const contentBlocks: Array<Record<string, unknown>> = [];
+    const inlineMediaIds: string[] = [];
+    for (const [index, block] of article.blocks.entries()) {
+      if (block.type === "atomic") {
+        if (!block.image) continue;
+        const number = inlineMediaIds.length + 1;
+        const mediaId = await uploadImage(block.image, `Inline image ${number} upload (${block.image.path ?? "no path"})`);
+        inlineMediaIds.push(mediaId);
+        const entityIndex = entities.length;
+        const caption = block.image.caption?.trim();
+        entities.push({
+          key: String(entityIndex),
+          value: {
+            type: "image",
+            mutability: "immutable",
+            data: {
+              media_items: [{ media_category: "tweet_image", media_id: mediaId }],
+              ...(caption ? { caption } : {}),
+            },
+          },
+        });
+        contentBlocks.push({
+          key: `b${index}`,
+          text: " ",
+          type: "atomic",
+          entity_ranges: [{ key: entityIndex, offset: 0, length: 1 }],
+          inline_style_ranges: [],
+        });
+      } else {
+        contentBlocks.push({ key: `b${index}`, text: block.text, type: block.type });
+      }
+    }
+
+    const payload: Record<string, unknown> = {
+      title: article.title,
+      content_state: { blocks: contentBlocks, entities },
+    };
+    if (coverMedia) payload.cover_media = coverMedia;
+
+    const drafted = await providerFetch(ctx, "X create Article draft", `${API_BASE}/articles/draft`, {
+      method: "POST",
+      headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const draftId = getString(asObject(asObject(drafted)?.data), "id");
+    if (!draftId) throw new RelayError("X did not return an Article draft id", "x_article_draft_id_missing", drafted, 502);
+
+    let published: unknown;
+    try {
+      published = await providerFetch(ctx, "X publish Article", `${API_BASE}/articles/${draftId}/publish`, {
+        method: "POST",
+        headers: authHeaders(tokens.accessToken),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new RelayError(
+        `${message} (the Article draft ${draftId} was created and is still in your X drafts)`,
+        "x_article_publish_failed",
+        { articleDraftId: draftId, cause: error instanceof RelayError ? error.details : undefined },
+        error instanceof RelayError ? error.statusCode : 502,
+      );
+    }
+    const postId = getString(asObject(asObject(published)?.data), "post_id");
+    if (!postId) {
+      throw new RelayError(
+        `X did not return a post id for the Article (draft ${draftId})`,
+        "x_article_post_id_missing",
+        { articleDraftId: draftId, body: published },
+        502,
+      );
+    }
+    const handle = input.account.handle.replace(/^@/, "");
+    return {
+      platformPostId: postId,
+      url: `https://x.com/${handle}/status/${postId}`,
+      mock: false,
+      details: { articleDraftId: draftId, coverMediaId: coverMedia?.media_id ?? null, inlineMediaIds },
+    };
+  }
+
+  /** DELETE /2/tweets/{id} (tweet.write). Only the account's own posts can be deleted. */
+  async deletePost(ctx: AdapterContext, postId: string, input: DeletePostInput): Promise<DeletePostResult> {
+    if (!this.isLive(ctx) || !input.tokens) return { deleted: true, mock: true };
+    if (!/^\d{1,19}$/.test(postId)) {
+      throw new RelayError(`X post ids are numbers; got "${postId}"`, "x_post_id_invalid", undefined, 400);
+    }
+
+    let json: unknown;
+    try {
+      json = await providerFetch(ctx, "X delete post", `${API_BASE}/tweets/${postId}`, {
+        method: "DELETE",
+        headers: authHeaders(input.tokens.accessToken),
+      });
+    } catch (error) {
+      if (error instanceof RelayError && !(error.code === "auth_error") && error.statusCode === 404) {
+        return { deleted: true, mock: false, alreadyGone: true };
+      }
+      throw error;
+    }
+    if (asObject(asObject(json)?.data)?.deleted !== true) {
+      throw new RelayError("X did not confirm the delete", "x_delete_not_confirmed", json, 502);
+    }
+    return { deleted: true, mock: false };
   }
 
   private async fetchProfile(ctx: AdapterContext, tokens: OAuthTokens): Promise<ProfileInfo> {

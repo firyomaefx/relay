@@ -3,6 +3,8 @@ import { ConfigurationError, RelayError } from "@relay/core";
 import type {
   Account,
   AdapterContext,
+  DeletePostInput,
+  DeletePostResult,
   AuthorizeRequest,
   AuthorizeResult,
   ConnectResult,
@@ -48,6 +50,16 @@ const SCOPES = [
   "threads_read_replies",
 ] as const;
 
+/**
+ * threads_delete is needed to delete posts. It is only requested at sign-in when
+ * THREADS_REQUEST_DELETE_SCOPE=1, because the Meta app must have it enabled
+ * first (otherwise the sign-in screen rejects the scope list).
+ */
+function requestedScopes(ctx: AdapterContext): string[] {
+  const wantsDelete = /^(1|true|yes)$/i.test(ctx.env?.THREADS_REQUEST_DELETE_SCOPE ?? "");
+  return wantsDelete ? [...SCOPES, "threads_delete"] : [...SCOPES];
+}
+
 const THREADS_POST_FIELDS = "id,text,timestamp,permalink";
 const THREADS_CONVERSATION_FIELDS = "id,text,username,timestamp,replied_to,is_reply,hide_status";
 const THREADS_REPLY_SCOPE = "threads_manage_replies";
@@ -62,6 +74,29 @@ function mapReplyControl(value: "everyone" | "followers" | "mentioned" | undefin
 
 const CONTAINER_POLL_LIMIT = 60;
 const CONTAINER_POLL_INTERVAL_MS = 2000;
+/** Pause before creating a reply so Meta has registered the parent post. */
+const DEFAULT_REPLY_SETTLE_MS = 3000;
+const DEFAULT_NOT_FOUND_RETRIES = 4;
+const DEFAULT_NOT_FOUND_BACKOFF_MS = 2000;
+
+function envMs(ctx: AdapterContext, name: string, fallback: number): number {
+  const raw = ctx.env?.[name];
+  if (raw === undefined || raw === "") return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+/** Meta's "requested resource does not exist" (code 24 / subcode 4279009). */
+function isThreadsMediaNotFound(error: unknown): boolean {
+  if (!(error instanceof RelayError)) return false;
+  const provider = asObject(asObject(error.details)?.provider) ?? {};
+  const body = asObject(asObject(asObject(error.details)?.body)?.error) ?? asObject(asObject(error.details)?.error) ?? {};
+  const code = String(provider.code ?? body.code ?? "");
+  const sub = String(provider.error_subcode ?? provider.subcode ?? body.error_subcode ?? "");
+  if (sub === "4279009") return true;
+  if (code === "24" && /does not exist|not found|tidak boleh ditemui/i.test(error.message)) return true;
+  return /error_subcode=4279009/.test(error.message);
+}
 
 /**
  * Threads (Meta) adapter: OAuth dialog, short-lived -> long-lived token
@@ -109,7 +144,7 @@ export class ThreadsAdapter implements PlatformAdapter {
     const url = new URL(AUTHORIZE_URL);
     url.searchParams.set("client_id", clientId);
     url.searchParams.set("redirect_uri", req.redirectUri);
-    url.searchParams.set("scope", SCOPES.join(","));
+    url.searchParams.set("scope", requestedScopes(ctx).join(","));
     url.searchParams.set("response_type", "code");
     url.searchParams.set("state", req.state);
     return { kind: "redirect", url: url.toString() };
@@ -159,10 +194,10 @@ export class ThreadsAdapter implements PlatformAdapter {
       refreshToken: longLived.accessToken,
       expiresAt: longLived.expiresAt,
       tokenType: longLived.tokenType ?? "bearer",
-      scope: SCOPES.join(","),
+      scope: requestedScopes(ctx).join(","),
     };
     const profile = await this.fetchProfile(ctx, tokens);
-    return { profile, tokens, scopes: [...SCOPES] };
+    return { profile, tokens, scopes: requestedScopes(ctx) };
   }
 
   async refresh(ctx: AdapterContext, tokens: OAuthTokens): Promise<OAuthTokens> {
@@ -191,9 +226,17 @@ export class ThreadsAdapter implements PlatformAdapter {
         "threads_too_many_media",
       );
     }
+    const rootReplyToId = input.post.options.replyToId?.trim() || undefined;
+    if (rootReplyToId && !/^\d+$/.test(rootReplyToId)) {
+      throw new RelayError(`Threads replyToId must be a numeric published post id (got "${rootReplyToId}")`, "threads_reply_to_invalid");
+    }
     if (!this.isLive(ctx) || !input.tokens) return mockPublish("threads", input);
     const tokens = input.tokens;
     const userId = await this.resolveUserId(ctx, input.account, tokens);
+    const settleMs = envMs(ctx, "RELAY_THREADS_REPLY_SETTLE_MS", DEFAULT_REPLY_SETTLE_MS);
+    const log = (message: string): void => ctx.logger(`[threads] ${message}`);
+    const formHeaders = { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" };
+    if (rootReplyToId) log(`chaining ${input.post.parts.length} part(s) under existing published post ${rootReplyToId}`);
 
     const publishedIds: string[] = [];
     const parts: Record<string, unknown>[] = [];
@@ -201,13 +244,25 @@ export class ThreadsAdapter implements PlatformAdapter {
     for (let index = 0; index < input.post.parts.length; index += 1) {
       const part = input.post.parts[index]!;
       const replyControl = mapReplyControl(input.post.options.replySetting);
+      // Every reply targets the PUBLISHED media id returned by /threads_publish
+      // for the previous part (or the caller's existing post id for part 1).
+      // Container / carousel-child ids are never valid reply targets.
+      const replyToId = index > 0 ? publishedIds[index - 1]! : rootReplyToId;
+      const isCarousel = part.media.length > 1;
+      const carouselItemIds: string[] = [];
+      let containerId: string | undefined;
+      let mediaType = "TEXT";
+      let postId: string;
 
-      if (part.media.length > 1) {
-        const carouselItemIds: string[] = [];
-        let containerId: string | undefined;
-        let replyToId: string | undefined;
-        let postId: string;
-        try {
+      if (replyToId && settleMs > 0) {
+        // Meta needs a moment before a freshly published post accepts replies.
+        await sleep(settleMs);
+      }
+
+      try {
+        let params: Record<string, string>;
+        if (isCarousel) {
+          mediaType = "CAROUSEL";
           for (let mediaIndex = 0; mediaIndex < part.media.length; mediaIndex += 1) {
             const item = part.media[mediaIndex]!;
             const mediaUrl = publicMediaUrl(ctx, item, "Threads");
@@ -217,16 +272,11 @@ export class ThreadsAdapter implements PlatformAdapter {
             };
             if (item.kind === "video") itemParams.video_url = mediaUrl;
             else itemParams.image_url = mediaUrl;
-
             const itemContainer = await providerFetch(
               ctx,
               `Threads create carousel item (part ${index + 1}, item ${mediaIndex + 1})`,
               `${GRAPH_URL}/${userId}/threads`,
-              {
-                method: "POST",
-                headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
-                body: formBody(itemParams),
-              },
+              { method: "POST", headers: formHeaders, body: formBody(itemParams) },
             );
             const itemContainerId = getString(asObject(itemContainer), "id");
             if (!itemContainerId) {
@@ -237,122 +287,66 @@ export class ThreadsAdapter implements PlatformAdapter {
                 502,
               );
             }
-            // Every item container (images included) must be FINISHED before the
-            // CAROUSEL container can be created.
+            log(`part ${index + 1} carousel child container ${mediaIndex + 1}: ${itemContainerId}`);
             await this.waitForContainer(ctx, tokens, itemContainerId);
             carouselItemIds.push(itemContainerId);
           }
-
-          const children = carouselItemIds.join(",");
-          const carouselParams: Record<string, string> = { media_type: "CAROUSEL", children };
-          if (part.text) carouselParams.text = part.text;
-          if (index > 0) {
-            replyToId = publishedIds[index - 1]!;
-            carouselParams.reply_to_id = replyToId;
-          }
-          if (replyControl) carouselParams.reply_control = replyControl;
-
-          const carousel = await providerFetch(
-            ctx,
-            `Threads create carousel container (part ${index + 1})`,
-            `${GRAPH_URL}/${userId}/threads`,
-            {
-              method: "POST",
-              headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
-              body: formBody(carouselParams),
-            },
-          );
-          containerId = getString(asObject(carousel), "id");
-          if (!containerId) {
-            throw new RelayError("Threads did not return a carousel container id", "threads_container_id_missing", carousel, 502);
-          }
-
-          // Carousel containers finish processing only after every child is ready.
-          await this.waitForContainer(ctx, tokens, containerId);
-
-          const published = await providerFetch(
-            ctx,
-            `Threads publish (part ${index + 1})`,
-            `${GRAPH_URL}/${userId}/threads_publish`,
-            {
-              method: "POST",
-              headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
-              body: formBody({ creation_id: containerId }),
-            },
-          );
-          postId = getString(asObject(published), "id") ?? "";
-          if (!postId) throw new RelayError("Threads did not return a published post id", "threads_post_id_missing", published, 502);
-        } catch (error) {
-          const reconciled = await this.reconcileAmbiguousPublish(ctx, tokens, part.text, containerId, error);
-          if (!reconciled) throw error;
-          postId = reconciled;
-        }
-        const url = this.postUrl(input.account, postId);
-        await ctx.onPartPublished?.({
-          platform: "threads",
-          part: index + 1,
-          postId,
-          url,
-          details: {
-            containerId: containerId ?? null,
-            mediaType: "CAROUSEL",
-            carouselItemIds,
-            children: carouselItemIds.join(","),
-          },
-        });
-        publishedIds.push(postId);
-        parts.push({
-          part: index + 1,
-          containerId: containerId ?? null,
-          postId,
-          url,
-          mediaType: "CAROUSEL",
-          replyToId: replyToId ?? null,
-          carouselItemIds,
-          children: carouselItemIds.join(","),
-        });
-        continue;
-      }
-
-      const media = part.media[0];
-      const params: Record<string, string> = { media_type: "TEXT" };
-      if (part.text) params.text = part.text;
-      if (media) {
-        const mediaUrl = publicMediaUrl(ctx, media, "Threads");
-        if (media.kind === "video") {
-          params.media_type = "VIDEO";
-          params.video_url = mediaUrl;
+          params = { media_type: "CAROUSEL", children: carouselItemIds.join(",") };
+          if (part.text) params.text = part.text;
         } else {
-          params.media_type = "IMAGE";
-          params.image_url = mediaUrl;
+          const media = part.media[0];
+          params = { media_type: "TEXT" };
+          if (part.text) params.text = part.text;
+          if (media) {
+            const mediaUrl = publicMediaUrl(ctx, media, "Threads");
+            if (media.kind === "video") {
+              params.media_type = "VIDEO";
+              params.video_url = mediaUrl;
+            } else {
+              params.media_type = "IMAGE";
+              params.image_url = mediaUrl;
+            }
+          } else if (!part.text) {
+            throw new RelayError(`Threads part ${index + 1} has no text or media`, "threads_part_empty");
+          }
+          mediaType = params.media_type!;
         }
-      } else if (!part.text) {
-        throw new RelayError(`Threads part ${index + 1} has no text or media`, "threads_part_empty");
-      }
-      if (index > 0) params.reply_to_id = publishedIds[index - 1]!;
-      if (replyControl) params.reply_control = replyControl;
+        if (replyToId) params.reply_to_id = replyToId;
+        if (replyControl) params.reply_control = replyControl;
 
-      let containerId: string | undefined;
-      let postId: string;
-      try {
-        const container = await providerFetch(ctx, `Threads create container (part ${index + 1})`, `${GRAPH_URL}/${userId}/threads`, {
-          method: "POST",
-          headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
-          body: formBody(params),
-        });
+        const containerLabel = isCarousel
+          ? `Threads create carousel container (part ${index + 1})`
+          : `Threads create container (part ${index + 1})`;
+        const container = await this.withMediaNotFoundRetry(ctx, containerLabel, () =>
+          providerFetch(ctx, containerLabel, `${GRAPH_URL}/${userId}/threads`, {
+            method: "POST",
+            headers: formHeaders,
+            body: formBody(params),
+          }),
+        );
         containerId = getString(asObject(container), "id");
         if (!containerId) {
-          throw new RelayError("Threads did not return a container id", "threads_container_id_missing", container, 502);
+          throw new RelayError(
+            isCarousel ? "Threads did not return a carousel container id" : "Threads did not return a container id",
+            "threads_container_id_missing",
+            container,
+            502,
+          );
         }
+        log(`part ${index + 1} ${mediaType} container ${containerId} (reply_to_id=${replyToId ?? "none"})`);
 
-        if (media) {
-          await this.waitForContainer(ctx, tokens, containerId);
-        }
+        // Every container (text replies included) must be FINISHED before publish.
+        await this.waitForContainer(ctx, tokens, containerId);
 
-        const published = await providerFetch(ctx, `Threads publish (part ${index + 1})`, `${GRAPH_URL}/${userId}/threads_publish`, {
-          method: "POST",
-          headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
-          body: formBody({ creation_id: containerId }),
+        const creationId = containerId;
+        const publishLabel = `Threads publish (part ${index + 1})`;
+        const published = await this.withMediaNotFoundRetry(ctx, publishLabel, async () => {
+          await this.waitForContainer(ctx, tokens, creationId);
+          return providerFetch(ctx, publishLabel, `${GRAPH_URL}/${userId}/threads_publish`, {
+            method: "POST",
+            headers: formHeaders,
+            body: formBody({ creation_id: creationId }),
+          });
         });
         postId = getString(asObject(published), "id") ?? "";
         if (!postId) throw new RelayError("Threads did not return a published post id", "threads_post_id_missing", published, 502);
@@ -361,23 +355,16 @@ export class ThreadsAdapter implements PlatformAdapter {
         if (!reconciled) throw error;
         postId = reconciled;
       }
+      log(`part ${index + 1} published media id ${postId} (container ${containerId ?? "?"}, reply_to_id=${replyToId ?? "none"})`);
       const url = this.postUrl(input.account, postId);
-      await ctx.onPartPublished?.({
-        platform: "threads",
-        part: index + 1,
-        postId,
-        url,
-        details: { containerId: containerId ?? null, mediaType: params.media_type },
-      });
+      const details: Record<string, unknown> = { containerId: containerId ?? null, mediaType, replyToId: replyToId ?? null };
+      if (isCarousel) {
+        details.carouselItemIds = carouselItemIds;
+        details.children = carouselItemIds.join(",");
+      }
+      await ctx.onPartPublished?.({ platform: "threads", part: index + 1, postId, url, details });
       publishedIds.push(postId);
-      parts.push({
-        part: index + 1,
-        containerId: containerId ?? null,
-        postId,
-        url,
-        mediaType: params.media_type,
-        replyToId: params.reply_to_id ?? null,
-      });
+      parts.push({ part: index + 1, postId, url, ...details });
     }
 
     const firstId = publishedIds[0];
@@ -387,8 +374,67 @@ export class ThreadsAdapter implements PlatformAdapter {
       platformPostId: firstId,
       url: `https://www.threads.net/@${handle}/post/${firstId}`,
       mock: false,
-      details: { parts },
+      details: { parts, replyToId: rootReplyToId ?? null },
     };
+  }
+
+  /**
+   * DELETE /{media-id} (threads_basic + threads_delete). Only the account's own
+   * posts can be deleted; Meta allows 100 deletes per account per 24 hours.
+   * Replies under the post are not deleted with it.
+   */
+  async deletePost(ctx: AdapterContext, postId: string, input: DeletePostInput): Promise<DeletePostResult> {
+    if (!this.isLive(ctx) || !input.tokens) return { deleted: true, mock: true };
+    if (!/^\d+$/.test(postId)) {
+      throw new RelayError(`Threads post ids are numbers; got "${postId}"`, "threads_post_id_invalid", undefined, 400);
+    }
+
+    const granted = new Set([
+      ...(input.account.scopes ?? []),
+      ...(input.tokens.scope ?? "").split(/[,\s]+/).filter(Boolean),
+    ]);
+    if (!granted.has("threads_delete")) {
+      throw new RelayError(
+        "The connected Threads account lacks threads_delete. Enable it on the Meta app, set THREADS_REQUEST_DELETE_SCOPE=1, restart Relay and reconnect Threads.",
+        "threads_scope_missing",
+        { requiredScope: "threads_delete", grantedScopes: [...granted] },
+        403,
+      );
+    }
+    let json: unknown;
+    try {
+      json = await providerFetch(ctx, "Threads delete post", `${GRAPH_URL}/${postId}`, {
+        method: "DELETE",
+        headers: authHeaders(input.tokens.accessToken),
+      });
+    } catch (error) {
+      if (isThreadsMediaNotFound(error)) return { deleted: true, mock: false, alreadyGone: true };
+      throw error;
+    }
+    if (asObject(json)?.success !== true) {
+      throw new RelayError("Threads did not confirm the delete", "threads_delete_not_confirmed", json, 502);
+    }
+    return { deleted: true, mock: false };
+  }
+
+  /**
+   * Retries a Threads call that failed with "media not found" (code 24,
+   * subcode 4279009). Meta returns it while a just-created container or a
+   * just-published parent is not yet visible, so back off and try again.
+   */
+  private async withMediaNotFoundRetry<T>(ctx: AdapterContext, label: string, run: () => Promise<T>): Promise<T> {
+    const attempts = Math.max(1, Math.floor(envMs(ctx, "RELAY_THREADS_NOT_FOUND_RETRIES", DEFAULT_NOT_FOUND_RETRIES)) + 1);
+    let delay = envMs(ctx, "RELAY_THREADS_NOT_FOUND_BACKOFF_MS", DEFAULT_NOT_FOUND_BACKOFF_MS);
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await run();
+      } catch (error) {
+        if (attempt >= attempts || !isThreadsMediaNotFound(error)) throw error;
+        ctx.logger(`[threads] ${label}: media not found (24/4279009), retry ${attempt}/${attempts - 1} in ${delay}ms`);
+        if (delay > 0) await sleep(delay);
+        delay *= 2;
+      }
+    }
   }
 
   /**
@@ -424,6 +470,10 @@ export class ThreadsAdapter implements PlatformAdapter {
       const post = asObject(entry);
       const id = getString(post, "id");
       if (!id) continue;
+      // Posts older than the caller's window cannot hold new comments we care
+      // about, so skip their conversation call (saves one API call per post).
+      const publishedMs = Date.parse(getString(post, "timestamp") ?? "");
+      if (input.sinceMs !== undefined && Number.isFinite(publishedMs) && publishedMs < input.sinceMs) continue;
 
       const conversationJson = await this.readFetch(
         ctx,
@@ -739,6 +789,7 @@ export class ThreadsAdapter implements PlatformAdapter {
 
   /** Polls a media container until Meta reports FINISHED (or fails). */
   private async waitForContainer(ctx: AdapterContext, tokens: OAuthTokens, containerId: string): Promise<void> {
+    const pollInterval = envMs(ctx, "RELAY_THREADS_POLL_INTERVAL_MS", CONTAINER_POLL_INTERVAL_MS);
     for (let attempt = 0; attempt < CONTAINER_POLL_LIMIT; attempt += 1) {
       const json = await providerFetch(
         ctx,
@@ -757,7 +808,7 @@ export class ThreadsAdapter implements PlatformAdapter {
           data,
         );
       }
-      await sleep(CONTAINER_POLL_INTERVAL_MS);
+      await sleep(pollInterval);
     }
     throw new RelayError(
       `Timed out waiting for Threads to process container ${containerId}`,

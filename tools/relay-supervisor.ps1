@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # relay-supervisor — keep Relay, its HTTP MCP endpoint and its tunnels alive.
 #
 # Runs hidden at login (see install-relay-autostart.ps1). Every interval it:
@@ -30,6 +30,9 @@ if (-not $ConsoleUrl) {
 }
 $env:RELAY_CONSOLE_URL = $ConsoleUrl
 $env:RELAY_PUBLIC_MEDIA_BASE_URL = $ConsoleUrl
+# Public /media serves ONLY this folder (jpg, jpeg, png, webp, mp4, mov). Bots drop files here.
+if (-not $env:RELAY_MEDIA_DIR) { $env:RELAY_MEDIA_DIR = Join-Path $env:USERPROFILE "relay-media" }
+New-Item -ItemType Directory -Force -Path $env:RELAY_MEDIA_DIR | Out-Null
 $env:THREADS_AUTOREPLY_ENABLED = "false"
 Set-Content $consoleUrlFile $ConsoleUrl -Encoding UTF8
 $tunnelConfig = Join-Path $env:USERPROFILE ".cloudflared\config.yml"

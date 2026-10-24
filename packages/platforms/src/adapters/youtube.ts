@@ -12,9 +12,14 @@ import type {
   ProfileInfo,
   PublishInput,
   PublishResult,
+  OwnComment,
+  OwnCommentsInput,
+  ThreadsReplyAuth,
+  ThreadsReplyResult,
 } from "@relay/core";
 import { mockProfile, mockPublish, mockScopes } from "../mock.js";
 import {
+  asArray,
   asObject,
   formBody,
   getString,
@@ -28,10 +33,17 @@ const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels";
 const UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos";
+const COMMENT_THREADS_URL = "https://www.googleapis.com/youtube/v3/commentThreads";
+const COMMENTS_URL = "https://www.googleapis.com/youtube/v3/comments";
+const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
+const MAX_COMMENT_REPLY = 10000;
+/** commentThreads.list costs 1 unit per page; two pages of 100 is plenty per poll. */
+const MAX_COMMENT_PAGES = 2;
 
 const SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
   "https://www.googleapis.com/auth/youtube.readonly",
+  "https://www.googleapis.com/auth/youtube.force-ssl",
 ] as const;
 
 const DEFAULT_CATEGORY_ID = "27"; // Education
@@ -240,6 +252,166 @@ export class YouTubeAdapter implements PlatformAdapter {
       mock: false,
       details: { videoId, title, privacyStatus, categoryId, tags: tags.length },
     };
+  }
+
+  /**
+   * READ-ONLY: recent comment threads across the whole channel in ONE list call
+   * (commentThreads.list with allThreadsRelatedToChannelId, 1 quota unit per
+   * page, newest first), plus one videos.list call (1 unit) for the titles.
+   * Needs the youtube.force-ssl scope.
+   */
+  async readOwnComments(ctx: AdapterContext, input: OwnCommentsInput): Promise<OwnComment[]> {
+    if (!this.isLive(ctx) || !input.tokens) return [];
+    const channelId = input.account.id.startsWith("youtube:") ? input.account.id.slice("youtube:".length) : "";
+    if (!channelId) {
+      throw new RelayError("YouTube channel id is unknown; reconnect the channel.", "youtube_channel_missing", undefined, 400);
+    }
+    const headers = { Authorization: `Bearer ${input.tokens.accessToken}` };
+    const out: OwnComment[] = [];
+    let pageToken: string | undefined;
+    for (let page = 0; page < MAX_COMMENT_PAGES; page += 1) {
+      const url = new URL(COMMENT_THREADS_URL);
+      url.searchParams.set("part", "snippet,replies");
+      url.searchParams.set("allThreadsRelatedToChannelId", channelId);
+      url.searchParams.set("order", "time");
+      url.searchParams.set("textFormat", "plainText");
+      url.searchParams.set("maxResults", "100");
+      if (pageToken) url.searchParams.set("pageToken", pageToken);
+      const json = await this.commentFetch(ctx, "YouTube comment threads", url.toString(), { headers });
+      const data = asObject(json);
+      let reachedOld = false;
+      for (const entry of asArray(data?.items)) {
+        const thread = asObject(entry);
+        const threadSnippet = asObject(thread?.snippet);
+        const top = asObject(asObject(threadSnippet?.topLevelComment)?.snippet);
+        const id = getString(thread, "id");
+        if (!id || !top) continue;
+        const publishedAt = getString(top, "publishedAt") ?? ctx.now().toISOString();
+        if (Date.parse(publishedAt) < input.sinceMs) {
+          reachedOld = true;
+          continue;
+        }
+        const authorChannel = getString(asObject(top.authorChannelId), "value");
+        if (authorChannel === channelId) continue;
+        // Skip threads the channel already answered (for example from Studio).
+        const replies = asArray(asObject(thread?.replies)?.comments);
+        const answered = replies.some(
+          (reply) => getString(asObject(asObject(asObject(reply)?.snippet)?.authorChannelId), "value") === channelId,
+        );
+        if (answered) continue;
+        out.push({
+          platform: "youtube",
+          postId: getString(threadSnippet, "videoId") ?? "",
+          commentId: id,
+          author: getString(top, "authorDisplayName") ?? "unknown",
+          text: getString(top, "textOriginal") ?? getString(top, "textDisplay") ?? "",
+          createdAt: publishedAt,
+        });
+        if (out.length >= input.maxComments) break;
+      }
+      pageToken = getString(data, "nextPageToken");
+      if (reachedOld || !pageToken || out.length >= input.maxComments) break;
+    }
+
+    const videoIds = [...new Set(out.map((comment) => comment.postId).filter(Boolean))].slice(0, 50);
+    if (videoIds.length > 0) {
+      try {
+        const url = new URL(VIDEOS_URL);
+        url.searchParams.set("part", "snippet");
+        url.searchParams.set("id", videoIds.join(","));
+        const json = await this.commentFetch(ctx, "YouTube video titles", url.toString(), { headers });
+        const titles = new Map<string, string>();
+        for (const entry of asArray(asObject(json)?.items)) {
+          const video = asObject(entry);
+          const videoId = getString(video, "id");
+          const title = getString(asObject(video?.snippet), "title");
+          if (videoId && title) titles.set(videoId, title);
+        }
+        for (const comment of out) {
+          const title = titles.get(comment.postId);
+          if (title) comment.postCaption = title;
+        }
+      } catch {
+        // Titles are a nicety; the comments are still usable without them.
+      }
+    }
+    return out;
+  }
+
+  /**
+   * EXPLICIT-ONLY: reply to one top-level comment (comments.insert with
+   * parentId, 50 quota units). Needs the youtube.force-ssl scope.
+   */
+  async replyToComment(
+    ctx: AdapterContext,
+    commentId: string,
+    text: string,
+    input: ThreadsReplyAuth,
+  ): Promise<ThreadsReplyResult> {
+    const raw = typeof commentId === "string" ? commentId.trim() : "";
+    if (!raw) throw new RelayError("A YouTube comment id is required.", "youtube_reply_comment_id_invalid", undefined, 400);
+    // A reply id looks like "<parent>.<suffix>"; YouTube wants the top-level id.
+    const parentId = raw.split(".")[0]!;
+    const body = typeof text === "string" ? text.trim() : "";
+    if (!body) throw new RelayError("Reply text is required.", "youtube_reply_text_required", undefined, 400);
+    const length = Array.from(body).length;
+    if (length > MAX_COMMENT_REPLY) {
+      throw new RelayError(
+        `YouTube replies allow at most ${MAX_COMMENT_REPLY} characters; this reply has ${length}.`,
+        "youtube_reply_text_too_long",
+        { maxLength: MAX_COMMENT_REPLY, length },
+        400,
+      );
+    }
+    if (!this.isLive(ctx) || !input.tokens) {
+      return { id: `mock_youtube_reply_${randomUUID()}`, mock: true };
+    }
+    const json = await this.commentFetch(ctx, "YouTube comment reply", `${COMMENTS_URL}?part=snippet`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${input.tokens.accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ snippet: { parentId, textOriginal: body } }),
+    });
+    const id = getString(asObject(json), "id");
+    if (!id) throw new RelayError("YouTube did not return a reply id", "youtube_reply_id_missing", json, 502);
+    const videoId = getString(asObject(asObject(json)?.snippet), "videoId");
+    return {
+      id,
+      ...(videoId ? { permalink: `https://www.youtube.com/watch?v=${videoId}&lc=${id}` } : {}),
+      mock: false,
+    };
+  }
+
+  /** providerFetch that maps quota and permission failures to stable error codes. */
+  private async commentFetch(ctx: AdapterContext, label: string, url: string, init: RequestInit): Promise<unknown> {
+    try {
+      return await providerFetch(ctx, label, url, init);
+    } catch (error) {
+      if (isYouTubeQuotaError(error)) {
+        throw new RelayError(
+          "YouTube's daily API quota is exhausted. Comment calls resume after the quota resets at midnight Pacific Time.",
+          "youtube_quota_exceeded",
+          error instanceof RelayError ? error.details : undefined,
+          429,
+        );
+      }
+      if (error instanceof RelayError && error.code === "provider_error" && error.statusCode === 403) {
+        let details = "";
+        try {
+          details = JSON.stringify(error.details ?? "");
+        } catch {
+          details = "";
+        }
+        if (/insufficientPermissions|ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficient authentication scopes/i.test(`${error.message} ${details}`)) {
+          throw new RelayError(
+            "YouTube: needs reconnect for comments. Reconnect YouTube so it can grant youtube.force-ssl.",
+            "comments_scope_missing",
+            error.details,
+            403,
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   private async fetchProfile(ctx: AdapterContext, tokens: OAuthTokens): Promise<ProfileInfo> {    const url = new URL(CHANNELS_URL);
