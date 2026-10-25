@@ -46,8 +46,10 @@ export interface PlatformOptions {
   tiktokAutoAddMusic?: boolean;
   disableComment?: boolean;
   /**
-   * Threads: publish the parts as a reply chain under an existing PUBLISHED
-   * post id (part 1 replies to it, part 2 replies to part 1, ...).
+   * Threads and X: publish the post (or the parts of a thread) as a reply under
+   * an existing PUBLISHED post id (part 1 replies to it, part 2 replies to
+   * part 1, ...). Must be numeric. Threads and X ids differ, so a draft that
+   * targets both needs options.x.replyToId and options.threads.replyToId.
    */
   replyToId?: string;
   /** X: quote-tweet an existing post by id. */
@@ -82,7 +84,7 @@ export interface PostDraft {
   /** ISO-8601 timestamp. When in the future the post is queued instead of published. */
   scheduleAt?: string;
   options?: Partial<Record<PlatformId, PlatformOptions>>;
-  /** Threads shorthand for options.threads.replyToId (alias: parentPostId). */
+  /** Shorthand for options.<platform>.replyToId when the draft targets only X or only Threads (alias: parentPostId). */
   replyToId?: string;
   parentPostId?: string;
 }
