@@ -41,6 +41,44 @@ test("preview adapts long text per platform without publishing", async () => {
   }
 });
 
+test("a non-threading platform previews only the first thread part", async () => {
+  const dataDir = await makeTempDir("relay-preview-thread-");
+  let relay;
+  try {
+    relay = await createRelay(options(dataDir));
+    await relay.beginConnect("instagram");
+    const preview = await relay.preview({
+      platforms: ["instagram"],
+      thread: [{ text: "first thread part" }, { text: "second thread part" }],
+    });
+    const instagram = preview.platforms[0];
+    assert.equal(instagram.parts.length, 1);
+    assert.equal(instagram.parts[0], "first thread part");
+    assert.equal(instagram.truncated, true);
+    assert.ok(instagram.issues.some((issue) => issue.includes("only the first part")));
+  } finally {
+    await relay?.close();
+    await cleanupTempDir(dataDir);
+  }
+});
+
+test("an overlong URL is hard-split within the X limit", async () => {
+  const dataDir = await makeTempDir("relay-preview-url-");
+  let relay;
+  try {
+    relay = await createRelay(options(dataDir));
+    await relay.beginConnect("x");
+    const url = `https://example.com/${"a".repeat(600)}`;
+    const preview = await relay.preview({ platforms: ["x"], text: `Read this: ${url}` });
+    const x = preview.platforms[0];
+    assert.ok(x.parts.length > 1);
+    assert.ok(x.parts.every((part) => Array.from(part).length <= x.maxTextLength), JSON.stringify(x.characterCounts));
+  } finally {
+    await relay?.close();
+    await cleanupTempDir(dataDir);
+  }
+});
+
 test("a recurring scheduled post enqueues its next occurrence after success", async () => {
   const dataDir = await makeTempDir("relay-recurrence-");
   let relay;

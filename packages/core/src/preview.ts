@@ -31,23 +31,26 @@ function splitForLimit(text: string, limit: number): string[] {
   };
 
   for (const token of words) {
+    const tokenLength = Array.from(token).length;
+    // Hard-split an overlong token (URL, hashtag, CJK run) before it can
+    // overflow a part, even when it appears after a wrapped line.
+    if (tokenLength > limit) {
+      pushCurrent();
+      let remaining = token;
+      while (Array.from(remaining).length > limit) {
+        parts.push(Array.from(remaining).slice(0, limit).join(""));
+        remaining = Array.from(remaining).slice(limit).join("");
+      }
+      current = remaining;
+      continue;
+    }
     const candidate = current + token;
     if (Array.from(candidate).length <= limit) {
       current = candidate;
       continue;
     }
-    if (current.trim()) {
-      pushCurrent();
-      current = token.trimStart();
-      continue;
-    }
-    // A single word longer than the limit: hard split it.
-    let remaining = token;
-    while (Array.from(remaining).length > limit) {
-      parts.push(Array.from(remaining).slice(0, limit).join(""));
-      remaining = Array.from(remaining).slice(limit).join("");
-    }
-    current = remaining;
+    pushCurrent();
+    current = token.trimStart();
   }
   pushCurrent();
   return parts.length > 0 ? parts : [""];
@@ -85,6 +88,8 @@ export function buildDraftPreview(
 ): DraftPreview {
   const source = sourceText(draft);
   const sourceBody = source.parts.join("\n\n").trim();
+  const firstBody = (source.parts[0] ?? "").trim();
+  const isThread = Boolean(draft.thread && draft.thread.length > 1);
   const platforms = (draft.platforms?.length ? draft.platforms : [...PLATFORM_IDS]) as PlatformId[];
   const previews: PlatformPreview[] = [];
 
@@ -95,34 +100,38 @@ export function buildDraftPreview(
     const validation = report?.perPlatform?.[platform];
     const issues = (validation?.issues ?? []).map((issue) => issue.message);
     const supportsThread = limit.maxParts > 1;
+    // A non-threading platform can only publish the first part. Never join the
+    // whole thread into a body the platform would not actually receive.
+    const body = supportsThread ? sourceBody : firstBody;
     let parts: string[];
     let adapted = false;
     let truncated = false;
 
-    if (draft.thread && draft.thread.length > 1 && supportsThread) {
+    if (isThread && supportsThread) {
       const expanded = source.parts.flatMap((part) => splitForLimit(part, limit.maxTextLength));
       parts = expanded.slice(0, limit.maxParts);
       adapted = expanded.length !== source.parts.length;
       truncated = expanded.length > limit.maxParts;
       if (truncated) issues.push(`Thread needs ${expanded.length} parts; ${limit.displayName} allows ${limit.maxParts}.`);
-    } else if (supportsThread && Array.from(sourceBody).length > limit.maxTextLength) {
-      const expanded = splitForLimit(sourceBody, limit.maxTextLength);
+    } else if (supportsThread && Array.from(body).length > limit.maxTextLength) {
+      const expanded = splitForLimit(body, limit.maxTextLength);
       parts = expanded.slice(0, limit.maxParts);
       adapted = true;
       truncated = expanded.length > limit.maxParts;
       if (truncated) issues.push(`Text needs ${expanded.length} parts; ${limit.displayName} allows ${limit.maxParts}.`);
-    } else if (Array.from(sourceBody).length > limit.maxTextLength) {
-      parts = [shorten(sourceBody, limit.maxTextLength)];
+    } else if (Array.from(body).length > limit.maxTextLength) {
+      parts = [shorten(body, limit.maxTextLength)];
       adapted = true;
       truncated = true;
       issues.push(`Text is longer than ${limit.displayName}'s ${limit.maxTextLength}-character limit; it will be shortened.`);
     } else {
-      parts = [sourceBody];
+      parts = [body];
     }
 
-    if (draft.thread && draft.thread.length > 1 && !supportsThread) {
+    if (isThread && !supportsThread) {
       adapted = true;
-      issues.push(`${limit.displayName} supports one part; only the first part is shown.`);
+      truncated = true;
+      issues.push(`${limit.displayName} supports one part; only the first part can be published.`);
     }
 
     const characterCounts = parts.map((part) => Array.from(part).length);

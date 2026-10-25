@@ -1077,6 +1077,7 @@
     state.validating = false;
     renderParts();
     updateSummary();
+    renderPreviews();
     renderPreflight();
     updatePublishAvailability();
   }
@@ -1280,12 +1281,11 @@
             <span class="calendar-event-time">${escapeHtml(time)}${recurring ? " ↻" : ""}</span>
             <span class="calendar-event-title">${escapeHtml(text)}</span>
           </div>`;
-        })
-        .join("");
+        });
       const count = jobs.length > 3 ? `<div class="calendar-more">+${jobs.length - 3} more</div>` : "";
       cells.push(`<div class="calendar-day${isToday ? " is-today" : ""}${jobs.length ? " has-events" : ""}" data-day="${day}">
         <span class="calendar-day-number">${day}</span>
-        <div class="calendar-events">${events.slice(0, 3)}${count}</div>
+        <div class="calendar-events">${events.slice(0, 3).join("")}${count}</div>
       </div>`);
     }
     while (cells.length % 7 !== 0) cells.push('<div class="calendar-day is-empty" aria-hidden="true"></div>');
@@ -2142,7 +2142,13 @@
       if (!apply) return;
       const entry = state.preview?.platforms?.find((item) => item.platform === apply.dataset.applyVariant);
       if (!entry) return;
-      state.parts = entry.parts.map((text) => newPart(text));
+      // Preserve every attached image/video; a text variant must not drop media.
+      const existingMedia = state.parts.flatMap((part) => part.media);
+      state.parts = entry.parts.map((text, index) => {
+        const part = newPart(text);
+        if (index === 0 && existingMedia.length > 0) part.media = [...existingMedia];
+        return part;
+      });
       renderParts();
       updateSummary();
       scheduleValidation();
