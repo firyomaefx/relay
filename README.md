@@ -20,7 +20,7 @@ Relay is a self-hosted social publishing control plane. It gives creators and te
 | **Current stage** | Private beta — single-tenant production deployment |
 | **Hosting** | Tencent Cloud Singapore + Cloudflare named tunnel |
 | **Agent surface** | 19 MCP tools for publishing, scheduling, comments, replies, accounts and validation |
-| **Automated tests** | 118 passing (unit + end-to-end) |
+| **Automated tests** | 120 passing (unit + end-to-end) |
 | **Data model** | Self-hosted; encrypted credentials; customer owns the data directory |
 | **Business model** | Hosted subscription, self-hosted licence and usage-based API access are under evaluation — not yet monetised |
 
