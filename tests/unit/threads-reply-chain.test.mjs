@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Threads reply-chain regression tests (incident 2026-10-23 19:28 MYT: part 2
  * publish failed with code 24 / subcode 4279009). Fully mocked Graph API; no
  * network calls are made.
@@ -119,5 +119,6 @@ test("top-level replyToId / parentPostId map onto options.threads.replyToId only
   assert.equal(normalizeFor("threads", { platforms: ["threads"], text: "x", replyToId: "123" }).options.replyToId, "123");
   assert.equal(normalizeFor("threads", { platforms: ["threads"], text: "x", parentPostId: "456" }).options.replyToId, "456");
   assert.equal(normalizeFor("threads", { platforms: ["threads"], text: "x", replyToId: "1", options: { threads: { replyToId: "2" } } }).options.replyToId, "2");
-  assert.equal(normalizeFor("x", { platforms: ["x"], text: "x", replyToId: "123" }).options.replyToId, undefined);
+  assert.equal(normalizeFor("x", { platforms: ["x"], text: "x", replyToId: "123" }).options.replyToId, "123");
+  assert.equal(normalizeFor("tiktok", { platforms: ["tiktok"], text: "x", replyToId: "123" }).options.replyToId, undefined);
 });

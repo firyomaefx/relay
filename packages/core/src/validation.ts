@@ -40,7 +40,7 @@ export function normalizeFor(platform: PlatformId, draft: PostDraft): ResolvedPo
     : [{ text: (draft.text ?? "").trim(), media: draft.media ?? [] }];
   const options = { ...(draft.options?.[platform] ?? {}) };
   const topReplyTo = (draft.replyToId ?? draft.parentPostId)?.toString().trim();
-  if (platform === "threads" && topReplyTo && !options.replyToId) options.replyToId = topReplyTo;
+  if ((platform === "threads" || platform === "x") && topReplyTo && !options.replyToId) options.replyToId = topReplyTo;
   return { platform, parts, options };
 }
 
@@ -107,6 +107,29 @@ export async function validateDraft(
   }
 
   const normalized: Partial<Record<PlatformId, ResolvedPost>> = {};
+
+  // Draft-level replyToId / parentPostId is a shorthand for a single X or Threads target.
+  const topReplyTo = (draft.replyToId ?? draft.parentPostId)?.toString().trim();
+  if (topReplyTo) {
+    const unsupported = targets.filter((p) => p !== "x" && p !== "threads");
+    if (unsupported.length > 0) {
+      addIssue({
+        code: "option_unsupported",
+        message: `replyToId only works on X and Threads, not ${unsupported.join(", ")}. Remove those platforms from this draft.`,
+      });
+    }
+    if (targets.includes("x") && targets.includes("threads")) {
+      for (const p of ["x", "threads"] as const) {
+        if (!draft.options?.[p]?.replyToId) {
+          addIssue({
+            platform: p,
+            code: "option_invalid",
+            message: `replyToId is ambiguous for a draft that targets both X and Threads (their post ids differ). Set options.x.replyToId and options.threads.replyToId instead.`,
+          });
+        }
+      }
+    }
+  }
 
   for (const platform of targets) {
     const adapter = adapters.get(platform);
@@ -276,8 +299,17 @@ export async function validateDraft(
     if (platform === "threads" && platformOptions.replyToId && !/^\d+$/.test(String(platformOptions.replyToId).trim())) {
       addIssue({ platform, code: "option_invalid", message: "Threads replyToId must be a numeric published post id" });
     }
-    if (platform !== "threads" && platformOptions.replyToId) {
-      addIssue({ platform, code: "option_unsupported", message: "replyToId is only supported on Threads" });
+    if (platform === "x" && platformOptions.replyToId) {
+      const xReplyTo = String(platformOptions.replyToId).trim();
+      if (!/^\d{1,25}$/.test(xReplyTo)) {
+        addIssue({ platform, code: "option_invalid", message: "X replyToId must be a numeric X post id (digits only, e.g. 1234567890123456789)" });
+      }
+      if (platformOptions.quotePostId) {
+        addIssue({ platform, code: "option_invalid", message: "X: use either replyToId or quotePostId, not both" });
+      }
+    }
+    if (platform !== "threads" && platform !== "x" && platformOptions.replyToId) {
+      addIssue({ platform, code: "option_unsupported", message: "replyToId is only supported on X and Threads" });
     }
     if (platform !== "x" && platformOptions.quotePostId) {
       addIssue({ platform, code: "option_unsupported", message: "quotePostId is only supported on X" });

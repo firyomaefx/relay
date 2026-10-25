@@ -164,6 +164,13 @@ export class XAdapter implements PlatformAdapter {
     if (!this.isLive(ctx) || !input.tokens) return mockPublish("x", input);
     const tokens = input.tokens;
     const quotePostId = input.post.options.quotePostId?.trim() || undefined;
+    const rootReplyToId = input.post.options.replyToId?.toString().trim() || undefined;
+    if (rootReplyToId && !/^\d{1,25}$/.test(rootReplyToId)) {
+      throw new RelayError(`X replyToId must be a numeric X post id (got "${rootReplyToId}")`, "x_reply_to_invalid");
+    }
+    if (rootReplyToId && quotePostId) {
+      throw new RelayError("X: use either replyToId or quotePostId, not both", "x_reply_to_invalid");
+    }
 
     const partIds: string[] = [];
     const partMediaIds: string[][] = [];
@@ -181,6 +188,8 @@ export class XAdapter implements PlatformAdapter {
       if (mediaIds.length > 0) payload.media = { media_ids: mediaIds };
       if (index > 0) {
         payload.reply = { in_reply_to_tweet_id: partIds[index - 1] };
+      } else if (rootReplyToId) {
+        payload.reply = { in_reply_to_tweet_id: rootReplyToId };
       } else if (quotePostId) {
         payload.quote_tweet_id = quotePostId;
       }
@@ -201,7 +210,7 @@ export class XAdapter implements PlatformAdapter {
         part: index + 1,
         postId: tweetId,
         url,
-        details: { replyToId: partIds[index - 1] ?? null, mediaIds },
+        details: { replyToId: partIds[index - 1] ?? rootReplyToId ?? null, mediaIds },
       });
       partIds.push(tweetId);
       partMediaIds.push(mediaIds);
@@ -218,6 +227,7 @@ export class XAdapter implements PlatformAdapter {
         partIds,
         mediaIds: partMediaIds,
         quotePostId: quotePostId ?? null,
+        replyToId: rootReplyToId ?? null,
       },
     };
   }

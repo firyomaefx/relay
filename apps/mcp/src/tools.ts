@@ -84,7 +84,7 @@ const platformOptionsSchema = z.object({
   replyToId: z
     .string()
     .optional()
-    .describe("Threads only: publish the parts as a reply chain under this existing PUBLISHED post id (part 1 replies to it)."),
+    .describe("X and Threads: publish as a reply under this existing PUBLISHED post id (numeric; part 1 replies to it, thread parts chain after). Set it per platform in options.x / options.threads."),
   youtubePrivacy: z.enum(["public", "unlisted", "private"]).optional().describe("YouTube video visibility (default public)."),
   youtubeTitle: z.string().optional().describe("YouTube video title (max 100 chars; defaults to the first line of text)."),
   youtubeDescription: z.string().optional().describe("YouTube: text prepended to the post text in the description."),
@@ -108,6 +108,12 @@ const postInputSchema = z.object({
     .array(threadPartSchema)
     .optional()
     .describe("Multi-part post (X thread, Threads chain). Use this instead of text/media for single parts."),
+  replyToId: z
+    .string()
+    .optional()
+    .describe(
+      'Reply to an existing PUBLISHED post. Works on X (numeric X post id; the post, or the first part of a thread, is sent as a reply to it) and on Threads (numeric Threads post id). Use it when the draft targets only one of them; for a draft with both, set options.x.replyToId and options.threads.replyToId. Other platforms are rejected. Cannot be combined with quotePostId. Works with schedule_at.',
+    ),
   schedule_at: z
     .string()
     .optional()
@@ -115,7 +121,7 @@ const postInputSchema = z.object({
   options: z
     .record(platformEnum, platformOptionsSchema)
     .optional()
-    .describe('Per-platform options keyed by platform, e.g. {"x":{"quotePostId":"123"}} or {"tiktok":{"selfOnly":true}}.'),
+    .describe('Per-platform options keyed by platform, e.g. {"x":{"quotePostId":"123"}}, {"x":{"replyToId":"123"}} or {"tiktok":{"selfOnly":true}}.'),
   force: z
     .boolean()
     .optional()
@@ -267,6 +273,7 @@ function toDraft(input: z.infer<typeof postInputSchema>): PostDraft {
     thread: input.thread,
     scheduleAt: input.schedule_at,
     options: input.options,
+    ...(input.replyToId?.trim() ? { replyToId: input.replyToId.trim() } : {}),
   };
 }
 

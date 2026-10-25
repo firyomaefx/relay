@@ -312,7 +312,7 @@ To add parts under a post that is already live, pass its published id as
 `replyToId` (alias `parentPostId`) on `POST /api/posts`, or as
 `options.threads.replyToId` (also accepted by the MCP publish tool). Part 1
 replies to that post, part 2 replies to part 1, and so on. The id must be numeric;
-other platforms reject the option.
+other platforms (except X, below) reject the option.
 
 ```json
 POST /api/posts
@@ -325,6 +325,25 @@ POST /api/posts
   ]
 }
 ```
+### Replying to an X post
+
+`replyToId` also works on X. Pass the numeric id of an existing published X
+post and the post (or part 1 of a thread) is sent with
+`reply.in_reply_to_tweet_id` set to it; later thread parts chain after part 1 as
+usual. It works with `relay_validate` (reports problems, posts nothing) and with
+`schedule_at` (the queued job keeps `replyToId`).
+
+```json
+relay_post { "platforms": ["x"], "text": "...", "replyToId": "1234567890123456789", "schedule_at": "2026-10-26T09:00:00+08:00" }
+```
+
+Rules: the id must be digits only; it cannot be combined with `quotePostId`;
+tiktok, youtube and instagram reject it. `replyToId` at draft level is a
+shorthand for a single X or Threads target. A draft that targets both X and
+Threads must use `options.x.replyToId` and `options.threads.replyToId`, because
+the two platforms use different post ids. X may refuse a reply to an account that
+did not mention or engage with you first (an X API rule, not a Relay one).
+
 ### X Articles (`relay_article`)
 
 Relay can publish X Articles (long-form posts) through the official X API v2:
