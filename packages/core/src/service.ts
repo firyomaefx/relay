@@ -15,6 +15,7 @@ import { acquireSchedulerLock, releaseSchedulerLock, schedulerLockOwner } from "
 import { mediaPublicUrl, readMediaBlob } from "./media.js";
 import { SecretBox } from "./secret-box.js";
 import { validateDraft } from "./validation.js";
+import { buildDraftPreview } from "./preview.js";
 import { articleContentHash, articleStandInDraft, validateArticleDraft } from "./article.js";
 import {
   COMMENT_PLATFORMS,
@@ -349,6 +350,12 @@ export class RelayService {
     });
   }
 
+  /** Per-platform previews and auto-adapted variants without publishing. */
+  async preview(draft: PostDraft) {
+    const report = await this.validate(draft);
+    return buildDraftPreview(draft, this.platformLimits(), report);
+  }
+
   async beginConnect(platform: PlatformId, options: { redirectBase?: string } = {}): Promise<BeginConnectResult> {
     const adapter = this.getAdapter(platform);
     const ctx = this.adapterContext();
@@ -458,6 +465,9 @@ export class RelayService {
     await this.assertNotDuplicate(report.normalized, force);
 
     const scheduleAt = draft.scheduleAt ? Date.parse(draft.scheduleAt) : undefined;
+    if (draft.recurrence) {
+      this.assertRecurrenceValid(draft, scheduleAt);
+    }
     if (scheduleAt !== undefined && scheduleAt > this.now().getTime() + 1000) {
       const job: QueueJob = {
         id: `job_${randomUUID()}`,
@@ -466,7 +476,9 @@ export class RelayService {
         draft,
         status: "pending",
         attempts: 0,
+        ...(draft.recurrence ? { seriesId: "", occurrence: 1 } : {}),
       };
+      if (job.seriesId === "") job.seriesId = job.id;
       await this.store.mutate((db) => {
         db.queue.push(job);
       });
@@ -477,6 +489,70 @@ export class RelayService {
     const results = await this.publishResolved(report.normalized, record.id);
     await this.finalizePostRecord(record.id, results);
     return { scheduled: false, results, report };
+  }
+
+  private assertRecurrenceValid(draft: PostDraft, scheduleAt: number | undefined): void {
+    const recurrence = draft.recurrence;
+    if (!recurrence) return;
+    if (scheduleAt === undefined || scheduleAt <= this.now().getTime() + 1000) {
+      throw new RelayError(
+        "A recurring post needs a future scheduleAt.",
+        "recurrence_requires_future_schedule",
+        undefined,
+        400,
+      );
+    }
+    if (recurrence.interval !== "daily" && recurrence.interval !== "weekly") {
+      throw new RelayError(
+        'Recurrence interval must be "daily" or "weekly".',
+        "recurrence_interval_invalid",
+        undefined,
+        400,
+      );
+    }
+    if (recurrence.count !== undefined) {
+      if (!Number.isInteger(recurrence.count) || recurrence.count < 2 || recurrence.count > 104) {
+        throw new RelayError(
+          "Recurrence count must be an integer from 2 to 104.",
+          "recurrence_count_invalid",
+          undefined,
+          400,
+        );
+      }
+    }
+    if (recurrence.until !== undefined) {
+      const until = Date.parse(recurrence.until);
+      if (Number.isNaN(until) || until <= scheduleAt) {
+        throw new RelayError(
+          "Recurrence until must be a valid ISO timestamp after the first schedule.",
+          "recurrence_until_invalid",
+          undefined,
+          400,
+        );
+      }
+    }
+  }
+
+  private nextRecurringJob(job: QueueJob): QueueJob | null {
+    const recurrence = job.draft.recurrence;
+    if (!recurrence) return null;
+    const occurrence = job.occurrence ?? 1;
+    if (recurrence.count !== undefined && occurrence >= recurrence.count) return null;
+    const current = Date.parse(job.scheduleAt);
+    if (Number.isNaN(current)) return null;
+    const next = current + (recurrence.interval === "weekly" ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000);
+    if (recurrence.until && next > Date.parse(recurrence.until)) return null;
+    const scheduleAt = new Date(next).toISOString();
+    return {
+      id: `job_${randomUUID()}`,
+      createdAt: this.now().toISOString(),
+      scheduleAt,
+      draft: { ...job.draft, scheduleAt },
+      status: "pending",
+      attempts: 0,
+      seriesId: job.seriesId ?? job.id,
+      occurrence: occurrence + 1,
+    };
   }
 
   /**
@@ -1642,7 +1718,7 @@ export class RelayService {
           }));
         } else {
           try {
-            await this.assertNotDuplicate(report.normalized, false);
+            await this.assertNotDuplicate(report.normalized, Boolean(job.draft.recurrence));
             results = await this.publishResolved(report.normalized, record.id);
           } catch (error) {
             if (!(error instanceof RelayError) || error.code !== "duplicate_recent_post") throw error;
@@ -1671,6 +1747,10 @@ export class RelayService {
                 .filter((result) => !result.ok)
                 .map((result) => `${result.platform}: ${result.error ?? "failed"}`)
                 .join("; ");
+          if (ok) {
+            const next = this.nextRecurringJob(job);
+            if (next) db.queue.push(next);
+          }
         });
         processed += 1;
       }

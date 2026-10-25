@@ -144,13 +144,18 @@
       tiktokAutoAddMusic: true,
     },
     scheduleInput: "",
+    recurrence: "none",
     validation: null,
+    preview: null,
+    previewSeq: 0,
     validating: false,
     validationSeq: 0,
     lastValidationKey: "",
     lastResult: null,
     publishing: false,
     uploading: Object.create(null),
+    queueView: "list",
+    calendarCursor: new Date(),
   };
 
   const els = {};
@@ -354,6 +359,13 @@
     }
     const scheduleAt = scheduleIso();
     if (scheduleAt) draft.scheduleAt = scheduleAt;
+    if (scheduleAt && state.recurrence !== "none") {
+      const [interval, count] = state.recurrence.split(":");
+      draft.recurrence = {
+        interval: interval === "weekly" ? "weekly" : "daily",
+        ...(count ? { count: Number(count) } : {}),
+      };
+    }
     const options = {};
     for (const platform of platforms) {
       const entry = platformOptions(platform);
@@ -817,6 +829,14 @@
     } else {
       els.scheduleHint.textContent = "That time has passed — this will publish immediately.";
     }
+    if (els.recurrenceHint) {
+      const repeating = state.recurrence !== "none";
+      els.recurrenceHint.textContent = repeating
+        ? isFutureSchedule(iso)
+          ? "Relay will queue each occurrence automatically."
+          : "Repeat needs a future schedule time."
+        : "Evergreen posts need a future schedule.";
+    }
   }
 
   function updatePublishLabel() {
@@ -837,6 +857,52 @@
     if (!report) return [];
     const perPlatform = report.perPlatform?.[platform]?.issues ?? [];
     return perPlatform;
+  }
+
+  function renderPreviews() {
+    if (!els.previews) return;
+    const draft = buildDraft();
+    if (!draft.platforms.length) {
+      els.previews.innerHTML = `<div class="previews-idle">Choose a destination to see its native preview.</div>`;
+      return;
+    }
+    const preview = state.preview;
+    if (!preview || !preview.platforms?.length) {
+      els.previews.innerHTML = `<div class="previews-idle">${state.validating ? "Adapting the draft…" : "Previews update as you type."}</div>`;
+      return;
+    }
+    els.previews.innerHTML = preview.platforms
+      .map((entry) => {
+        const meta = PLATFORM_META[entry.platform] ?? { name: entry.displayName };
+        const badge = entry.truncated
+          ? `<span class="status-badge" data-tone="error">needs shortening</span>`
+          : entry.adapted
+            ? `<span class="status-badge" data-tone="pending">adapted</span>`
+            : `<span class="status-badge" data-tone="published">fits</span>`;
+        const parts = entry.parts
+          .map(
+            (text, index) => `<div class="preview-part">
+              ${entry.parts.length > 1 ? `<span class="preview-part-index">${index + 1}/${entry.parts.length}</span>` : ""}
+              <p>${escapeHtml(text || "(empty)")}</p>
+              <span class="preview-count">${entry.characterCounts[index] ?? 0}/${entry.maxTextLength}</span>
+            </div>`,
+          )
+          .join("");
+        const issues = entry.issues.length
+          ? `<p class="preview-issue">${escapeHtml(entry.issues.join(" "))}</p>`
+          : "";
+        return `<article class="preview-card" data-platform="${entry.platform}">
+          <header class="preview-head"><span class="preview-platform">${escapeHtml(meta.name)}</span>${badge}</header>
+          ${parts}
+          ${issues}
+          <footer class="preview-foot">${entry.mediaCount} media · ${entry.maxParts} part max
+            ${entry.adapted && entry.parts.length > 1 && selectedPlatforms().length === 1
+              ? `<button class="ghost-btn preview-apply" type="button" data-apply-variant="${entry.platform}">Use ${entry.parts.length}-part variant</button>`
+              : ""}
+          </footer>
+        </article>`;
+      })
+      .join("");
   }
 
   function renderPreflight() {
@@ -939,7 +1005,9 @@
     const hasContent = state.parts.some((part) => part.text.trim() || part.media.length);
     if (!draft.platforms.length || (!hasContent && !draft.scheduleAt)) {
       state.validation = null;
+      state.preview = null;
       state.validating = false;
+      renderPreviews();
       renderPreflight();
       updateSummary();
       return;
@@ -952,12 +1020,18 @@
   async function runValidation() {
     const seq = ++state.validationSeq;
     state.validating = true;
+    renderPreviews();
     renderPreflight();
     updateSummary();
     try {
-      const report = await api("/api/validate", { method: "POST", body: { draft: buildDraft() } });
+      const draft = buildDraft();
+      const [report, preview] = await Promise.all([
+        api("/api/validate", { method: "POST", body: { draft } }),
+        api("/api/preview", { method: "POST", body: { draft } }).catch(() => null),
+      ]);
       if (seq !== state.validationSeq) return;
       state.validation = report;
+      state.preview = preview;
     } catch (error) {
       if (seq !== state.validationSeq) return;
       state.validation = {
@@ -966,9 +1040,11 @@
         perPlatform: {},
         normalized: undefined,
       };
+      state.preview = null;
     } finally {
       if (seq === state.validationSeq) {
         state.validating = false;
+        renderPreviews();
         renderPreflight();
         updateSummary();
         updatePublishAvailability();
@@ -993,8 +1069,11 @@
   function clearDraftContent() {
     state.parts = [newPart()];
     state.scheduleInput = "";
+    state.recurrence = "none";
     if (els.scheduleAt) els.scheduleAt.value = "";
+    if (els.recurrence) els.recurrence.value = "none";
     state.validation = null;
+    state.preview = null;
     state.validating = false;
     renderParts();
     updateSummary();
@@ -1136,6 +1215,13 @@
   }
 
   function renderQueue() {
+    const calendar = state.queueView === "calendar";
+    if (els.calendarPanel) els.calendarPanel.hidden = !calendar;
+    if (els.queueListPanels) els.queueListPanels.hidden = calendar;
+    if (calendar) {
+      renderCalendar();
+      return;
+    }
     const upcoming = state.queue.filter((job) => job.status === "pending" || job.status === "running");
     const past = state.queue.filter((job) => job.status !== "pending" && job.status !== "running");
     els.queueUpcomingCount.textContent = String(upcoming.length);
@@ -1155,6 +1241,55 @@
           title: "No past runs yet",
           text: "Scheduled posts land here after they publish, fail, or get canceled.",
         });
+  }
+
+  function renderCalendar() {
+    if (!els.calendarGrid) return;
+    const cursor = state.calendarCursor instanceof Date && !Number.isNaN(state.calendarCursor.getTime())
+      ? state.calendarCursor
+      : new Date();
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    const first = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const offset = (first.getDay() + 6) % 7; // Monday-first grid
+    const byDay = new Map();
+    for (const job of state.queue) {
+      const parsed = new Date(job.scheduleAt);
+      if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() !== year || parsed.getMonth() !== month) continue;
+      const day = parsed.getDate();
+      if (!byDay.has(day)) byDay.set(day, []);
+      byDay.get(day).push(job);
+    }
+    els.calendarMonth.textContent = first.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const cells = [];
+    for (let index = 0; index < offset; index += 1) cells.push('<div class="calendar-day is-empty" aria-hidden="true"></div>');
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const jobs = byDay.get(day) ?? [];
+      const isToday = new Date().getFullYear() === year && new Date().getMonth() === month && new Date().getDate() === day;
+      const events = jobs
+        .sort((a, b) => Date.parse(a.scheduleAt) - Date.parse(b.scheduleAt))
+        .map((job) => {
+          const recurring = Boolean(job.draft?.recurrence);
+          const tone = job.status === "done" ? "done" : job.status === "failed" ? "failed" : job.status === "canceled" ? "canceled" : "pending";
+          const platforms = (job.draft?.platforms ?? []).map((platform) => PLATFORM_META[platform]?.name ?? platform).join(" · ");
+          const text = draftText(job.draft) || (job.kind === "article" ? job.article?.title : "") || "Media-only post";
+          const time = new Date(job.scheduleAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+          return `<div class="calendar-event" data-tone="${recurring ? "recurring" : tone}" title="${escapeAttr(`${time} · ${platforms} · ${text}`)}">
+            <span class="calendar-event-time">${escapeHtml(time)}${recurring ? " ↻" : ""}</span>
+            <span class="calendar-event-title">${escapeHtml(text)}</span>
+          </div>`;
+        })
+        .join("");
+      const count = jobs.length > 3 ? `<div class="calendar-more">+${jobs.length - 3} more</div>` : "";
+      cells.push(`<div class="calendar-day${isToday ? " is-today" : ""}${jobs.length ? " has-events" : ""}" data-day="${day}">
+        <span class="calendar-day-number">${day}</span>
+        <div class="calendar-events">${events.slice(0, 3)}${count}</div>
+      </div>`);
+    }
+    while (cells.length % 7 !== 0) cells.push('<div class="calendar-day is-empty" aria-hidden="true"></div>');
+    els.calendarGrid.innerHTML = `${weekdays.map((day) => `<div class="calendar-weekday">${day}</div>`).join("")}${cells.join("")}`;
   }
 
   async function cancelJob(jobId) {
@@ -1565,7 +1700,9 @@
     if (els.disableComment) els.disableComment.checked = state.options.disableComment;
     if (els.tiktokAutoAddMusic) els.tiktokAutoAddMusic.checked = state.options.tiktokAutoAddMusic;
     if (els.scheduleAt && document.activeElement !== els.scheduleAt) els.scheduleAt.value = state.scheduleInput;
+    if (els.recurrence && document.activeElement !== els.recurrence) els.recurrence.value = state.recurrence;
     updateSummary();
+    renderPreviews();
     renderPreflight();
     renderResults();
     updatePublishAvailability();
@@ -1771,12 +1908,24 @@
       tiktokAutoAddMusic: $("#tiktokAutoAddMusic"),
       scheduleAt: $("#scheduleAt"),
       scheduleHint: $("#scheduleHint"),
+      recurrence: $("#recurrence"),
+      recurrenceHint: $("#recurrenceHint"),
       publishBtn: $("#publishBtn"),
       publishLabel: $("#publishLabel"),
       clearBtn: $("#clearBtn"),
       publishSummary: $("#publishSummary"),
       preflight: $("#preflight"),
       preflightSpinner: $("#preflightSpinner"),
+      previews: $("#previews"),
+      queueListView: $("#queueListView"),
+      queueCalendarView: $("#queueCalendarView"),
+      calendarPanel: $("#calendarPanel"),
+      queueListPanels: $("#queueListPanels"),
+      calendarGrid: $("#calendarGrid"),
+      calendarMonth: $("#calendarMonth"),
+      calendarPrev: $("#calendarPrev"),
+      calendarNext: $("#calendarNext"),
+      calendarToday: $("#calendarToday"),
       resultCard: $("#resultCard"),
       results: $("#results"),
       queueUpcoming: $("#queueUpcoming"),
@@ -1950,6 +2099,36 @@
       updateSummary();
       updatePublishAvailability();
     });
+    els.recurrence.addEventListener("change", () => {
+      state.recurrence = els.recurrence.value;
+      updateScheduleHint();
+      updateSummary();
+      scheduleValidation();
+    });
+    els.queueListView.addEventListener("click", () => {
+      state.queueView = "list";
+      els.queueListView.classList.add("is-active");
+      els.queueCalendarView.classList.remove("is-active");
+      renderQueue();
+    });
+    els.queueCalendarView.addEventListener("click", () => {
+      state.queueView = "calendar";
+      els.queueCalendarView.classList.add("is-active");
+      els.queueListView.classList.remove("is-active");
+      renderQueue();
+    });
+    els.calendarPrev.addEventListener("click", () => {
+      state.calendarCursor = new Date(state.calendarCursor.getFullYear(), state.calendarCursor.getMonth() - 1, 1);
+      renderCalendar();
+    });
+    els.calendarNext.addEventListener("click", () => {
+      state.calendarCursor = new Date(state.calendarCursor.getFullYear(), state.calendarCursor.getMonth() + 1, 1);
+      renderCalendar();
+    });
+    els.calendarToday.addEventListener("click", () => {
+      state.calendarCursor = new Date();
+      renderCalendar();
+    });
 
     els.publishBtn.addEventListener("click", () => void handlePublish());
     els.clearBtn.addEventListener("click", () => void clearDraft());
@@ -1957,6 +2136,17 @@
     els.queueUpcoming.addEventListener("click", (event) => {
       const cancel = event.target.closest("[data-cancel]");
       if (cancel) void cancelJob(cancel.dataset.cancel);
+    });
+    els.previews.addEventListener("click", (event) => {
+      const apply = event.target.closest("[data-apply-variant]");
+      if (!apply) return;
+      const entry = state.preview?.platforms?.find((item) => item.platform === apply.dataset.applyVariant);
+      if (!entry) return;
+      state.parts = entry.parts.map((text) => newPart(text));
+      renderParts();
+      updateSummary();
+      scheduleValidation();
+      toast({ tone: "success", title: "Variant applied", text: `The draft now has ${entry.parts.length} parts for ${PLATFORM_META[entry.platform]?.name ?? entry.platform}.` });
     });
 
     els.credentialForms.addEventListener("submit", (event) => {

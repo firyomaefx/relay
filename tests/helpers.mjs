@@ -22,6 +22,7 @@ export const MCP_TOOL_NAMES = [
   "relay_disconnect",
   "relay_post",
   "relay_validate",
+  "relay_preview",
   "relay_queue",
   "relay_cancel",
   "relay_history",

@@ -138,7 +138,10 @@ export function postPreview(record: Pick<PostRecord, "draft">): string {
 export function formatQueueJob(job: QueueJob): string {
   const platforms = job.draft.platforms?.join(", ") ?? "unknown";
   const error = job.lastError ? ` — ${job.lastError}` : "";
-  return `${job.id} [${job.status}] scheduled for ${job.scheduleAt} — ${platforms} — ${postPreview(job)}${error}`;
+  const repeat = job.draft.recurrence
+    ? ` — repeats ${job.draft.recurrence.interval}${job.draft.recurrence.count ? ` (${job.occurrence ?? 1}/${job.draft.recurrence.count})` : ""}`
+    : "";
+  return `${job.id} [${job.status}] scheduled for ${job.scheduleAt} — ${platforms}${repeat} — ${postPreview(job)}${error}`;
 }
 
 export function formatPostRecord(record: PostRecord): string {

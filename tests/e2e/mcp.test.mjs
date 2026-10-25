@@ -65,6 +65,16 @@ test(
         `relay_accounts should list the connected mock X account: ${JSON.stringify(accountsAfter.payload.accounts)}`,
       );
 
+      // --- relay_preview: read-only per-platform variants -----------------------
+      const preview = await callTool(client, "relay_preview", {
+        platforms: ["x", "instagram"],
+        text: "word ".repeat(700).trim(),
+      });
+      assert.equal(preview.isError, false, toolResultDescription(preview));
+      assert.equal(preview.payload.platforms.length, 2);
+      assert.ok(preview.payload.platforms.find((entry) => entry.platform === "x").parts.length > 1);
+      assert.equal((await callTool(client, "relay_history", { limit: 5 })).payload.records.length, 0);
+
       // --- relay_post: publish immediately ------------------------------------
       const text = `Hello from the MCP e2e test ${Date.now()}`;
       const post = await callTool(client, "relay_post", { platforms: ["x"], text });

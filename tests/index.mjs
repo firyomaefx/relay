@@ -17,6 +17,7 @@ import "./unit/x-reply.test.mjs";
 import "./unit/article-delete.test.mjs";
 import "./unit/comments.test.mjs";
 import "./unit/comments-adapters.test.mjs";
+import "./unit/preview-recurrence.test.mjs";
 import "./e2e/mcp.test.mjs";
 import "./e2e/mcp-article.test.mjs";
 import "./e2e/mcp-comments.test.mjs";

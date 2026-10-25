@@ -151,6 +151,19 @@ test("POST /api/validate rejects a 300 character X post", async () => {
   assert.equal(validReport.ok, true, `short draft should validate: ${requestSummary(validResponse)}`);
 });
 
+test("POST /api/preview returns adapted per-platform variants", async () => {
+  const response = await httpJson(server.baseUrl, "/api/preview", {
+    method: "POST",
+    body: { draft: { platforms: ["x", "instagram"], text: "word ".repeat(700).trim() } },
+  });
+  assert.equal(response.ok, true, `preview failed: ${requestSummary(response)}`);
+  assert.ok(Array.isArray(response.json.platforms));
+  const x = response.json.platforms.find((entry) => entry.platform === "x");
+  const instagram = response.json.platforms.find((entry) => entry.platform === "instagram");
+  assert.ok(x && x.parts.length > 1, "X preview should auto-thread");
+  assert.equal(instagram.truncated, true, "Instagram cannot thread and should report truncation");
+});
+
 test("a scheduled post can be canceled and never publishes", async () => {
   const text = `Web scheduled post ${Date.now()}`;
   const scheduleAt = isoIn(6000);

@@ -263,6 +263,17 @@
                       <input class="input" id="scheduleAt" type="datetime-local" />
                       <span class="field-hint" id="scheduleHint">Leave empty to publish now. Past times publish immediately.</span>
                     </label>
+                    <label class="field" for="recurrence">
+                      <span class="field-label">Repeat</span>
+                      <select class="select" id="recurrence">
+                        <option value="none">Does not repeat</option>
+                        <option value="daily:4">Every day · 4 posts</option>
+                        <option value="weekly:4">Every week · 4 posts</option>
+                        <option value="daily">Every day · until canceled</option>
+                        <option value="weekly">Every week · until canceled</option>
+                      </select>
+                      <span class="field-hint" id="recurrenceHint">Evergreen posts need a future schedule.</span>
+                    </label>
                   </div>
                 </section>
               </div>
@@ -290,6 +301,18 @@
               </div>
 
               <div class="bezel reveal" style="--i:3">
+                <section class="panel preview-panel" aria-labelledby="previewsTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Variants</p>
+                      <h3 id="previewsTitle">Per-network preview</h3>
+                    </div>
+                  </header>
+                  <div class="previews" id="previews" aria-live="polite"></div>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:4">
                 <section class="panel preflight-panel" aria-labelledby="preflightTitle">
                   <header class="panel-head">
                     <div>
@@ -302,7 +325,7 @@
                 </section>
               </div>
 
-              <div class="bezel reveal" style="--i:4" id="resultCard" hidden>
+              <div class="bezel reveal" style="--i:5" id="resultCard" hidden>
                 <section class="panel" aria-labelledby="resultsTitle">
                   <header class="panel-head">
                     <div>
@@ -323,7 +346,35 @@
             <h2 class="display" id="queueTitle">Queue<span class="display-dot">.</span></h2>
             <p class="lede">Everything waiting for its moment, and a transparent log of what already ran. Cancel anything still pending.</p>
           </div>
-          <div class="queue-layout">
+          <div class="queue-viewbar">
+            <div class="segmented" role="group" aria-label="Queue layout">
+              <button class="segmented-btn is-active" id="queueListView" type="button">List</button>
+              <button class="segmented-btn" id="queueCalendarView" type="button">Calendar</button>
+            </div>
+          </div>
+          <div class="bezel reveal" id="calendarPanel" hidden>
+            <section class="panel calendar-panel" aria-labelledby="calendarTitle">
+              <header class="panel-head">
+                <div>
+                  <p class="panel-eyebrow">Planning</p>
+                  <h3 id="calendarTitle">Content calendar</h3>
+                </div>
+                <div class="calendar-nav">
+                  <button class="ghost-btn icon-btn" id="calendarPrev" type="button" aria-label="Previous month">‹</button>
+                  <span class="calendar-month" id="calendarMonth"></span>
+                  <button class="ghost-btn icon-btn" id="calendarNext" type="button" aria-label="Next month">›</button>
+                  <button class="ghost-btn" id="calendarToday" type="button">Today</button>
+                </div>
+              </header>
+              <div class="calendar-grid" id="calendarGrid"></div>
+              <div class="calendar-legend">
+                <span><i class="legend-dot" data-tone="pending"></i> Scheduled</span>
+                <span><i class="legend-dot" data-tone="recurring"></i> Recurring</span>
+                <span><i class="legend-dot" data-tone="done"></i> Published</span>
+              </div>
+            </section>
+          </div>
+          <div class="queue-layout" id="queueListPanels">
             <div class="bezel reveal" style="--i:0">
               <section class="panel" aria-labelledby="upcomingTitle">
                 <header class="panel-head">
