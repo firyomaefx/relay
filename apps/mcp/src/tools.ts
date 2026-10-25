@@ -118,6 +118,14 @@ const postInputSchema = z.object({
     .string()
     .optional()
     .describe("ISO-8601 timestamp. If it is in the future the post is queued for the scheduler; otherwise it is published immediately."),
+  recurrence: z
+    .object({
+      interval: z.enum(["daily", "weekly"]).describe("Repeat interval."),
+      count: z.number().int().min(2).max(104).optional().describe("Total publishes including the first (2-104). Omit for an open-ended series."),
+      until: z.string().optional().describe("ISO-8601 end time; no occurrence is queued after it."),
+    })
+    .optional()
+    .describe("Turn a future scheduled post into an evergreen/recurring series. Requires schedule_at."),
   options: z
     .record(platformEnum, platformOptionsSchema)
     .optional()
@@ -272,6 +280,7 @@ function toDraft(input: z.infer<typeof postInputSchema>): PostDraft {
     media: input.media,
     thread: input.thread,
     scheduleAt: input.schedule_at,
+    ...(input.recurrence ? { recurrence: input.recurrence } : {}),
     options: input.options,
     ...(input.replyToId?.trim() ? { replyToId: input.replyToId.trim() } : {}),
   };
@@ -310,6 +319,7 @@ const HINTS = {
   post:
     "Call relay_accounts to check which platforms are connected, and relay_validate to iterate on the draft without publishing.",
   validate: "Fix the draft and call relay_validate again, or check relay_limits for per-platform requirements.",
+  preview: "Adjust the draft and call relay_preview again; previews are read-only and never publish.",
   queue: "Call relay_queue to inspect jobs and their ids.",
   cancel: 'Only jobs with status "pending" can be canceled.',
   history: "Publish a post with relay_post first, or call relay_queue for scheduled posts.",
@@ -565,6 +575,38 @@ export function registerTools(server: McpServer, context: ToolContext): void {
           : [`Draft is invalid for ${targets} (${report.issues.length} issue(s)). Nothing was published.`, formatIssues(report.issues)].join("\n");
         return textResult(summary, report);
       }, HINTS.validate),
+  );
+
+  server.registerTool(
+    "relay_preview",
+    {
+      title: "Preview a post across platforms",
+      description:
+        "Show how one draft will look on every selected platform without publishing. Returns per-platform adapted text, part counts, character counts, media counts, truncation warnings and validation issues. Use this before relay_post to catch format differences, especially when auto-threading X or Threads or shortening for Instagram/TikTok.",
+      inputSchema: postInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) =>
+      safely(async () => {
+        const platformProblem = platformArgsProblem(args.platforms);
+        if (platformProblem) return platformProblem;
+        const draft = toDraft(args);
+        const preview = await relay.preview(draft);
+        const lines = preview.platforms.map((entry) => {
+          const parts = entry.parts.length > 1 ? `${entry.parts.length} parts` : "1 part";
+          const counts = entry.characterCounts.join("/");
+          const state = entry.ok ? "ready" : "needs attention";
+          const warning = entry.issues.length > 0 ? ` — ${entry.issues.join(" ")}` : "";
+          return `- ${entry.displayName}: ${parts}, ${counts} chars, ${entry.mediaCount} media, ${state}${warning}`;
+        });
+        const first = preview.platforms[0];
+        const summary = [
+          `Preview for ${preview.platforms.length} platform(s). Nothing was published.`,
+          ...lines,
+          ...(first ? ["", `First platform preview: ${first.parts.join(" / ").slice(0, 800)}`] : []),
+        ].join("\n");
+        return textResult(summary, preview);
+      }, HINTS.preview),
   );
 
   server.registerTool(

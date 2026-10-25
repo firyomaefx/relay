@@ -289,6 +289,13 @@ async function handleApi(
       sendJson(res, 200, report);
       return;
     }
+    if (method === "POST" && resource === "preview") {
+      const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+      const draftValue = Object.prototype.hasOwnProperty.call(body, "draft") ? body.draft : body;
+      const preview = await relay.preview(relay.parseDraftFromJson(draftValue));
+      sendJson(res, 200, preview);
+      return;
+    }
     if (method === "POST" && resource === "media") {
       await handleMediaUpload(req, res, relay);
       return;

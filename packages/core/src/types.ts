@@ -83,10 +83,21 @@ export interface PostDraft {
   thread?: ThreadPartDraft[];
   /** ISO-8601 timestamp. When in the future the post is queued instead of published. */
   scheduleAt?: string;
+  /** Repeat a scheduled post. The first run is at scheduleAt; count includes that run. */
+  recurrence?: Recurrence;
   options?: Partial<Record<PlatformId, PlatformOptions>>;
   /** Shorthand for options.<platform>.replyToId when the draft targets only X or only Threads (alias: parentPostId). */
   replyToId?: string;
   parentPostId?: string;
+}
+
+/** A recurring/evergreen scheduled post. */
+export interface Recurrence {
+  interval: "daily" | "weekly";
+  /** Total number of publishes, including the first. Omit for an open-ended series. */
+  count?: number;
+  /** ISO-8601 end time. No occurrence scheduled after this time. */
+  until?: string;
 }
 
 /** One block of an X Article body (maps onto the DraftJS block types X accepts). */
@@ -543,6 +554,30 @@ export interface ValidationReport {
   normalized?: Partial<Record<PlatformId, ResolvedPost>>;
 }
 
+/** A platform-specific preview of the draft after Relay adapts it. */
+export interface PlatformPreview {
+  platform: PlatformId;
+  displayName: string;
+  /** One entry per published part; single-part posts have one entry. */
+  parts: string[];
+  characterCounts: number[];
+  maxTextLength: number;
+  maxParts: number;
+  mediaCount: number;
+  /** The text was split, shortened, or otherwise adapted for this platform. */
+  adapted: boolean;
+  /** The draft cannot fit even after adaptation (for example, too many parts). */
+  truncated: boolean;
+  ok: boolean;
+  issues: string[];
+}
+
+export interface DraftPreview {
+  platforms: PlatformPreview[];
+  sourcePartCount: number;
+  generatedAt: string;
+}
+
 export type PostResultStatus = "publishing" | "published" | "partial" | "failed";
 
 export interface PostResult {
@@ -596,6 +631,10 @@ export interface QueueJob {
   article?: ArticleDraft;
   /** Content hash of a queued article, used to refuse duplicates. */
   contentHash?: string;
+  /** Series identity for recurring posts. */
+  seriesId?: string;
+  /** 1-based occurrence within a recurring series. */
+  occurrence?: number;
 }
 
 export interface PlatformStatus {

@@ -4,7 +4,7 @@
 
 Relay is a self-hosted social publishing control plane. It gives creators and teams one place to compose, schedule, publish, comment, reply and delete across **X, Threads, TikTok, YouTube and Instagram** — through a browser console or any MCP-capable AI agent such as Claude, Cursor, Grok or DeepSeek Harness.
 
-**Live:** <https://relay.duitpoket.fun> · **MCP:** `https://mcp.duitpoket.fun/mcp` · **5 platforms** · **18 agent tools**
+**Live:** <https://relay.duitpoket.fun> · **MCP:** `https://mcp.duitpoket.fun/mcp` · **5 platforms** · **19 agent tools**
 
 ![Relay console — compose](docs/console-compose.png)
 
@@ -19,8 +19,8 @@ Relay is a self-hosted social publishing control plane. It gives creators and te
 | **Platforms live** | X, Threads, TikTok, YouTube, Instagram |
 | **Current stage** | Private beta — single-tenant production deployment |
 | **Hosting** | Tencent Cloud Singapore + Cloudflare named tunnel |
-| **Agent surface** | 18 MCP tools for publishing, scheduling, comments, replies, accounts and validation |
-| **Automated tests** | 114 passing (unit + end-to-end) |
+| **Agent surface** | 19 MCP tools for publishing, scheduling, comments, replies, accounts and validation |
+| **Automated tests** | 118 passing (unit + end-to-end) |
 | **Data model** | Self-hosted; encrypted credentials; customer owns the data directory |
 | **Business model** | Hosted subscription, self-hosted licence and usage-based API access are under evaluation — not yet monetised |
 
@@ -47,7 +47,7 @@ At the same time, AI agents are becoming the place where content is drafted, rev
 **One control plane. Any client. Every channel.**
 
 1. **Compose once, publish everywhere.** Text, images, video, threads, carousels, X Articles, comments and replies — with per-platform validation before anything is sent.
-2. **Agent-native.** The same 18 tools are available to Claude, Cursor, Grok, DeepSeek Harness or any MCP client. Publishing becomes a tool call, not a screen-scrape.
+2. **Agent-native.** The same 19 tools are available to Claude, Cursor, Grok, DeepSeek Harness or any MCP client. Publishing becomes a tool call, not a screen-scrape.
 3. **Own the data.** Relay runs on your machine or your cloud. Tokens are encrypted at rest. There is no Relay telemetry and no vendor database in the middle.
 4. **Operate like infrastructure.** A scheduler, queue, retry and health checks run as services, even when the console is closed.
 5. **Stay focused.** No analytics, no inbox, no approval bloat. Relay does the posting and conversation work exceptionally well.
@@ -69,18 +69,20 @@ At the same time, AI agents are becoming the place where content is drafted, rev
 ### Cross-platform capabilities
 
 - Scheduling and a persistent queue
+- Per-platform previews with auto-adapted variants
+- Visual content calendar and recurring/evergreen schedules
 - Per-platform options and validation
 - Draft-level and per-platform reply targeting
 - Post history, deletion and account status
 - One shared encrypted data store across console and MCP
 - Simulated mode for demos and development without live credentials
 
-### The 18 MCP tools
+### The 19 MCP tools
 
 | Group | Tools |
 |---|---|
 | **Accounts** | `relay_accounts`, `relay_connect`, `relay_disconnect`, `relay_console`, `relay_limits` |
-| **Publishing** | `relay_post`, `relay_validate`, `relay_article`, `relay_article_validate` |
+| **Publishing** | `relay_post`, `relay_validate`, `relay_preview`, `relay_article`, `relay_article_validate` |
 | **Queue & history** | `relay_queue`, `relay_cancel`, `relay_history`, `relay_delete` |
 | **Conversation** | `relay_threads_comments`, `relay_threads_reply`, `relay_threads_autoreply`, `relay_comments_new`, `relay_reply` |
 
@@ -106,7 +108,7 @@ Every tool is available over stdio (local clients) and over authenticated Stream
                     │
         ┌───────────▼───────────┐
         │      Relay MCP        │
-        │  18 tools, auth,      │
+        │  19 tools, auth,      │
         │  validation           │
         └───────────┬───────────┘
                     │
@@ -164,7 +166,9 @@ The wedge is the agent ecosystem: every MCP client that needs to publish becomes
 ## Roadmap
 
 **Now**
-- Five live platforms, 18 MCP tools
+- Five live platforms, 19 MCP tools
+- Per-platform previews and auto-threading variants
+- Visual calendar plus recurring/evergreen scheduling
 - Scheduling, queue, retries and health checks
 - Comments and replies across Threads, Instagram and YouTube
 - X Articles and post deletion
