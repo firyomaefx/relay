@@ -22,10 +22,11 @@
     "smoke": "node tests/smoke.mjs",
     "batch": "node tools/relay-batch.mjs",
     "youtube-max": "node tools/youtube-max-upload.mjs",
-    "mcp:http": "node apps/mcp/dist/index.js --http --port 4320"
+    "mcp:http": "node apps/mcp/dist/index.js --http --port 4320",`n    "tiktok-web": "npm run build -w @relay/tiktok-web && node apps/tiktok-web/dist/index.js"
   },
   "devDependencies": {
     "@types/node": "^24.13.0",
     "typescript": "^5.9.3"
   }
 }
+
