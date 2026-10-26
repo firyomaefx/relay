@@ -44,6 +44,13 @@ export interface PlatformOptions {
    * on/off switch; video posts never send it.
    */
   tiktokAutoAddMusic?: boolean;
+  /**
+   * Instagram and TikTok: when the post contains a video, extract still frames
+   * and publish them as a photo carousel instead of a video/Reel.
+   */
+  carouselFromVideo?: boolean;
+  /** Number of still frames to extract (2-10). Defaults to 6. */
+  carouselSlides?: number;
   disableComment?: boolean;
   /**
    * Threads and X: publish the post (or the parts of a thread) as a reply under

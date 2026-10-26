@@ -66,7 +66,7 @@ export class InstagramAdapter implements PlatformAdapter {
     displayName: "Instagram",
     maxTextLength: 2200,
     maxParts: 1,
-    maxMediaPerPost: 1,
+    maxMediaPerPost: 10,
     maxVideosPerPost: 1,
     maxMediaWithVideo: 1,
     requiresMedia: true,
@@ -76,7 +76,7 @@ export class InstagramAdapter implements PlatformAdapter {
     allowedVideoTypes: ["video/mp4", "video/quicktime"],
     mediaUpload: "url",
     notes:
-      "One image post or one Reel per post. Instagram pulls media from a public URL; images must be JPEG and Reels MP4/MOV. Business or Creator account required.",
+      "One image, an image carousel of 2-10 JPEGs, or one Reel per post. Instagram pulls media from a public URL. Business or Creator account required.",
   };
 
   isConfigured(ctx: AdapterContext): boolean {
@@ -194,53 +194,94 @@ export class InstagramAdapter implements PlatformAdapter {
       throw new RelayError("Instagram supports exactly one post per publish", "instagram_single_post_only");
     }
     const part = parts[0]!;
-    if (part.media.length !== 1) {
+    const media = part.media;
+    if (media.length === 0) {
       throw new RelayError(
-        "Instagram needs exactly one image or video per post",
+        "Instagram needs at least one image or video per post",
         "instagram_media_required",
-        { media: part.media.length },
+        { media: 0 },
+        400,
+      );
+    }
+    if (media.length > 10) {
+      throw new RelayError("Instagram carousels support at most 10 items", "instagram_too_many_media", { media: media.length }, 400);
+    }
+    if (media.length > 1 && media.some((item) => item.kind !== "image")) {
+      throw new RelayError(
+        "Instagram image carousels cannot contain a video. Use one Reel or convert the video to still frames.",
+        "instagram_carousel_video_unsupported",
+        undefined,
         400,
       );
     }
 
-    const item: MediaItem = part.media[0]!;
-    const publicUrl = publicMediaUrl(ctx, item, "Instagram");
     const userId = await this.resolveUserId(ctx, input.account, tokens);
     const caption = part.text.trim();
     const options = input.post.options;
 
     let containerId: string;
-    if (item.kind === "video") {
-      const params: Record<string, string | undefined> = {
-        media_type: "REELS",
-        video_url: publicUrl,
-        caption: caption || undefined,
-        share_to_feed: options.instagramShareToFeed === false ? "false" : "true",
-      };
-      const created = await providerFetch(ctx, "Instagram Reels container", `${GRAPH_URL}/${userId}/media`, {
+    if (media.length > 1) {
+      const childIds: string[] = [];
+      for (const item of media) {
+        const child = await providerFetch(ctx, "Instagram carousel item", `${GRAPH_URL}/${userId}/media`, {
+          method: "POST",
+          headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
+          body: formBody({
+            image_url: publicMediaUrl(ctx, item, "Instagram"),
+            is_carousel_item: "true",
+            alt_text: options.instagramAltText,
+          }),
+        });
+        const childId = getString(asObject(child), "id") ?? "";
+        if (!childId) throw new RelayError("Instagram did not return a carousel item id", "instagram_container_id_missing", child, 502);
+        childIds.push(childId);
+      }
+      const created = await providerFetch(ctx, "Instagram carousel container", `${GRAPH_URL}/${userId}/media`, {
         method: "POST",
         headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
-        body: formBody(params),
+        body: formBody({
+          media_type: "CAROUSEL",
+          children: childIds.join(","),
+          caption: caption || undefined,
+        }),
       });
       containerId = getString(asObject(created), "id") ?? "";
-      if (!containerId) {
-        throw new RelayError("Instagram did not return a Reels container id", "instagram_container_id_missing", created, 502);
-      }
+      if (!containerId) throw new RelayError("Instagram did not return a carousel container id", "instagram_container_id_missing", created, 502);
       await this.waitForContainer(ctx, tokens, containerId);
     } else {
-      const params: Record<string, string | undefined> = {
-        image_url: publicUrl,
-        caption: caption || undefined,
-        alt_text: options.instagramAltText,
-      };
-      const created = await providerFetch(ctx, "Instagram image container", `${GRAPH_URL}/${userId}/media`, {
-        method: "POST",
-        headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
-        body: formBody(params),
-      });
-      containerId = getString(asObject(created), "id") ?? "";
-      if (!containerId) {
-        throw new RelayError("Instagram did not return an image container id", "instagram_container_id_missing", created, 502);
+      const item = media[0]!;
+      if (item.kind === "video") {
+        const params: Record<string, string | undefined> = {
+          media_type: "REELS",
+          video_url: publicMediaUrl(ctx, item, "Instagram"),
+          caption: caption || undefined,
+          share_to_feed: options.instagramShareToFeed === false ? "false" : "true",
+        };
+        const created = await providerFetch(ctx, "Instagram Reels container", `${GRAPH_URL}/${userId}/media`, {
+          method: "POST",
+          headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
+          body: formBody(params),
+        });
+        containerId = getString(asObject(created), "id") ?? "";
+        if (!containerId) {
+          throw new RelayError("Instagram did not return a Reels container id", "instagram_container_id_missing", created, 502);
+        }
+        await this.waitForContainer(ctx, tokens, containerId);
+      } else {
+        const params: Record<string, string | undefined> = {
+          image_url: publicMediaUrl(ctx, item, "Instagram"),
+          caption: caption || undefined,
+          alt_text: options.instagramAltText,
+        };
+        const created = await providerFetch(ctx, "Instagram image container", `${GRAPH_URL}/${userId}/media`, {
+          method: "POST",
+          headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
+          body: formBody(params),
+        });
+        containerId = getString(asObject(created), "id") ?? "";
+        if (!containerId) {
+          throw new RelayError("Instagram did not return an image container id", "instagram_container_id_missing", created, 502);
+        }
       }
     }
 
@@ -274,10 +315,10 @@ export class InstagramAdapter implements PlatformAdapter {
       url: permalink,
       mock: false,
       details: {
-        mediaType: item.kind === "video" ? "REELS" : "IMAGE",
+        mediaType: media.length > 1 ? "CAROUSEL" : media[0]!.kind === "video" ? "REELS" : "IMAGE",
         containerId,
         permalink,
-        shareToFeed: item.kind === "video" ? options.instagramShareToFeed !== false : true,
+        shareToFeed: media.length > 1 ? true : media[0]!.kind === "video" ? options.instagramShareToFeed !== false : true,
       },
     };
   }

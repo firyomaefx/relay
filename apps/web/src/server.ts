@@ -325,6 +325,18 @@ async function handleApi(
     return;
   }
 
+  // Save or clear the DeepSeek API key. Encrypted at rest.
+  if (segments.length === 3 && resource === "settings" && segments[2] === "deepseek" && method === "POST") {
+    const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+    const key = typeof body.apiKey === "string" ? body.apiKey : null;
+    if (key !== null && key.trim().length < 10) {
+      throw new RelayError("Enter a valid DeepSeek API key.", "deepseek_api_key_invalid", undefined, 400);
+    }
+    const configured = await relay.setDeepSeekApiKey(key);
+    sendJson(res, 200, { ok: true, configured });
+    return;
+  }
+
   // READ-ONLY Threads comments endpoint. It never posts replies or publishes.
   if (segments.length === 3 && resource === "threads" && segments[2] === "comments" && method === "GET") {
     const rawLimit = url.searchParams.get("limit_posts");

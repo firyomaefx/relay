@@ -142,6 +142,7 @@
       quotePostId: "",
       disableComment: false,
       tiktokAutoAddMusic: true,
+      carouselFromVideo: false,
     },
     scheduleInput: "",
     recurrence: "none",
@@ -348,6 +349,9 @@
     } else if (platform === "tiktok") {
       entry.tiktokPrivacy = options.tiktokPrivacy;
       entry.tiktokAutoAddMusic = options.tiktokAutoAddMusic;
+      if (options.carouselFromVideo) entry.carouselFromVideo = true;
+    } else if (platform === "instagram") {
+      if (options.carouselFromVideo) entry.carouselFromVideo = true;
     } else if (platform === "youtube") {
       entry.youtubePrivacy = options.youtubePrivacy;
     }
@@ -1495,12 +1499,32 @@
       <div class="kv-row"><span class="kv-key">Console URL</span><span class="kv-value mono">${escapeHtml(settings.consoleUrl)}</span></div>
       <div class="kv-row"><span class="kv-key">Data directory</span><span class="kv-value mono">${escapeHtml(settings.dataDir)}</span></div>
       <div class="kv-row"><span class="kv-key">Password</span><span class="kv-value">${protectedMode ? "Required" : "Not set"}</span></div>
-      <div class="session-row">
-        <div>
-          <p class="kv-key">Threads auto-reply</p>
-          <p class="kv-value">${autoReplyOn ? "On — 30-minute windows, ~2-minute comment polling" : "Off — no windows or replies are opened"}${autoReplyConfigured ? "" : " · DEEPSEEK_API_KEY not set, comments will be skipped"}</p>
+      <div class="autoreply-card">
+        <div class="autoreply-head">
+          <div>
+            <p class="kv-key">Auto-reply comments</p>
+            <p class="kv-value">${autoReplyOn ? "On" : "Off"}</p>
+          </div>
+          <label class="switch-row" for="autoReplyToggle">
+            <input class="switch-input" type="checkbox" id="autoReplyToggle" data-toggle-autoreply="${autoReplyOn ? "false" : "true"}" ${autoReplyOn ? "checked" : ""} />
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+          </label>
         </div>
-        <button class="ghost-btn small" type="button" data-toggle-autoreply="${autoReplyOn ? "false" : "true"}">${autoReplyOn ? "Disable" : "Enable"}</button>
+        <p class="autoreply-remark ${autoReplyOn ? "is-on" : ""}">${autoReplyOn ? "Replies to genuine comments in a 30-minute window. Spam and hostile comments are flagged, not answered." : "Off. New comments are left untouched."}</p>
+        <div class="autoreply-platforms">
+          <span class="access-chip is-live">Threads · live</span>
+          <span class="access-chip">Instagram · API access</span>
+          <span class="access-chip">X · API access</span>
+          <span class="access-chip">TikTok · API access</span>
+        </div>
+        <div class="deepseek-key">
+          <label class="field-label" for="deepseekKey">DeepSeek API key</label>
+          <div class="deepseek-row">
+            <input class="input" id="deepseekKey" type="password" autocomplete="off" placeholder="${autoReplyConfigured ? "•••••••• saved" : "sk-..."}" />
+            <button class="ghost-btn" id="saveDeepseekKey" type="button">Save</button>
+          </div>
+          <p class="autoreply-remark">${autoReplyConfigured ? "Configured. Replies use deepseek-chat." : "Not configured. Auto-reply will skip comments until a key is saved."}</p>
+        </div>
       </div>
     `;
     els.sessionRow.hidden = !protectedMode;
@@ -1710,6 +1734,7 @@
     if (els.quotePostId && document.activeElement !== els.quotePostId) els.quotePostId.value = state.options.quotePostId;
     if (els.disableComment) els.disableComment.checked = state.options.disableComment;
     if (els.tiktokAutoAddMusic) els.tiktokAutoAddMusic.checked = state.options.tiktokAutoAddMusic;
+    if (els.carouselFromVideo) els.carouselFromVideo.checked = state.options.carouselFromVideo;
     if (els.scheduleAt && document.activeElement !== els.scheduleAt) els.scheduleAt.value = state.scheduleInput;
     if (els.recurrence && document.activeElement !== els.recurrence) els.recurrence.value = state.recurrence;
     updateSummary();
@@ -1917,6 +1942,7 @@
       quotePostId: $("#quotePostId"),
       disableComment: $("#disableComment"),
       tiktokAutoAddMusic: $("#tiktokAutoAddMusic"),
+      carouselFromVideo: $("#carouselFromVideo"),
       scheduleAt: $("#scheduleAt"),
       scheduleHint: $("#scheduleHint"),
       recurrence: $("#recurrence"),
@@ -1999,9 +2025,25 @@
     });
 
     document.addEventListener("click", (event) => {
-      const toggleAutoReplyButton = event.target.closest("[data-toggle-autoreply]");
-      if (toggleAutoReplyButton) {
-        void toggleAutoReply(toggleAutoReplyButton.dataset.toggleAutoreply === "true");
+      const saveDeepseek = event.target.closest("#saveDeepseekKey");
+      if (saveDeepseek) {
+        const input = document.getElementById("deepseekKey");
+        const apiKey = input?.value?.trim() ?? "";
+        if (!apiKey) {
+          toast({ tone: "error", title: "Enter a DeepSeek API key", text: "Paste the key before saving." });
+          return;
+        }
+        saveDeepseek.disabled = true;
+        void api("/api/settings/deepseek", { method: "POST", body: { apiKey } })
+          .then(async () => {
+            if (input) input.value = "";
+            await refreshAll();
+            toast({ tone: "success", title: "DeepSeek key saved", text: "Auto-reply comments can now use deepseek-chat." });
+          })
+          .catch((error) => toast({ tone: "error", title: "Could not save the key", text: error.message }))
+          .finally(() => {
+            saveDeepseek.disabled = false;
+          });
         return;
       }
 
@@ -2023,6 +2065,13 @@
       const disconnect = event.target.closest("[data-disconnect]");
       if (disconnect) {
         void disconnectPlatform(disconnect.dataset.disconnect);
+      }
+    });
+
+    document.addEventListener("change", (event) => {
+      const toggle = event.target.closest("[data-toggle-autoreply]");
+      if (toggle) {
+        void toggleAutoReply(toggle.checked);
       }
     });
 
@@ -2095,6 +2144,10 @@
     });
     els.tiktokAutoAddMusic.addEventListener("change", () => {
       state.options.tiktokAutoAddMusic = els.tiktokAutoAddMusic.checked;
+      scheduleValidation();
+    });
+    els.carouselFromVideo.addEventListener("change", () => {
+      state.options.carouselFromVideo = els.carouselFromVideo.checked;
       scheduleValidation();
     });
     els.scheduleAt.addEventListener("change", () => {

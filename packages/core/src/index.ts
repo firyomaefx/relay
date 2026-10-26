@@ -4,6 +4,7 @@ export * from "./secret-box.js";
 export * from "./json-store.js";
 export * from "./credentials.js";
 export * from "./media.js";
+export * from "./video-carousel.js";
 export * from "./lock.js";
 export * from "./validation.js";
 export * from "./preview.js";
