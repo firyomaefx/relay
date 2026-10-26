@@ -4885,6 +4885,7 @@ body { font-size: 17px; }
   font-weight: 500;
 }
 .access-chip.is-live { background: #e8f8ed; color: #1f7a3a; }
+.access-chip.is-ready { background: #eaf1ff; color: #2257a6; }
 .deepseek-key { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); }
 .deepseek-row { display: flex; gap: 8px; margin-top: 7px; align-items: center; }
 .deepseek-row .input { flex: 1 1 auto; width: auto; min-width: 0; }
