@@ -16,6 +16,49 @@ export interface ValidateOptions {
   mediaPublicUrl?: (item: MediaItem) => string | null;
   /** Platforms that will make real API calls. Simulated platforms skip network-only rules. */
   isLive?: (platform: PlatformId) => boolean;
+  /** Refuses posts that contain blocked links (for example affiliate shop links) while active. */
+  linkGuard?: LinkGuard;
+  /** Clock for time-limited rules (epoch ms); defaults to Date.now. */
+  now?: () => number;
+}
+
+/**
+ * Link guard read from the environment:
+ *   RELAY_BLOCKED_LINKS            comma-separated, case-insensitive fragments, e.g. "s.shopee.com.my,shope.ee"
+ *   RELAY_BLOCKED_LINKS_UNTIL      optional ISO-8601 end; the guard is off from that instant on
+ *   RELAY_BLOCKED_LINKS_PLATFORMS  optional comma list (x, threads, tiktok, youtube, instagram); empty = all
+ */
+export interface LinkGuard {
+  patterns: string[];
+  /** Epoch ms after which the guard stops applying; null = no end date. */
+  until: number | null;
+  /** Platforms the guard covers; an empty list covers every platform. */
+  platforms: PlatformId[];
+}
+
+function splitList(raw: string | undefined): string[] {
+  return (raw ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function parseLinkGuard(env: Record<string, string | undefined>): LinkGuard | undefined {
+  const patterns = splitList(env.RELAY_BLOCKED_LINKS);
+  if (patterns.length === 0) return undefined;
+  const untilRaw = env.RELAY_BLOCKED_LINKS_UNTIL?.trim();
+  const untilMs = untilRaw ? Date.parse(untilRaw) : Number.NaN;
+  const platforms = splitList(env.RELAY_BLOCKED_LINKS_PLATFORMS).filter(isPlatformId) as PlatformId[];
+  return { patterns, until: Number.isNaN(untilMs) ? null : untilMs, platforms };
+}
+
+/** Returns the first blocked fragment found in the text, or null. */
+export function findBlockedLink(text: string, guard: LinkGuard | undefined, platform: PlatformId, nowMs: number): string | null {
+  if (!guard || guard.patterns.length === 0 || !text) return null;
+  if (guard.until !== null && nowMs >= guard.until) return null;
+  if (guard.platforms.length > 0 && !guard.platforms.includes(platform)) return null;
+  const lower = text.toLowerCase();
+  return guard.patterns.find((pattern) => lower.includes(pattern)) ?? null;
 }
 
 interface PlatformIssues {
@@ -165,6 +208,16 @@ export async function validateDraft(
       }
       if (!part.text && part.media.length === 0) {
         addIssue({ platform, part: index, code: "part_empty", message: `Part ${index + 1} is empty` });
+      }
+      const blocked = findBlockedLink(part.text, options.linkGuard, platform, options.now?.() ?? Date.now());
+      if (blocked) {
+        const until = options.linkGuard?.until ? ` until ${new Date(options.linkGuard.until).toISOString()}` : "";
+        addIssue({
+          platform,
+          part: index,
+          code: "link_blocked",
+          message: `Part ${index + 1} contains a blocked link (${blocked}). These links are switched off${until} (RELAY_BLOCKED_LINKS).`,
+        });
       }
       if (part.media.length > limits.maxMediaPerPost) {
         addIssue({
