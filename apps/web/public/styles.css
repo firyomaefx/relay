@@ -3854,6 +3854,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   .calendar-event-title { display: none; }
 }
 
+
 /* ==========================================================================
    Quiet light redesign
    ========================================================================== */
@@ -4505,4 +4506,26 @@ code {
 
 .settings-col .bezel:has(#goLiveSteps) { display: none; }
 
+
+/* Source label ("Claude", "Grokbot") in front of queued and published posts. Never published. */
+.source-label {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  letter-spacing: 0.01em;
+  color: #9a4b2f;
+  background: #fdf0ea;
+  border: 1px solid #f0d4c6;
+  vertical-align: 1px;
+}
+.source-label[data-source="grokbot"],
+.source-label[data-source="grok"] {
+  color: #345a9f;
+  background: #edf2ff;
+  border-color: #d5e0f7;
+}
 

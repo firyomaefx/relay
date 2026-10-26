@@ -135,20 +135,26 @@ export function postPreview(record: Pick<PostRecord, "draft">): string {
   return truncate(text) || "(no text)";
 }
 
+/** "[Claude] " when the draft carries a source label, otherwise "". */
+export function labelPrefix(draft: { label?: unknown } | undefined): string {
+  const label = typeof draft?.label === "string" ? draft.label.trim() : "";
+  return label ? `[${label}] ` : "";
+}
+
 export function formatQueueJob(job: QueueJob): string {
   const platforms = job.draft.platforms?.join(", ") ?? "unknown";
   const error = job.lastError ? ` — ${job.lastError}` : "";
   const repeat = job.draft.recurrence
     ? ` — repeats ${job.draft.recurrence.interval}${job.draft.recurrence.count ? ` (${job.occurrence ?? 1}/${job.draft.recurrence.count})` : ""}`
     : "";
-  return `${job.id} [${job.status}] scheduled for ${job.scheduleAt} — ${platforms}${repeat} — ${postPreview(job)}${error}`;
+  return `${job.id} [${job.status}] scheduled for ${job.scheduleAt} — ${platforms}${repeat} — ${labelPrefix(job.draft)}${postPreview(job)}${error}`;
 }
 
 export function formatPostRecord(record: PostRecord): string {
   const platforms = record.draft.platforms?.join(", ") ?? "unknown";
   const succeeded = record.results.filter((result) => result.ok).length;
   const scheduled = record.scheduledFor ? ` (scheduled for ${record.scheduledFor})` : "";
-  return `${record.createdAt}${scheduled} — ${platforms} — ${succeeded}/${record.results.length} ok — ${postPreview(record)}`;
+  return `${record.createdAt}${scheduled} — ${platforms} — ${succeeded}/${record.results.length} ok — ${labelPrefix(record.draft)}${postPreview(record)}`;
 }
 
 export function formatLimits(limits: PlatformLimits): string {

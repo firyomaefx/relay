@@ -134,6 +134,12 @@ export async function validateDraft(
     }
   }
 
+  if (draft.label !== undefined) {
+    if (typeof draft.label !== "string" || textLength(draft.label.trim()) > 40) {
+      addIssue({ code: "label_invalid", message: "label must be a string of at most 40 characters (it is shown in the queue, never published)" });
+    }
+  }
+
   const hasThread = Array.isArray(draft.thread) && draft.thread.length > 0;
   if (Array.isArray(draft.thread) && draft.thread.length === 0) {
     addIssue({ code: "thread_empty", message: "The thread has no parts" });
