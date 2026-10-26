@@ -14,7 +14,7 @@ import { JsonStore, type DbData } from "./json-store.js";
 import { acquireSchedulerLock, releaseSchedulerLock, schedulerLockOwner } from "./lock.js";
 import { mediaPublicUrl, readMediaBlob } from "./media.js";
 import { SecretBox } from "./secret-box.js";
-import { validateDraft } from "./validation.js";
+import { parseLinkGuard, validateDraft } from "./validation.js";
 import { buildDraftPreview } from "./preview.js";
 import { articleContentHash, articleStandInDraft, validateArticleDraft } from "./article.js";
 import {
@@ -344,9 +344,12 @@ export class RelayService {
   async validate(draft: PostDraft) {
     const adapters = new Map<PlatformId, PlatformAdapter>();
     for (const [platform, adapter] of this.adapters) adapters.set(platform, adapter);
+    const linkGuard = parseLinkGuard(this.env);
     return validateDraft(draft, adapters, {
       mediaPublicUrl: (item) => mediaPublicUrl(item, this.publicMediaBaseUrl, this.mediaDir),
       isLive: (platform) => this.adapterIsLive(this.getAdapter(platform)),
+      ...(linkGuard ? { linkGuard } : {}),
+      now: () => this.now().getTime(),
     });
   }
 
