@@ -63,7 +63,7 @@
       showError("Cannot reach the console. Is the server still running?");
     } finally {
       submitButton.disabled = false;
-      if (submitLabel) submitLabel.textContent = "Unlock console";
+      if (submitLabel) submitLabel.textContent = "Continue";
     }
   });
 

@@ -1483,7 +1483,7 @@
       <div class="kv-row"><span class="kv-key">Scheduler</span><span class="kv-value">${running ? `Active · checking every ${intervalSeconds}s${scheduler.ownedByThisProcess ? "" : " (another process owns the lock)"}` : "Paused"}</span></div>
       <div class="kv-row"><span class="kv-key">Console URL</span><span class="kv-value mono">${escapeHtml(settings.consoleUrl)}</span></div>
       <div class="kv-row"><span class="kv-key">Data directory</span><span class="kv-value mono">${escapeHtml(settings.dataDir)}</span></div>
-      <div class="kv-row"><span class="kv-key">Password</span><span class="kv-value">${protectedMode ? "Required for this console" : "Not set — open on localhost only"}</span></div>
+      <div class="kv-row"><span class="kv-key">Password</span><span class="kv-value">${protectedMode ? "Required" : "Not set"}</span></div>
       <div class="session-row">
         <div>
           <p class="kv-key">Threads auto-reply</p>
