@@ -4129,9 +4129,20 @@ code {
 
 .target-top { margin-bottom: 16px; }
 .target-name { font-size: 14px; font-weight: 600; letter-spacing: -0.02em; }
-.target-sub, .target-foot { color: var(--text-mute); font-size: 11px; }
+.target-sub { display: none; }
+.target-foot { color: var(--text-mute); font-size: 11px; }
 .target-check { border-color: var(--hairline-strong); background: #fff; }
 .target[aria-pressed="true"] .target-check { background: var(--text); border-color: var(--text); color: #fff; }
+
+.glyph,
+.glyph[data-platform="x"],
+.glyph[data-platform="threads"],
+.glyph[data-platform="tiktok"] {
+  color: var(--text);
+  background: var(--shell);
+  border-color: var(--hairline);
+  box-shadow: none;
+}
 
 .parts { gap: 10px; }
 
