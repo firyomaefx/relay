@@ -18,6 +18,7 @@ import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { errorMessage } from "@relay/core";
+import { createOAuthProvider, type OAuthProvider } from "./oauth.js";
 
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
 
@@ -26,6 +27,7 @@ export interface HttpServerOptions {
   port: number;
   dataDir: string;
   token?: string;
+  oauth?: { password?: string; publicBaseUrl?: string };
   createServer: () => McpServer;
   log: (message: string) => void;
 }
@@ -98,6 +100,16 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 export async function startHttpServer(options: HttpServerOptions): Promise<RunningHttpServer> {
   const { token, source } = await resolveToken(options);
   const url = `http://${options.host}:${options.port}/mcp`;
+  const oauth: OAuthProvider = createOAuthProvider({
+    password: options.oauth?.password ?? "",
+    publicBaseUrl: options.oauth?.publicBaseUrl,
+    secret: token,
+  });
+  const publicBase = (req: IncomingMessage): string => {
+    if (options.oauth?.publicBaseUrl?.trim()) return options.oauth.publicBaseUrl.trim().replace(/\/+$/, "");
+    const forwarded = String(req.headers["x-forwarded-proto"] ?? "").split(",")[0]?.trim();
+    return `${forwarded || "https"}://${req.headers.host ?? options.host}`;
+  };
 
   const server = createServer((req, res) => {
     void handle(req, res).catch((error) => {
@@ -115,13 +127,17 @@ export async function startHttpServer(options: HttpServerOptions): Promise<Runni
       return;
     }
 
+    if (await oauth.handle(req, res, requestUrl)) {
+      return;
+    }
+
     if (requestUrl.pathname !== "/mcp") {
       sendJson(res, 404, { error: "Not found" });
       return;
     }
 
-    if (!isAuthorized(req, token)) {
-      res.setHeader("WWW-Authenticate", 'Bearer realm="relay-mcp"');
+    if (!isAuthorized(req, token) && !oauth.authorized(req)) {
+      oauth.challenge(res, publicBase(req));
       sendJson(res, 401, { error: "Unauthorized" });
       return;
     }
