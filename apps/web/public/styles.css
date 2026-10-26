@@ -4617,11 +4617,11 @@ body {
   border-radius: 0 0 99px 99px;
   background: var(--accent-bg);
 }
-.target[data-platform="x"] { --accent-color: #1d1d1f; --accent-bg: #1d1d1f; }
-.target[data-platform="threads"] { --accent-color: #3c3c43; --accent-bg: #3c3c43; }
-.target[data-platform="tiktok"] { --accent-color: #00b8b2; --accent-bg: linear-gradient(90deg, #25f4ee, #fe2c55); }
-.target[data-platform="youtube"] { --accent-color: #ff0033; --accent-bg: #ff0033; }
-.target[data-platform="instagram"] { --accent-color: #d62976; --accent-bg: linear-gradient(90deg, #feda75, #d62976, #4f5bd5); }
+.target[data-target="x"] { --accent-color: #1d1d1f; --accent-bg: #1d1d1f; }
+.target[data-target="threads"] { --accent-color: #3c3c43; --accent-bg: #3c3c43; }
+.target[data-target="tiktok"] { --accent-color: #00b8b2; --accent-bg: linear-gradient(90deg, #25f4ee, #fe2c55); }
+.target[data-target="youtube"] { --accent-color: #ff0033; --accent-bg: #ff0033; }
+.target[data-target="instagram"] { --accent-color: #d62976; --accent-bg: linear-gradient(90deg, #feda75, #d62976, #4f5bd5); }
 
 .target:hover { border-color: var(--hairline-strong); }
 .target[aria-pressed="true"] {
@@ -4629,23 +4629,23 @@ body {
   box-shadow: 0 0 0 2px var(--accent-color);
 }
 
-.target[data-platform="x"] .glyph,
-.target[data-platform="threads"] .glyph {
+.target[data-target="x"] .glyph,
+.target[data-target="threads"] .glyph {
   color: #fff;
   background: #1d1d1f;
   border-color: #1d1d1f;
 }
-.target[data-platform="tiktok"] .glyph {
+.target[data-target="tiktok"] .glyph {
   color: #fff;
   background: linear-gradient(135deg, #25f4ee, #fe2c55);
   border-color: transparent;
 }
-.target[data-platform="youtube"] .glyph {
+.target[data-target="youtube"] .glyph {
   color: #fff;
   background: #ff0033;
   border-color: #ff0033;
 }
-.target[data-platform="instagram"] .glyph {
+.target[data-target="instagram"] .glyph {
   color: #fff;
   background: linear-gradient(135deg, #feda75, #d62976, #4f5bd5);
   border-color: transparent;
