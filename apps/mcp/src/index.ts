@@ -229,6 +229,10 @@ async function main(): Promise<void> {
       port: options.port ?? 4320,
       dataDir,
       token: options.token,
+      oauth: {
+        password: process.env.RELAY_CONSOLE_PASSWORD,
+        publicBaseUrl: process.env.RELAY_MCP_PUBLIC_URL,
+      },
       createServer: createMcpServer,
       log,
     });
