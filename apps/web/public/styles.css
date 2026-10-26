@@ -3853,3 +3853,25 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   .calendar-day { min-height: 76px; }
   .calendar-event-title { display: none; }
 }
+
+/* Source label ("Claude", "Grokbot") in front of queued and published posts. Never published. */
+.source-label {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  letter-spacing: 0.02em;
+  color: #ffd9c7;
+  background: rgba(217, 119, 87, 0.22);
+  border: 1px solid rgba(217, 119, 87, 0.45);
+  vertical-align: 1px;
+}
+.source-label[data-source="grokbot"],
+.source-label[data-source="grok"] {
+  color: #d6e4ff;
+  background: rgba(96, 140, 255, 0.2);
+  border-color: rgba(96, 140, 255, 0.45);
+}

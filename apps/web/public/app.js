@@ -271,6 +271,16 @@
     return draft.text ?? "";
   }
 
+  /** Source tag such as "Claude" or "Grokbot" (shown in the queue, never published). */
+  function draftLabel(draft) {
+    return typeof draft?.label === "string" ? draft.label.trim().slice(0, 40) : "";
+  }
+
+  function labelBadge(draft) {
+    const label = draftLabel(draft);
+    return label ? `<strong class="source-label" data-source="${escapeAttr(label.toLowerCase())}">${escapeHtml(label)}</strong> ` : "";
+  }
+
   function draftMediaCount(draft) {
     if (!draft) return 0;
     if (Array.isArray(draft.thread) && draft.thread.length) {
@@ -1200,7 +1210,7 @@
       </div>
       <div class="list-main">
         <div class="list-title">${escapeHtml(timeLabel)} ${jobStatusBadge(job.status)}</div>
-        <p class="list-excerpt">${escapeHtml(text || "Media-only post")}</p>
+        <p class="list-excerpt">${labelBadge(job.draft)}${escapeHtml(text || "Media-only post")}</p>
         <div class="list-meta">
           ${platforms.map(platformChip).join("")}
           ${media ? `<span class="meta-text">${media} media</span>` : ""}
@@ -1277,8 +1287,9 @@
           const platforms = (job.draft?.platforms ?? []).map((platform) => PLATFORM_META[platform]?.name ?? platform).join(" · ");
           const text = draftText(job.draft) || (job.kind === "article" ? job.article?.title : "") || "Media-only post";
           const time = new Date(job.scheduleAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-          return `<div class="calendar-event" data-tone="${recurring ? "recurring" : tone}" title="${escapeAttr(`${time} · ${platforms} · ${text}`)}">
-            <span class="calendar-event-time">${escapeHtml(time)}${recurring ? " ↻" : ""}</span>
+          const label = draftLabel(job.draft);
+          return `<div class="calendar-event" data-tone="${recurring ? "recurring" : tone}" title="${escapeAttr(`${time} · ${label ? `${label} · ` : ""}${platforms} · ${text}`)}">
+            <span class="calendar-event-time">${labelBadge(job.draft)}${escapeHtml(time)}${recurring ? " ↻" : ""}</span>
             <span class="calendar-event-title">${escapeHtml(text)}</span>
           </div>`;
         });
@@ -1321,7 +1332,7 @@
       </div>
       <div class="list-main">
         <div class="list-title">${escapeHtml(formatShort(record.createdAt))} ${record.scheduledFor ? statusBadge("Scheduled run", "neutral") : ""}</div>
-        <p class="list-excerpt">${escapeHtml(text || "Media-only post")}</p>
+        <p class="list-excerpt">${labelBadge(record.draft)}${escapeHtml(text || "Media-only post")}</p>
         <div class="result-chip-group">${results.map(historyResultChip).join("")}</div>
         <div class="list-meta">
           ${(record.draft?.platforms ?? []).map(platformChip).join("")}
