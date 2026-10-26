@@ -1512,10 +1512,10 @@
         </div>
         <p class="autoreply-remark ${autoReplyOn ? "is-on" : ""}">${autoReplyOn ? "Replies to genuine comments in a 30-minute window. Spam and hostile comments are flagged, not answered." : "Off. New comments are left untouched."}</p>
         <div class="autoreply-platforms">
-          <span class="access-chip is-live">Threads · live</span>
-          <span class="access-chip">Instagram · API access</span>
-          <span class="access-chip">X · API access</span>
-          <span class="access-chip">TikTok · API access</span>
+          <span class="access-chip is-live" title="Auto-reply is enabled on Threads.">Threads · live</span>
+          <span class="access-chip is-ready" title="Instagram comments permission is present; the auto-reply loop still needs to be enabled.">Instagram · scope ready</span>
+          <span class="access-chip" title="X comment endpoints are not implemented in Relay yet.">X · setup needed</span>
+          <span class="access-chip" title="TikTok comment scopes are not granted to this app yet.">TikTok · access needed</span>
         </div>
         <div class="deepseek-key">
           <label class="field-label" for="deepseekKey">DeepSeek API key</label>

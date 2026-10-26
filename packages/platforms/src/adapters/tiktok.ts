@@ -225,10 +225,26 @@ export class TikTokAdapter implements PlatformAdapter {
       auto_add_music: autoAddMusic,
     };
 
-    const publishId =
-      videos.length > 0
-        ? await this.publishVideo(ctx, tokens, videos[0]!, draft ? null : videoPostInfo)
-        : await this.publishPhotos(ctx, tokens, photos, photoPostInfo);
+    let publishId: string;
+    let draftFallback = false;
+    if (videos.length > 0) {
+      try {
+        publishId = await this.publishVideo(ctx, tokens, videos[0]!, draft ? null : videoPostInfo);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        // TikTok blocks public Direct Posts until the app passes its audit.
+        // Send the video to the creator's inbox instead of losing the upload.
+        if (!draft && /unaudited_client_can_only_post_to_private_accounts/i.test(message)) {
+          publishId = await this.publishVideo(ctx, tokens, videos[0]!, null);
+          draftFallback = true;
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      publishId = await this.publishPhotos(ctx, tokens, photos, photoPostInfo);
+    }
+    const usedDraft = draft || draftFallback;
     // Persist the publish id before waiting for TikTok to finish processing so a
     // later status failure is still a partial success, not a lost post.
     await ctx.onPartPublished?.({
@@ -238,13 +254,14 @@ export class TikTokAdapter implements PlatformAdapter {
       details: {
         publishId,
         mediaType: videos.length > 0 ? "video" : "photo",
-        mode: draft ? "draft" : "direct",
+        mode: usedDraft ? "draft" : "direct",
         privacy,
+        ...(draftFallback ? { draftFallback: true, reason: "TikTok app is unaudited; video was sent to the TikTok inbox." } : {}),
       },
     });
     // Inbox drafts are complete once the chunks are uploaded; TikTok keeps them
     // as editable drafts and does not report a Direct Post status for them.
-    const status = draft ? "DRAFT_UPLOADED" : await this.waitForPublish(ctx, tokens, publishId);
+    const status = usedDraft ? "DRAFT_UPLOADED" : await this.waitForPublish(ctx, tokens, publishId);
 
     return {
       platformPostId: publishId,
@@ -253,10 +270,11 @@ export class TikTokAdapter implements PlatformAdapter {
         publishId,
         status,
         mediaType: videos.length > 0 ? "video" : "photo",
-        mode: draft ? "draft" : "direct",
+        mode: usedDraft ? "draft" : "direct",
         privacy,
         requestedPrivacy,
         privacyFallback,
+        draftFallback,
         disableComment,
         captionLength: caption.length,
         ...(photos.length > 0 ? { autoAddMusic } : {}),
