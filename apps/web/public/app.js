@@ -1578,6 +1578,19 @@
       null,
       2,
     );
+    els.tiktokWebSnippet.textContent = JSON.stringify(
+      {
+        mcpServers: {
+          "relay-tiktok-web": {
+            command: "node",
+            args: ["C:\\Users\\User\\Documents\\deepseek-harness\\default-workspace\\apps\\tiktok-web\\dist\\index.js"],
+            cwd: "C:\\Users\\User\\Documents\\deepseek-harness\\default-workspace",
+          },
+        },
+      },
+      null,
+      2,
+    );
 
     const settingsModeText = els.settingsModeBadge.querySelector("span:last-child");
     if (settingsModeText) settingsModeText.textContent = settings.mock ? "Simulated" : "Live";
@@ -1703,6 +1716,16 @@
       } catch {
         toast({ tone: "error", title: "Could not copy", text: "Select the snippet manually and copy it." });
       }
+    }
+  }
+
+  async function copyTiktokWebConfig() {
+    const text = els.tiktokWebSnippet.textContent ?? "";
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ tone: "success", title: "Copied", text: "TikTok Web MCP configuration copied." });
+    } catch {
+      toast({ tone: "error", title: "Could not copy", text: "Select the TikTok Web snippet manually." });
     }
   }
 
@@ -1982,6 +2005,8 @@
       mediaInfo: $("#mediaInfo"),
       mcpSnippet: $("#mcpSnippet"),
       copyMcpBtn: $("#copyMcpBtn"),
+      tiktokWebSnippet: $("#tiktokWebSnippet"),
+      copyTiktokWebBtn: $("#copyTiktokWebBtn"),
       logoutBtn: $("#logoutBtn"),
       toasts: $("#toasts"),
       toastTemplate: $("#toastTemplate"),
@@ -2240,6 +2265,7 @@
     });
 
     els.copyMcpBtn.addEventListener("click", () => void copyMcpConfig());
+    els.copyTiktokWebBtn.addEventListener("click", () => void copyTiktokWebConfig());
 
     els.logoutBtn.addEventListener("click", () => void logout());
     els.settingsLogoutBtn.addEventListener("click", () => void logout());
