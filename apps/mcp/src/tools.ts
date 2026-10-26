@@ -118,6 +118,11 @@ const postInputSchema = z.object({
     .string()
     .optional()
     .describe("ISO-8601 timestamp. If it is in the future the post is queued for the scheduler; otherwise it is published immediately."),
+  label: z
+    .string()
+    .max(40)
+    .optional()
+    .describe('Who planned this post, shown in front of it in the Relay queue and calendar, e.g. "Claude" or "Grokbot". Never published.'),
   recurrence: z
     .object({
       interval: z.enum(["daily", "weekly"]).describe("Repeat interval."),
@@ -283,6 +288,7 @@ function toDraft(input: z.infer<typeof postInputSchema>): PostDraft {
     ...(input.recurrence ? { recurrence: input.recurrence } : {}),
     options: input.options,
     ...(input.replyToId?.trim() ? { replyToId: input.replyToId.trim() } : {}),
+    ...(input.label?.trim() ? { label: input.label.trim() } : {}),
   };
 }
 

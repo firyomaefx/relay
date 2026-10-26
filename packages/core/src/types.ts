@@ -89,6 +89,11 @@ export interface PostDraft {
   /** Shorthand for options.<platform>.replyToId when the draft targets only X or only Threads (alias: parentPostId). */
   replyToId?: string;
   parentPostId?: string;
+  /**
+   * Internal source tag shown in front of the post in Relay's queue and calendar
+   * (for example "Claude" or "Grokbot"). Never sent to any platform. Max 40 characters.
+   */
+  label?: string;
 }
 
 /** A recurring/evergreen scheduled post. */
