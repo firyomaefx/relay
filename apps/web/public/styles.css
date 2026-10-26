@@ -4844,5 +4844,52 @@ body { font-size: 17px; }
   .primary-btn { font-size: 16px; }
 }
 
+/* Auto-reply settings */
+.autoreply-card {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: #fbfbfc;
+}
+.autoreply-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.autoreply-head .kv-value { font-size: 17px; font-weight: 600; color: var(--text); }
+.autoreply-head .switch-track { width: 46px; height: 27px; background: #d2d2d7; }
+.autoreply-head .switch-thumb { width: 23px; height: 23px; }
+.autoreply-head .switch-input:checked + .switch-track { background: #34c759; }
+.autoreply-head .switch-input:checked + .switch-track .switch-thumb { transform: translateX(19px); }
+.autoreply-remark {
+  margin: 8px 0 0;
+  color: var(--text-mute);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.autoreply-remark.is-on { color: #1f7a3a; }
+.autoreply-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+.access-chip {
+  padding: 4px 8px;
+  border-radius: 99px;
+  background: var(--shell);
+  color: var(--text-mute);
+  font-size: 11px;
+  font-weight: 500;
+}
+.access-chip.is-live { background: #e8f8ed; color: #1f7a3a; }
+.deepseek-key { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); }
+.deepseek-row { display: flex; gap: 8px; margin-top: 7px; }
+.deepseek-row .input { flex: 1; min-width: 0; }
+.deepseek-row .ghost-btn { flex: none; }
+
+
 
 

@@ -13,6 +13,7 @@ import { AuthError, RelayError, errorMessage } from "./errors.js";
 import { JsonStore, type DbData } from "./json-store.js";
 import { acquireSchedulerLock, releaseSchedulerLock, schedulerLockOwner } from "./lock.js";
 import { mediaPublicUrl, readMediaBlob } from "./media.js";
+import { extractVideoCarousel } from "./video-carousel.js";
 import { SecretBox } from "./secret-box.js";
 import { parseLinkGuard, validateDraft } from "./validation.js";
 import { buildDraftPreview } from "./preview.js";
@@ -183,7 +184,12 @@ export class RelayService {
       logger: this.logger,
       generator:
         options.replyGenerator ??
-        createDeepSeekReplyGenerator({ env: this.env, fetchImpl: this.fetchImpl, logger: this.logger }),
+        createDeepSeekReplyGenerator({
+          env: this.env,
+          apiKey: () => this.getDeepSeekApiKey(),
+          fetchImpl: this.fetchImpl,
+          logger: this.logger,
+        }),
       readComments: (postId) => this.readThreadsPostComments(postId),
       listOwnPosts: () => this.listThreadsOwnPosts(),
       reply: (commentId, text) => this.replyToThreadsComment(commentId, text),
@@ -309,8 +315,30 @@ export class RelayService {
       passwordProtected: Boolean(this.env.RELAY_CONSOLE_PASSWORD),
       platforms: await this.platformStatuses(),
       threadsAutoReplyEnabled: this.autoReply.isEnabled(),
-      threadsAutoReplyConfigured: Boolean(this.env.DEEPSEEK_API_KEY?.trim()),
+      threadsAutoReplyConfigured: Boolean(this.getDeepSeekApiKey()),
     };
+  }
+
+  /** DeepSeek key from the environment or the encrypted console setting. */
+  getDeepSeekApiKey(): string | undefined {
+    const envKey = this.env.DEEPSEEK_API_KEY?.trim();
+    if (envKey) return envKey;
+    const secret = this.store.read((db) => db.deepseekSecret);
+    if (!secret) return undefined;
+    try {
+      return this.box.decrypt<{ apiKey?: string }>(secret)?.apiKey?.trim() || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Save or clear the DeepSeek key. The key is encrypted at rest. */
+  async setDeepSeekApiKey(apiKey: string | null): Promise<boolean> {
+    const trimmed = apiKey?.trim() ?? "";
+    await this.store.mutate((db) => {
+      db.deepseekSecret = trimmed ? this.box.encrypt({ apiKey: trimmed }) : null;
+    });
+    return Boolean(trimmed);
   }
 
   /** Effective auto-reply switch (env toggle AND the persisted settings flag). */
@@ -722,11 +750,29 @@ export class RelayService {
         : undefined,
     );
     let tokens = stored.secret ? this.box.decrypt<OAuthTokens>(stored.secret) : null;
+    let publishPost = post;
+    if (
+      (post.platform === "instagram" || post.platform === "tiktok") &&
+      post.options.carouselFromVideo
+    ) {
+      const video = post.parts.flatMap((part) => part.media).find((item) => item.kind === "video");
+      if (video) {
+        const frames = await extractVideoCarousel(video, this.mediaDir, post.options.carouselSlides ?? 6);
+        publishPost = {
+          ...post,
+          parts: post.parts.map((part, index) =>
+            index === 0
+              ? { ...part, media: frames }
+              : part,
+          ),
+        };
+      }
+    }
 
     try {
       let result;
       try {
-        result = await adapter.publish(ctx, { account: stored.account, tokens, post });
+        result = await adapter.publish(ctx, { account: stored.account, tokens, post: publishPost });
       } catch (error) {
         // Never replay a whole thread after some parts already exist: the retry
         // would publish those parts twice. Return the partial success instead.
@@ -737,7 +783,7 @@ export class RelayService {
             const current = db.accounts[post.platform];
             if (current) db.accounts[post.platform] = { account: current.account, secret: this.box.encrypt(refreshed) };
           });
-          result = await adapter.publish(ctx, { account: stored.account, tokens, post });
+          result = await adapter.publish(ctx, { account: stored.account, tokens, post: publishPost });
         } else {
           throw error;
         }

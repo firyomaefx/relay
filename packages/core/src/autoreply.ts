@@ -159,6 +159,7 @@ function buildUserPrompt(input: ReplyGeneratorInput): string {
  */
 export function createDeepSeekReplyGenerator(options: {
   env: NodeJS.ProcessEnv;
+  apiKey?: () => string | undefined;
   fetchImpl?: typeof fetch;
   logger?: (message: string) => void;
 }): ReplyGenerator {
@@ -167,7 +168,7 @@ export function createDeepSeekReplyGenerator(options: {
 
   return {
     async generate(input: ReplyGeneratorInput): Promise<ReplyGeneratorResult> {
-      const apiKey = options.env.DEEPSEEK_API_KEY?.trim();
+      const apiKey = (options.apiKey?.() ?? options.env.DEEPSEEK_API_KEY)?.trim();
       if (!apiKey) {
         logger("[threads-autoreply] DEEPSEEK_API_KEY is missing; skipping this comment and posting nothing");
         throw new RelayError(

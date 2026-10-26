@@ -27,6 +27,8 @@ export interface DbData {
   threadsAutoReply: ThreadsAutoReplyState;
   /** Seen / replied comment ids for relay_comments_new and relay_reply. */
   comments: CommentsState;
+  /** Encrypted DeepSeek API key saved from the console. */
+  deepseekSecret?: EncryptedBlob | null;
 }
 
 export function emptyThreadsAutoReplyState(): ThreadsAutoReplyState {
@@ -40,7 +42,7 @@ export function emptyThreadsAutoReplyState(): ThreadsAutoReplyState {
 }
 
 function emptyDb(): DbData {
-  return { version: 2, accounts: {}, posts: [], queue: [], oauth: {}, threadsAutoReply: emptyThreadsAutoReplyState(), comments: emptyCommentsState() };
+  return { version: 2, accounts: {}, posts: [], queue: [], oauth: {}, threadsAutoReply: emptyThreadsAutoReplyState(), comments: emptyCommentsState(), deepseekSecret: null };
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -174,5 +176,6 @@ function normalize(raw: string): DbData {
       replied: Array.isArray(storedComments?.replied) ? storedComments.replied : [],
       templateCursor: typeof storedComments?.templateCursor === "number" ? storedComments.templateCursor : 0,
     },
+    deepseekSecret: parsed.deepseekSecret && typeof parsed.deepseekSecret === "object" ? parsed.deepseekSecret : null,
   };
 }
