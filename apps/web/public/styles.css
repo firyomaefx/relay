@@ -4796,4 +4796,53 @@ body {
   .icon-btn.menu-btn { display: none !important; }
 }
 
+/* Larger reading scale */
+body { font-size: 17px; }
+.display { font-size: clamp(54px, 5vw, 80px); }
+.panel-head h3 { font-size: 23px; }
+.nav-item { font-size: 16px; }
+.topbar-title { font-size: 14px; }
+.target-name { font-size: 16px; }
+.target-foot { font-size: 12.5px; }
+.glyph { width: 50px; height: 50px; border-radius: 15px; font-size: 18px; }
+.glyph svg { width: 26px; height: 26px; }
+.target-check { width: 26px; height: 26px; }
+.target-check svg { width: 14px; height: 14px; }
+.field-label { font-size: 14px; }
+.input, .select { height: 50px; font-size: 16px; }
+.switch-copy { font-size: 14px; }
+.part-text { font-size: 18px; min-height: 96px; }
+.primary-btn { height: 52px; font-size: 16px; }
+.ghost-btn { height: 46px; font-size: 15px; }
+.publish-summary { font-size: 14px; }
+.preview-part p { font-size: 14px; }
+.preview-platform { font-size: 13px; }
+.list-title { font-size: 16px; }
+.list-excerpt, .list-meta { font-size: 12px; }
+.account-name { font-size: 19px; }
+.account-desc { font-size: 14px; }
+.account-handle strong { font-size: 14px; }
+.kv-key { font-size: 12px; }
+.kv-value { font-size: 14px; }
+.cred-title { font-size: 16px; }
+.auth-title { font-size: 38px; }
+.auth-lede { font-size: 15px; }
+.modal-title { font-size: 25px; }
+.modal-body { font-size: 15px; }
+.toast-title { font-size: 15px; }
+.toast-text { font-size: 13px; }
+
+@media (max-width: 760px) {
+  body { font-size: 16px; }
+  .display { font-size: clamp(42px, 11vw, 50px); }
+  .panel-head h3 { font-size: 21px; }
+  .nav-item { font-size: 11px; }
+  .nav-label { font-size: 11px; }
+  .target-name { font-size: 16px; }
+  .field-label { font-size: 14px; }
+  .input, .select { font-size: 17px; }
+  .primary-btn { font-size: 16px; }
+}
+
+
 
