@@ -3,22 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#050506" />
-  <meta name="description" content="Relay local console — compose once, publish to X, Threads and TikTok." />
-  <title>Relay · Local console</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f5f5f7" />
+  <meta name="description" content="Relay publishing console." />
+  <title>Relay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="/app.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-  <div class="ambient" aria-hidden="true">
-    <span class="orb orb-violet"></span>
-    <span class="orb orb-emerald"></span>
-    <span class="orb orb-rose"></span>
-  </div>
-  <div class="grain" aria-hidden="true"></div>
 
   <div class="app-shell" id="appShell">
     <aside class="sidebar" id="sidebar" aria-label="Console navigation">
@@ -34,7 +28,6 @@
           </span>
           <span class="brand-text">
             <span class="brand-word">Relay</span>
-            <span class="brand-sub">local console</span>
           </span>
         </a>
 
@@ -107,7 +100,6 @@
             </svg>
             <span>Sign out</span>
           </button>
-          <p class="sidebar-meta">v0.1.0 · localhost</p>
         </div>
       </div>
     </aside>
@@ -530,12 +522,6 @@
         </section>
 
       </section>
-
-      <footer class="app-footer">
-        <span>Relay — self-hosted publishing</span>
-        <span class="footer-dot" aria-hidden="true">·</span>
-        <span>Console runs on your machine</span>
-      </footer>
     </main>
   </div>
 
