@@ -4793,6 +4793,7 @@ body {
   .previews { max-height: none; }
   .calendar-day { min-height: 82px; }
   .auth-shell { padding: 20px; }
+  .icon-btn.menu-btn { display: none !important; }
 }
 
 
