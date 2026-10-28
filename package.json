@@ -23,6 +23,8 @@
     "batch": "node tools/relay-batch.mjs",
     "youtube-max": "node tools/youtube-max-upload.mjs",
     "mcp:http": "node apps/mcp/dist/index.js --http --port 4320",
+    "cloud:admin": "node packages/cloud/dist/cli.js",
+    "cloud:mcp": "node apps/mcp/dist/cloud-entry.js",
     "tiktok-web": "npm run build -w @relay/tiktok-web && node apps/tiktok-web/dist/index.js"
   },
   "devDependencies": {
@@ -30,4 +32,5 @@
     "typescript": "^5.9.3"
   }
 }
+
 

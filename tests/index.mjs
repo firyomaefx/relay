@@ -20,6 +20,8 @@ import "./unit/comments-adapters.test.mjs";
 import "./unit/preview-recurrence.test.mjs";
 import "./unit/link-guard.test.mjs";
 import "./unit/label.test.mjs";
+import "./unit/cloud-auth.test.mjs";
+import "./e2e/cloud-mcp.test.mjs";
 import "./e2e/mcp.test.mjs";
 import "./e2e/mcp-article.test.mjs";
 import "./e2e/mcp-comments.test.mjs";

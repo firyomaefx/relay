@@ -1,0 +1,211 @@
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { mkdirSync, chmodSync } from "node:fs";
+import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { RelayError } from "@relay/core";
+
+export interface Customer {
+  id: string;
+  displayName: string;
+  status: "active" | "disabled";
+  owner: boolean;
+  dailyCap: number | null;
+  monthlyCap: number | null;
+  createdAt: string;
+}
+
+export interface ApiKeyRecord {
+  id: string;
+  customerId: string;
+  prefix: string;
+  label: string | null;
+  status: "active" | "revoked";
+  createdAt: string;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+}
+
+export interface CreatedApiKey extends ApiKeyRecord {
+  /** Returned exactly once. Never stored. */
+  key: string;
+}
+
+export interface ApiKeyIdentity {
+  customer: Customer;
+  key: ApiKeyRecord;
+}
+
+function hashKey(raw: string): string {
+  return createHash("sha256").update(raw, "utf8").digest("hex");
+}
+
+function toCustomer(row: Record<string, unknown>): Customer {
+  return {
+    id: String(row.id),
+    displayName: String(row.display_name),
+    status: String(row.status) === "disabled" ? "disabled" : "active",
+    owner: Number(row.owner) === 1,
+    dailyCap: row.daily_cap == null ? null : Number(row.daily_cap),
+    monthlyCap: row.monthly_cap == null ? null : Number(row.monthly_cap),
+    createdAt: String(row.created_at),
+  };
+}
+
+function toKey(row: Record<string, unknown>): ApiKeyRecord {
+  return {
+    id: String(row.id),
+    customerId: String(row.customer_id),
+    prefix: String(row.prefix),
+    label: row.label == null ? null : String(row.label),
+    status: String(row.status) === "revoked" ? "revoked" : "active",
+    createdAt: String(row.created_at),
+    revokedAt: row.revoked_at == null ? null : String(row.revoked_at),
+    lastUsedAt: row.last_used_at == null ? null : String(row.last_used_at),
+  };
+}
+
+/**
+ * Separate cloud database. It never reads or mutates db.json.
+ * Money and tenant data are added here in later phases.
+ */
+export class CloudStore {
+  private constructor(private readonly db: DatabaseSync) {}
+
+  static open(dbPath: string): CloudStore {
+    mkdirSync(path.dirname(dbPath), { recursive: true });
+    const db = new DatabaseSync(dbPath);
+    try {
+      chmodSync(dbPath, 0o600);
+    } catch {
+      // Windows ACLs are managed by the host; the DB contains only hashes in Phase 1.
+    }
+    db.exec("PRAGMA journal_mode = WAL");
+    db.exec("PRAGMA foreign_keys = ON");
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        owner INTEGER NOT NULL DEFAULT 0,
+        daily_cap INTEGER,
+        monthly_cap INTEGER,
+        created_at TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS customers_one_owner
+        ON customers(owner) WHERE owner = 1;
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES customers(id),
+        key_hash TEXT NOT NULL UNIQUE,
+        prefix TEXT NOT NULL,
+        label TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TEXT NOT NULL,
+        revoked_at TEXT,
+        last_used_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS api_keys_customer ON api_keys(customer_id);
+    `);
+    return new CloudStore(db);
+  }
+
+  createCustomer(input: { displayName: string; owner?: boolean; dailyCap?: number | null; monthlyCap?: number | null }): Customer {
+    const displayName = input.displayName.trim();
+    if (!displayName) throw new RelayError("Customer name is required.", "cloud_customer_name_required", undefined, 400);
+    const id = `cus_${randomUUID()}`;
+    const createdAt = new Date().toISOString();
+    try {
+      this.db.prepare(
+        "INSERT INTO customers (id, display_name, status, owner, daily_cap, monthly_cap, created_at) VALUES (?, ?, 'active', ?, ?, ?, ?)",
+      ).run(id, displayName, input.owner ? 1 : 0, input.dailyCap ?? null, input.monthlyCap ?? null, createdAt);
+    } catch (error) {
+      if (String(error).includes("UNIQUE") && input.owner) {
+        throw new RelayError("An owner customer already exists.", "cloud_owner_exists", undefined, 409);
+      }
+      throw error;
+    }
+    return this.getCustomer(id)!;
+  }
+
+  getCustomer(id: string): Customer | null {
+    const row = this.db.prepare("SELECT * FROM customers WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    return row ? toCustomer(row) : null;
+  }
+
+  listCustomers(): Customer[] {
+    return (this.db.prepare("SELECT * FROM customers ORDER BY created_at ASC").all() as Record<string, unknown>[]).map(toCustomer);
+  }
+
+  createApiKey(customerId: string, label?: string): CreatedApiKey {
+    const customer = this.getCustomer(customerId);
+    if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+    if (customer.status !== "active") throw new RelayError("Customer is disabled.", "cloud_customer_disabled", undefined, 409);
+    const prefix = randomBytes(5).toString("hex");
+    const secret = randomBytes(32).toString("base64url");
+    const raw = `rly_${prefix}_${secret}`;
+    const id = `key_${randomUUID()}`;
+    const createdAt = new Date().toISOString();
+    this.db.prepare(
+      "INSERT INTO api_keys (id, customer_id, key_hash, prefix, label, status, created_at) VALUES (?, ?, ?, ?, ?, 'active', ?)",
+    ).run(id, customerId, hashKey(raw), prefix, label?.trim() || null, createdAt);
+    return {
+      id,
+      customerId,
+      prefix,
+      label: label?.trim() || null,
+      status: "active",
+      createdAt,
+      revokedAt: null,
+      lastUsedAt: null,
+      key: raw,
+    };
+  }
+
+  listApiKeys(customerId?: string): ApiKeyRecord[] {
+    const rows = customerId
+      ? (this.db.prepare("SELECT * FROM api_keys WHERE customer_id = ? ORDER BY created_at ASC").all(customerId) as Record<string, unknown>[])
+      : (this.db.prepare("SELECT * FROM api_keys ORDER BY created_at ASC").all() as Record<string, unknown>[]);
+    return rows.map(toKey);
+  }
+
+  revokeApiKey(id: string): ApiKeyRecord {
+    const current = this.db.prepare("SELECT * FROM api_keys WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    if (!current) throw new RelayError("API key not found.", "cloud_api_key_not_found", undefined, 404);
+    if (String(current.status) !== "revoked") {
+      this.db.prepare("UPDATE api_keys SET status = 'revoked', revoked_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+    }
+    return toKey(this.db.prepare("SELECT * FROM api_keys WHERE id = ?").get(id) as Record<string, unknown>);
+  }
+
+  /** Resolve a raw API key to exactly one active customer. */
+  resolveApiKey(rawKey: string): ApiKeyIdentity {
+    if (!rawKey || !rawKey.startsWith("rly_")) {
+      throw new RelayError("Invalid API key.", "cloud_api_key_invalid", undefined, 401);
+    }
+    const row = this.db.prepare(
+      `SELECT k.*, c.id AS c_id, c.display_name, c.status AS c_status, c.owner, c.daily_cap, c.monthly_cap, c.created_at AS c_created_at
+       FROM api_keys k JOIN customers c ON c.id = k.customer_id
+       WHERE k.key_hash = ?`,
+    ).get(hashKey(rawKey)) as Record<string, unknown> | undefined;
+    if (!row) throw new RelayError("Invalid API key.", "cloud_api_key_invalid", undefined, 401);
+    if (String(row.status) !== "active") throw new RelayError("API key revoked.", "cloud_api_key_revoked", undefined, 401);
+    if (String(row.c_status) !== "active") throw new RelayError("Customer disabled.", "cloud_customer_disabled", undefined, 403);
+    this.db.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").run(new Date().toISOString(), String(row.id));
+    return {
+      customer: {
+        id: String(row.c_id),
+        displayName: String(row.display_name),
+        status: "active",
+        owner: Number(row.owner) === 1,
+        dailyCap: row.daily_cap == null ? null : Number(row.daily_cap),
+        monthlyCap: row.monthly_cap == null ? null : Number(row.monthly_cap),
+        createdAt: String(row.c_created_at),
+      },
+      key: toKey(row),
+    };
+  }
+
+  close(): void {
+    this.db.close();
+  }
+}

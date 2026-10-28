@@ -28,7 +28,10 @@ export interface HttpServerOptions {
   dataDir: string;
   token?: string;
   oauth?: { password?: string; publicBaseUrl?: string };
-  createServer: () => McpServer;
+  /** Optional additional auth layer for a cloud-only entry point. Existing
+   *  callers omit it, preserving the owner bearer/OAuth behaviour exactly. */
+  authorize?: (req: IncomingMessage) => Promise<boolean>;
+  createServer: (req?: IncomingMessage) => McpServer;
   log: (message: string) => void;
 }
 
@@ -136,7 +139,8 @@ export async function startHttpServer(options: HttpServerOptions): Promise<Runni
       return;
     }
 
-    if (!isAuthorized(req, token) && !oauth.authorized(req)) {
+    const cloudAuthorized = options.authorize ? await options.authorize(req) : false;
+    if (!cloudAuthorized && !isAuthorized(req, token) && !oauth.authorized(req)) {
       oauth.challenge(res, publicBase(req));
       sendJson(res, 401, { error: "Unauthorized" });
       return;
@@ -158,7 +162,7 @@ export async function startHttpServer(options: HttpServerOptions): Promise<Runni
 
     // Stateless mode: one transport/server per request. The Relay service is
     // shared, so all tools see the same accounts, queue and scheduler lock.
-    const mcp = options.createServer();
+    const mcp = options.createServer(req);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,
