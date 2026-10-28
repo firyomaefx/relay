@@ -12,8 +12,9 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { loadCloudConfig, CloudStore } from "@relay/cloud";
+import { loadCloudConfig, CloudStore, TenantManager } from "@relay/cloud";
 import { authenticateApiKey } from "@relay/cloud";
+import { registerTools } from "./tools.js";
 import { startHttpServer, type RunningHttpServer } from "./http.js";
 
 function log(message: string): void {
@@ -32,6 +33,8 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
   const config = loadCloudConfig();
   if (!config.enabled) throw new Error("RELAY_CLOUD_ENABLED is not enabled.");
   const store = CloudStore.open(config.dbPath);
+  store.ensureOwnerCustomer();
+  const tenants = new TenantManager({ store, config, env: process.env, logger: log });
   const token = randomBytes(32).toString("base64url");
 
   const running = await startHttpServer({
@@ -40,14 +43,16 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
     dataDir: path.dirname(config.dbPath),
     token,
     authorize: async (req) => Boolean(customerFromRequest(store, req)),
-    createServer: (req) => {
+    createServer: async (req) => {
       const identity = req ? customerFromRequest(store, req) : null;
       if (!identity) throw new Error("Cloud customer authentication failed.");
+      const relay = await tenants.get(identity.customer);
       const server = new McpServer({ name: "relay-cloud", version: "0.1.0" });
+      registerTools(server, { relay });
       server.registerTool(
         "relay_cloud_whoami",
         {
-          description: "Return the authenticated Relay Cloud customer. Phase 1 identity probe only.",
+          description: "Return the authenticated Relay Cloud customer.",
           inputSchema: z.object({}),
         },
         async () => ({
@@ -73,6 +78,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
     ...running,
     close: async () => {
       await running.close();
+      await tenants.close();
       store.close();
     },
   };

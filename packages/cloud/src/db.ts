@@ -105,6 +105,28 @@ export class CloudStore {
         last_used_at TEXT
       );
       CREATE INDEX IF NOT EXISTS api_keys_customer ON api_keys(customer_id);
+      CREATE TABLE IF NOT EXISTS customer_data (
+        customer_id TEXT PRIMARY KEY REFERENCES customers(id),
+        data_dir TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS account_owners (
+        customer_id TEXT NOT NULL REFERENCES customers(id),
+        platform TEXT NOT NULL,
+        account_ref TEXT NOT NULL,
+        source TEXT NOT NULL,
+        PRIMARY KEY (customer_id, platform, account_ref)
+      );
+      CREATE TABLE IF NOT EXISTS job_owners (
+        job_id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES customers(id),
+        source TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS post_owners (
+        post_id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES customers(id),
+        source TEXT NOT NULL
+      );
     `);
     return new CloudStore(db);
   }
@@ -134,6 +156,25 @@ export class CloudStore {
 
   listCustomers(): Customer[] {
     return (this.db.prepare("SELECT * FROM customers ORDER BY created_at ASC").all() as Record<string, unknown>[]).map(toCustomer);
+  }
+
+  /** Internal bootstrap so the current Relay installation is always the owner. */
+  ensureOwnerCustomer(displayName = "Owner"): Customer {
+    const existing = this.db.prepare("SELECT * FROM customers WHERE owner = 1 LIMIT 1").get() as
+      | Record<string, unknown>
+      | undefined;
+    if (existing) return toCustomer(existing);
+    try {
+      return this.createCustomer({ displayName, owner: true });
+    } catch (error) {
+      if (String(error).includes("cloud_owner_exists")) {
+        const owner = this.db.prepare("SELECT * FROM customers WHERE owner = 1 LIMIT 1").get() as
+          | Record<string, unknown>
+          | undefined;
+        if (owner) return toCustomer(owner);
+      }
+      throw error;
+    }
   }
 
   createApiKey(customerId: string, label?: string): CreatedApiKey {
@@ -207,5 +248,62 @@ export class CloudStore {
 
   close(): void {
     this.db.close();
+  }
+
+  /** Persist the isolated data directory assigned to a customer. */
+  getOrCreateCustomerData(customerId: string, dataDir: string): string {
+    const existing = this.db.prepare("SELECT data_dir FROM customer_data WHERE customer_id = ?").get(customerId) as
+      | { data_dir: string }
+      | undefined;
+    if (existing) return existing.data_dir;
+    this.db.prepare("INSERT INTO customer_data (customer_id, data_dir, created_at) VALUES (?, ?, ?)").run(
+      customerId,
+      dataDir,
+      new Date().toISOString(),
+    );
+    return dataDir;
+  }
+
+  getCustomerData(customerId: string): string | null {
+    const row = this.db.prepare("SELECT data_dir FROM customer_data WHERE customer_id = ?").get(customerId) as
+      | { data_dir: string }
+      | undefined;
+    return row?.data_dir ?? null;
+  }
+
+  recordAccountOwner(customerId: string, platform: string, accountRef: string, source = "cloud"): void {
+    this.db.prepare(
+      "INSERT OR REPLACE INTO account_owners (customer_id, platform, account_ref, source) VALUES (?, ?, ?, ?)",
+    ).run(customerId, platform, accountRef, source);
+  }
+
+  recordJobOwner(customerId: string, jobId: string, source = "cloud"): void {
+    this.db.prepare("INSERT OR REPLACE INTO job_owners (job_id, customer_id, source) VALUES (?, ?, ?)").run(
+      jobId,
+      customerId,
+      source,
+    );
+  }
+
+  recordPostOwner(customerId: string, postId: string, source = "cloud"): void {
+    this.db.prepare("INSERT OR REPLACE INTO post_owners (post_id, customer_id, source) VALUES (?, ?, ?)").run(
+      postId,
+      customerId,
+      source,
+    );
+  }
+
+  ownerOfJob(jobId: string): string | null {
+    const row = this.db.prepare("SELECT customer_id FROM job_owners WHERE job_id = ?").get(jobId) as
+      | { customer_id: string }
+      | undefined;
+    return row?.customer_id ?? null;
+  }
+
+  ownerOfPost(postId: string): string | null {
+    const row = this.db.prepare("SELECT customer_id FROM post_owners WHERE post_id = ?").get(postId) as
+      | { customer_id: string }
+      | undefined;
+    return row?.customer_id ?? null;
   }
 }
