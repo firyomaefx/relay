@@ -516,6 +516,9 @@
                       <p class="panel-eyebrow">Agents</p>
                       <h3 id="mcpTitle">MCP client</h3>
                     </div>
+                    <button class="ghost-btn small" id="showMcpAuthBtn" type="button">
+                      <span>Connect</span>
+                    </button>
                     <button class="ghost-btn small" id="copyMcpBtn" type="button">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5" /><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h1" /></svg>
                       <span>Copy</span>
@@ -523,6 +526,11 @@
                   </header>
                   <p class="panel-text">Point any MCP client at the Relay MCP server to let agents draft and schedule posts through the same local data.</p>
                   <pre class="code-block" id="mcpSnippet"></pre>
+                  <div class="mcp-auth" id="mcpAuth" hidden>
+                    <p class="field-hint">Authenticated remote MCP connection. Never share this token.</p>
+                    <pre class="code-block" id="mcpAuthSnippet"></pre>
+                    <button class="ghost-btn small" id="copyMcpAuthBtn" type="button"><span>Copy authenticated config</span></button>
+                  </div>
                 </section>
               </div>
 
