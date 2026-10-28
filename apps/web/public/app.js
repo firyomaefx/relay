@@ -1729,6 +1729,38 @@
     }
   }
 
+  async function showMcpAuth() {
+    els.showMcpAuthBtn.disabled = true;
+    try {
+      const data = await api("/api/mcp/token");
+      const config = {
+        mcpServers: {
+          relay: {
+            url: data.url,
+            headers: { Authorization: `Bearer ${data.token}` },
+          },
+        },
+      };
+      els.mcpAuthSnippet.textContent = JSON.stringify(config, null, 2);
+      els.mcpAuth.hidden = false;
+      toast({ tone: "success", title: "Authenticated config ready", text: "Copy it into your MCP client. Do not share the token." });
+    } catch (error) {
+      toast({ tone: "error", title: "Could not load MCP token", text: error.message });
+    } finally {
+      els.showMcpAuthBtn.disabled = false;
+    }
+  }
+
+  async function copyMcpAuthConfig() {
+    const text = els.mcpAuthSnippet.textContent ?? "";
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ tone: "success", title: "Copied", text: "Authenticated MCP config copied." });
+    } catch {
+      toast({ tone: "error", title: "Could not copy", text: "Select the authenticated config manually." });
+    }
+  }
+
   /* ------------------------------------------------------------------ *
    * Data loading & screen routing
    * ------------------------------------------------------------------ */
@@ -2005,6 +2037,10 @@
       mediaInfo: $("#mediaInfo"),
       mcpSnippet: $("#mcpSnippet"),
       copyMcpBtn: $("#copyMcpBtn"),
+      showMcpAuthBtn: $("#showMcpAuthBtn"),
+      mcpAuth: $("#mcpAuth"),
+      mcpAuthSnippet: $("#mcpAuthSnippet"),
+      copyMcpAuthBtn: $("#copyMcpAuthBtn"),
       tiktokWebSnippet: $("#tiktokWebSnippet"),
       copyTiktokWebBtn: $("#copyTiktokWebBtn"),
       logoutBtn: $("#logoutBtn"),
@@ -2265,6 +2301,8 @@
     });
 
     els.copyMcpBtn.addEventListener("click", () => void copyMcpConfig());
+    els.showMcpAuthBtn.addEventListener("click", () => void showMcpAuth());
+    els.copyMcpAuthBtn.addEventListener("click", () => void copyMcpAuthConfig());
     els.copyTiktokWebBtn.addEventListener("click", () => void copyTiktokWebConfig());
 
     els.logoutBtn.addEventListener("click", () => void logout());

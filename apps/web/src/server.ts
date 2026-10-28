@@ -5,7 +5,7 @@
  * RelayService used by the MCP server. No framework, no external dependencies.
  */
 import { randomBytes } from "node:crypto";
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -300,6 +300,24 @@ async function handleApi(
       await handleMediaUpload(req, res, relay);
       return;
     }
+  }
+
+  // Authenticated MCP connection details. The token is never served without a
+  // valid console session, and the page asks before revealing it.
+  if (segments.length === 3 && resource === "mcp" && segments[2] === "token" && method === "GET") {
+    const tokenFile = path.join(relay.dataDir, "mcp-http-token");
+    let token = "";
+    try {
+      token = (await readFile(tokenFile, "utf8")).trim();
+    } catch {
+      throw new RelayError("MCP HTTP token is not available. Start the Relay MCP HTTP service first.", "mcp_token_missing", undefined, 404);
+    }
+    if (!token) throw new RelayError("MCP HTTP token is empty.", "mcp_token_missing", undefined, 404);
+    const mcpUrl = relay.consoleUrl.includes("//relay.")
+      ? relay.consoleUrl.replace("//relay.", "//mcp.").replace(/\/+$/, "") + "/mcp"
+      : "https://mcp.duitpoket.fun/mcp";
+    sendJson(res, 200, { token, url: mcpUrl });
+    return;
   }
 
   // Local Threads auto-reply log: posted replies, flagged comments and windows.
