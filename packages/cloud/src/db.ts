@@ -158,6 +158,25 @@ export class CloudStore {
     return (this.db.prepare("SELECT * FROM customers ORDER BY created_at ASC").all() as Record<string, unknown>[]).map(toCustomer);
   }
 
+  /** Internal bootstrap so the current Relay installation is always the owner. */
+  ensureOwnerCustomer(displayName = "Owner"): Customer {
+    const existing = this.db.prepare("SELECT * FROM customers WHERE owner = 1 LIMIT 1").get() as
+      | Record<string, unknown>
+      | undefined;
+    if (existing) return toCustomer(existing);
+    try {
+      return this.createCustomer({ displayName, owner: true });
+    } catch (error) {
+      if (String(error).includes("cloud_owner_exists")) {
+        const owner = this.db.prepare("SELECT * FROM customers WHERE owner = 1 LIMIT 1").get() as
+          | Record<string, unknown>
+          | undefined;
+        if (owner) return toCustomer(owner);
+      }
+      throw error;
+    }
+  }
+
   createApiKey(customerId: string, label?: string): CreatedApiKey {
     const customer = this.getCustomer(customerId);
     if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);

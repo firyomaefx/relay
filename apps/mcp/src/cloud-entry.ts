@@ -33,6 +33,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
   const config = loadCloudConfig();
   if (!config.enabled) throw new Error("RELAY_CLOUD_ENABLED is not enabled.");
   const store = CloudStore.open(config.dbPath);
+  store.ensureOwnerCustomer();
   const tenants = new TenantManager({ store, config, env: process.env, logger: log });
   const token = randomBytes(32).toString("base64url");
 
