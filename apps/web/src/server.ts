@@ -211,8 +211,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
 
   // Public pricing page. It must work without a console session.
   if (isGet && (pathname === "/pricing" || pathname === "/pricing.html")) {
-    const served = await sendFile(req, res, path.join(deps.publicDir, "pricing.html"), { html: true });
-    if (!served) throw new RelayError("The pricing page is missing", "console_assets_missing", undefined, 500);
+    let html: string;
+    try {
+      html = await readFile(path.join(deps.publicDir, "pricing.html"), "utf8");
+    } catch {
+      throw new RelayError("The pricing page is missing", "console_assets_missing", undefined, 500);
+    }
+    const seeded = JSON.stringify(deps.pricing ?? null).replace(/</g, "\\u003c");
+    html = html.replace("__PRICE_DATA__", seeded);
+    res.statusCode = 200;
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.setHeader("content-length", Buffer.byteLength(html));
+    res.end(html);
     return;
   }
 
