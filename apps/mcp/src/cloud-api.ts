@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { PLATFORM_IDS, RelayError, isPlatformId, type PlatformId } from "@relay/core";
 import { authenticateApiKey } from "@relay/cloud";
-import type { CloudConfig, CloudStore, TenantManager } from "@relay/cloud";
+import type { CloudConfig, CloudStore, TenantManager, RateLimiter, CloudRateConfig } from "@relay/cloud";
 
 const MAX_BODY_BYTES = 1024 * 1024;
 
@@ -41,6 +41,8 @@ export interface CloudApiOptions {
   store: CloudStore;
   tenants: TenantManager;
   config: CloudConfig;
+  limiter?: RateLimiter;
+  rateConfig?: CloudRateConfig;
 }
 
 /** Cloud-only REST surface for customer credentials and OAuth. */
@@ -97,6 +99,7 @@ export function createCloudApi(options: CloudApiOptions) {
 
       const identity = await authenticated(req, res);
       if (!identity) return true;
+      options.limiter?.check(identity.customer.id, "api", options.rateConfig?.mcpPerMinute ?? 120, 60_000);
       const relay = await relayFor(identity);
 
       if (method === "GET" && parts.length === 2) {

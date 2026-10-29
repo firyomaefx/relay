@@ -63,6 +63,18 @@ export async function handleCloudAdmin(
   const method = (req.method ?? "GET").toUpperCase();
   const resource = segments[3] ?? "";
   try {
+    if (method === "GET" && resource === "customers" && segments[4]) {
+      const customer = deps.store.getCustomer(segments[4]);
+      if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+      send(res, 200, {
+        customer: { ...customer, ...deps.ledger.balanceWithHold(customer.id) },
+        accounts: deps.store.listCustomerAccounts(customer.id),
+        payments: deps.ledger.listPayments(customer.id, 20),
+        usage: deps.ledger.entries(customer.id, 20),
+      });
+      return;
+    }
+
     if (method === "GET" && resource === "customers") {
       const customers = deps.store.listCustomers().map((customer) => ({
         ...customer,

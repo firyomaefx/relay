@@ -1,6 +1,6 @@
 import type { PostDraft, RelayService } from "@relay/core";
 import { randomUUID } from "node:crypto";
-import type { CloudLedger, PriceTable } from "@relay/cloud";
+import type { CloudLedger, PriceTable, RateLimiter, CloudRateConfig } from "@relay/cloud";
 import type { CloudStore, Customer } from "@relay/cloud";
 import type { ToolContext } from "./tools.js";
 
@@ -18,6 +18,8 @@ export class CloudFinance {
       ledger: CloudLedger;
       prices: PriceTable;
       tenants: { get(customer: Customer): Promise<RelayService>; recordMappings(customer: Customer, relay: RelayService): Promise<void> };
+      limiter?: RateLimiter;
+      rateConfig?: CloudRateConfig;
     },
   ) {}
 
@@ -39,6 +41,7 @@ export class CloudFinance {
   }
 
   private async reserve(customer: Customer, draft: PostDraft): Promise<Hold | null> {
+    this.options.limiter?.check(customer.id, "posts", this.options.rateConfig?.postsPerHour ?? 60, 60 * 60 * 1000);
     const platforms = draft.platforms ?? [];
     const quote = this.options.prices.quote(draft, platforms);
     if (quote.total <= 0) return null;

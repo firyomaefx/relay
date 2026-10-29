@@ -17,7 +17,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { errorMessage } from "@relay/core";
+import { errorMessage, RelayError } from "@relay/core";
 import { createOAuthProvider, type OAuthProvider } from "./oauth.js";
 
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
@@ -30,7 +30,7 @@ export interface HttpServerOptions {
   oauth?: { password?: string; publicBaseUrl?: string };
   /** Optional additional auth layer for a cloud-only entry point. Existing
    *  callers omit it, preserving the owner bearer/OAuth behaviour exactly. */
-  authorize?: (req: IncomingMessage) => Promise<boolean>;
+  authorize?: (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
   /** Optional cloud-only REST routes. Existing callers omit this. */
   handleExtra?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>;
   createServer: (req?: IncomingMessage) => McpServer | Promise<McpServer>;
@@ -145,7 +145,18 @@ export async function startHttpServer(options: HttpServerOptions): Promise<Runni
       return;
     }
 
-    const cloudAuthorized = options.authorize ? await options.authorize(req) : false;
+    let cloudAuthorized = false;
+    if (options.authorize) {
+      try {
+        cloudAuthorized = await options.authorize(req, res);
+      } catch (error) {
+        if (error instanceof RelayError && !res.headersSent) {
+          sendJson(res, error.statusCode, { error: error.message, code: error.code, details: error.details });
+          return;
+        }
+        throw error;
+      }
+    }
     if (!cloudAuthorized && !isAuthorized(req, token) && !oauth.authorized(req)) {
       oauth.challenge(res, publicBase(req));
       sendJson(res, 401, { error: "Unauthorized" });

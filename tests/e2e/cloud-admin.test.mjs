@@ -40,6 +40,11 @@ test("manual cloud top-up records one payment and is idempotent", async () => {
     assert.equal(duplicate.json.paymentReplayed, true);
     assert.equal(duplicate.json.balance.available, 500);
 
+    const detail = await httpJson(server.baseUrl, `/api/cloud/admin/customers/${customer.id}`);
+    assert.equal(detail.status, 200, requestSummary(detail));
+    assert.equal(Array.isArray(detail.json.accounts), true);
+    assert.equal(detail.json.usage.length >= 1, true);
+
     const payments = await httpJson(server.baseUrl, `/api/cloud/admin/payments?customer=${customer.id}`);
     assert.equal(payments.status, 200, requestSummary(payments));
     assert.equal(payments.json.payments.length, 1);
@@ -53,3 +58,4 @@ test("manual cloud top-up records one payment and is idempotent", async () => {
     await cleanupTempDir(dir);
   }
 });
+

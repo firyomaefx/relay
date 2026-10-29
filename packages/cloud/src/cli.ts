@@ -2,6 +2,7 @@
 import { loadCloudConfig } from "./config.js";
 import { CloudStore } from "./db.js";
 import { CloudLedger } from "./ledger.js";
+import { cleanupMedia } from "./retention.js";
 
 function usage(): void {
   process.stderr.write(`Relay Cloud admin
@@ -12,6 +13,7 @@ Usage:
   relay-cloud-admin revoke-key <keyId>
   relay-cloud-admin credit <customerId> <amount> [reference] [note]
   relay-cloud-admin payments <customerId>
+  relay-cloud-admin cleanup-media [days] [--apply] [--include-owner]
   relay-cloud-admin list-customers
   relay-cloud-admin list-keys [customerId]
 
@@ -19,7 +21,7 @@ Requires RELAY_CLOUD_ENABLED=1 and RELAY_CLOUD_TOKEN_KEY.
 `);
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
   if (!command || command === "--help" || command === "-h") {
     usage();
@@ -81,6 +83,15 @@ function main(): void {
         process.stdout.write(`${JSON.stringify(ledger.listPayments(customerId, 50), null, 2)}\n`);
         return;
       }
+      case "cleanup-media": {
+        const days = Number(args.find((arg) => !arg.startsWith("--")) ?? "30");
+        if (!Number.isInteger(days) || days < 1) throw new Error("Days must be a positive whole number.");
+        const apply = args.includes("--apply");
+        const includeOwner = args.includes("--include-owner");
+        const results = await cleanupMedia(store, config, { days, apply, includeOwner });
+        process.stdout.write(`${JSON.stringify({ dryRun: !apply, days, results }, null, 2)}\n`);
+        return;
+      }
       default:
         usage();
         process.exit(1);
@@ -92,7 +103,7 @@ function main(): void {
 }
 
 try {
-  main();
+  await main();
 } catch (error) {
   process.stderr.write(`Cloud admin error: ${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);

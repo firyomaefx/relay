@@ -22,6 +22,7 @@ import "./unit/link-guard.test.mjs";
 import "./unit/label.test.mjs";
 import "./unit/cloud-auth.test.mjs";
 import "./unit/cloud-ledger.test.mjs";
+import "./unit/cloud-phase8.test.mjs";
 import "./e2e/cloud-mcp.test.mjs";
 import "./e2e/cloud-isolation.test.mjs";
 import "./e2e/cloud-credentials.test.mjs";
