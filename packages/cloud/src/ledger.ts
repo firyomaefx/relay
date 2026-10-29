@@ -40,6 +40,18 @@ function toReservation(row: Record<string, unknown>): Reservation {
   };
 }
 
+export interface PaymentEvent {
+  id: string;
+  customerId: string;
+  provider: string;
+  providerPaymentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  note: string | null;
+  createdAt: string;
+}
+
 /**
  * Append-only ledger and held reservations in cloud.sqlite. Amounts are whole
  * integer units; credits are positive, charges negative. Available balance is
@@ -76,6 +88,20 @@ export class CloudLedger {
       );
       CREATE INDEX IF NOT EXISTS reservations_customer_status ON reservations(customer_id, status);
       CREATE UNIQUE INDEX IF NOT EXISTS reservations_job ON reservations(job_id) WHERE job_id IS NOT NULL;
+      CREATE TABLE IF NOT EXISTS payment_events (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        provider_payment_id TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        currency TEXT NOT NULL,
+        status TEXT NOT NULL,
+        note TEXT,
+        raw_json TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE(provider, provider_payment_id)
+      );
+      CREATE INDEX IF NOT EXISTS payment_events_customer ON payment_events(customer_id, created_at);
     `);
   }
 
@@ -273,8 +299,105 @@ export class CloudLedger {
     }
   }
 
-  private spentSince(customerId: string, since: string): number {
-    const charges = this.db.prepare(
+  recordTopup(input: {
+    customerId: string;
+    amount: number;
+    currency?: string;
+    reference: string;
+    note?: string;
+    provider?: string;
+  }): { event: PaymentEvent; entry: LedgerEntry; paymentReplayed: boolean } {
+    if (!Number.isInteger(input.amount) || input.amount <= 0) {
+      throw new RelayError("Top-up amount must be a positive whole number.", "cloud_amount_invalid");
+    }
+    const provider = input.provider ?? "manual";
+    const providerPaymentId = input.reference.trim();
+    if (!providerPaymentId) throw new RelayError("A payment reference is required.", "cloud_payment_reference_required");
+    const existing = this.db.prepare(
+      "SELECT * FROM payment_events WHERE provider = ? AND provider_payment_id = ?",
+    ).get(provider, providerPaymentId) as Record<string, unknown> | undefined;
+    if (existing) {
+      return {
+        event: {
+          id: String(existing.id),
+          customerId: String(existing.customer_id),
+          provider: String(existing.provider),
+          providerPaymentId: String(existing.provider_payment_id),
+          amount: Number(existing.amount),
+          currency: String(existing.currency),
+          status: String(existing.status),
+          note: existing.note == null ? null : String(existing.note),
+          createdAt: String(existing.created_at),
+        },
+        entry: this.entries(input.customerId, 1).find((entry) => entry.idempotencyKey === `payment:${provider}:${providerPaymentId}`)!,
+        paymentReplayed: true,
+      };
+    }
+
+    try {
+      this.db.exec("BEGIN IMMEDIATE");
+      const event: PaymentEvent = {
+        id: `pay_${randomUUID()}`,
+        customerId: input.customerId,
+        provider,
+        providerPaymentId,
+        amount: input.amount,
+        currency: input.currency ?? "MYR",
+        status: "succeeded",
+        note: input.note?.trim() || null,
+        createdAt: new Date().toISOString(),
+      };
+      this.db.prepare(
+        "INSERT INTO payment_events (id, customer_id, provider, provider_payment_id, amount, currency, status, note, raw_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      ).run(
+        event.id,
+        event.customerId,
+        event.provider,
+        event.providerPaymentId,
+        event.amount,
+        event.currency,
+        event.status,
+        event.note,
+        JSON.stringify({ source: "manual", reference: event.providerPaymentId }),
+        event.createdAt,
+      );
+      const entry = this.insertLedger({
+        customerId: input.customerId,
+        amount: input.amount,
+        type: "topup",
+        idempotencyKey: `payment:${provider}:${providerPaymentId}`,
+        reason: input.note?.trim() || "manual top-up",
+      });
+      this.db.exec("COMMIT");
+      return { event, entry, paymentReplayed: false };
+    } catch (error) {
+      try {
+        this.db.exec("ROLLBACK");
+      } catch {
+        // No active transaction.
+      }
+      throw error;
+    }
+  }
+
+  listPayments(customerId: string, limit = 20): PaymentEvent[] {
+    const rows = this.db.prepare(
+      "SELECT * FROM payment_events WHERE customer_id = ? ORDER BY created_at DESC LIMIT ?",
+    ).all(customerId, Math.max(1, Math.min(limit, 200))) as Record<string, unknown>[];
+    return rows.map((row) => ({
+      id: String(row.id),
+      customerId: String(row.customer_id),
+      provider: String(row.provider),
+      providerPaymentId: String(row.provider_payment_id),
+      amount: Number(row.amount),
+      currency: String(row.currency),
+      status: String(row.status),
+      note: row.note == null ? null : String(row.note),
+      createdAt: String(row.created_at),
+    }));
+  }
+
+  private spentSince(customerId: string, since: string): number {    const charges = this.db.prepare(
       "SELECT COALESCE(SUM(-amount), 0) AS total FROM ledger WHERE customer_id = ? AND type = 'charge' AND created_at >= ?",
     ).get(customerId, since) as { total: number };
     return Number(charges.total);

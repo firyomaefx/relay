@@ -28,6 +28,22 @@ test("ledger keeps whole-unit balances and reserves atomically", async () => {
   }
 });
 
+test("manual payment is atomic and reference idempotency prevents double credit", async () => {
+  const dir = await makeTempDir("relay-cloud-payment-");
+  const dbPath = path.join(dir, "cloud.sqlite");
+  CloudStore.open(dbPath).close();
+  const ledger = new CloudLedger(dbPath);
+  try {
+    const first = ledger.recordTopup({ customerId: "c1", amount: 250, reference: "BANK-1", note: "invoice" });
+    assert.equal(first.paymentReplayed, false);
+    assert.equal(ledger.balance("c1"), 250);
+    const duplicate = ledger.recordTopup({ customerId: "c1", amount: 250, reference: "BANK-1" });
+    assert.equal(duplicate.paymentReplayed, true);
+    assert.equal(ledger.balance("c1"), 250);
+    assert.equal(ledger.listPayments("c1").length, 1);
+  } finally { ledger.close(); await cleanupTempDir(dir); }
+});
+
 test("insufficient balance, idempotency and the last-balance race are safe", async () => {
   const dir = await makeTempDir("relay-cloud-ledger-race-");
   const dbPath = path.join(dir, "cloud.sqlite");
@@ -56,4 +72,5 @@ test("insufficient balance, idempotency and the last-balance race are safe", asy
     await cleanupTempDir(dir);
   }
 });
+
 
