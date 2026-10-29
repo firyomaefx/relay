@@ -1,0 +1,53 @@
+{
+  "displayName": "Relay production uptime",
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": [
+    "projects/project-a22a835c-d44d-426a-86d/notificationChannels/11747320596600168650"
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  },
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "A public Relay endpoint has failed its 5-minute uptime check. Check `relay-console`, `relay-cloud-mcp` and `cloudflared` on relay-prod, then open https://relay.duitpoket.fun/pricing and https://cloud-mcp.duitpoket.fun/health."
+  },
+  "conditions": [
+    {
+      "displayName": "Relay console is down",
+      "conditionThreshold": {
+        "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND resource.type=\"uptime_url\" AND resource.labels.host=\"relay.duitpoket.fun\"",
+        "comparison": "COMPARISON_LT",
+        "thresholdValue": 1,
+        "duration": "120s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_NEXT_OLDER"
+          }
+        ],
+        "trigger": {
+          "count": 1
+        }
+      }
+    },
+    {
+      "displayName": "Relay cloud MCP is down",
+      "conditionThreshold": {
+        "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND resource.type=\"uptime_url\" AND resource.labels.host=\"cloud-mcp.duitpoket.fun\"",
+        "comparison": "COMPARISON_LT",
+        "thresholdValue": 1,
+        "duration": "120s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_NEXT_OLDER"
+          }
+        ],
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ]
+}

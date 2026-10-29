@@ -212,7 +212,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       }
       if (!deps.contactFile) throw new RelayError("Contact requests are not configured.", "contact_unavailable", undefined, 503);
       await mkdir(path.dirname(deps.contactFile), { recursive: true });
-      await appendFile(deps.contactFile, `${JSON.stringify({ name, email, message, createdAt: new Date().toISOString(), ip: req.socket.remoteAddress ?? null })}\n`, "utf8");
+      const record = { name, email, message, createdAt: new Date().toISOString(), ip: req.socket.remoteAddress ?? null };
+      await appendFile(deps.contactFile, `${JSON.stringify(record)}\\n`, "utf8");
+      const webhook = process.env.RELAY_CONTACT_WEBHOOK_URL?.trim();
+      if (webhook) {
+        void fetch(webhook, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: `Relay contact request from ${name} <${email}>: ${message}` }), signal: AbortSignal.timeout(5000) })
+          .catch((error: unknown) => deps.logger(`contact webhook failed: ${errorMessage(error)}`));
+      }
       sendJson(res, 201, { ok: true });
       return;
     }
@@ -892,6 +898,7 @@ export async function runMain(): Promise<void> {
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
+
 
 
 
