@@ -23,6 +23,8 @@ export interface Reservation {
   status: ReservationStatus;
   idempotencyKey: string;
   jobId: string | null;
+  freeUnits: number;
+  freeJson: string | null;
   createdAt: string;
   expiresAt: string;
 }
@@ -35,6 +37,8 @@ function toReservation(row: Record<string, unknown>): Reservation {
     status: String(row.status) as ReservationStatus,
     idempotencyKey: String(row.idempotency_key),
     jobId: row.job_id == null ? null : String(row.job_id),
+    freeUnits: Number(row.free_units ?? 0),
+    freeJson: row.free_json == null ? null : String(row.free_json),
     createdAt: String(row.created_at),
     expiresAt: String(row.expires_at),
   };
@@ -86,6 +90,7 @@ export class CloudLedger {
         created_at TEXT NOT NULL,
         expires_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS free_usage (customer_id TEXT PRIMARY KEY, units_used INTEGER NOT NULL DEFAULT 0);
       CREATE INDEX IF NOT EXISTS reservations_customer_status ON reservations(customer_id, status);
       CREATE UNIQUE INDEX IF NOT EXISTS reservations_job ON reservations(job_id) WHERE job_id IS NOT NULL;
       CREATE TABLE IF NOT EXISTS payment_events (
@@ -103,6 +108,23 @@ export class CloudLedger {
       );
       CREATE INDEX IF NOT EXISTS payment_events_customer ON payment_events(customer_id, created_at);
     `);
+    const columns = new Set((this.db.prepare("PRAGMA table_info(reservations)").all() as Array<{ name: string }>).map((column) => column.name));
+    if (!columns.has("free_units")) this.db.exec("ALTER TABLE reservations ADD COLUMN free_units INTEGER NOT NULL DEFAULT 0");
+    if (!columns.has("free_json")) this.db.exec("ALTER TABLE reservations ADD COLUMN free_json TEXT");
+  }
+
+  private freeUsedInTransaction(customerId: string): number {
+    const row = this.db.prepare("SELECT units_used FROM free_usage WHERE customer_id = ?").get(customerId) as { units_used: number } | undefined;
+    return Number(row?.units_used ?? 0);
+  }
+
+  private freeHeldInTransaction(customerId: string): number {
+    const row = this.db.prepare("SELECT COALESCE(SUM(free_units), 0) AS total FROM reservations WHERE customer_id = ? AND status = 'held'").get(customerId) as { total: number };
+    return Number(row.total);
+  }
+
+  freeRemaining(customerId: string, limit: number): number {
+    return Math.max(0, limit - this.freeUsedInTransaction(customerId) - this.freeHeldInTransaction(customerId));
   }
 
   private balanceInTransaction(customerId: string): number {
@@ -162,9 +184,16 @@ export class CloudLedger {
     idempotencyKey: string;
     jobId?: string;
     ttlMs?: number;
+    freeUnits?: number;
+    freeLimit?: number;
+    freeJson?: string;
   }): Reservation {
-    if (!Number.isInteger(input.amount) || input.amount <= 0) {
-      throw new RelayError("Reservation amount must be a positive whole number.", "cloud_amount_invalid");
+    if (!Number.isInteger(input.amount) || input.amount < 0) {
+      throw new RelayError("Reservation amount must be a non-negative whole number.", "cloud_amount_invalid");
+    }
+    const freeUnits = input.freeUnits ?? 0;
+    if (!Number.isInteger(freeUnits) || freeUnits < 0) {
+      throw new RelayError("Free units must be a non-negative whole number.", "cloud_free_units_invalid");
     }
     const existing = this.db.prepare("SELECT * FROM reservations WHERE idempotency_key = ?").get(input.idempotencyKey) as
       | Record<string, unknown>
@@ -172,6 +201,14 @@ export class CloudLedger {
     if (existing) return toReservation(existing);
     try {
       this.db.exec("BEGIN IMMEDIATE");
+      if (freeUnits > 0) {
+        const used = this.freeUsedInTransaction(input.customerId);
+        const heldFree = this.freeHeldInTransaction(input.customerId);
+        const limit = input.freeLimit ?? 0;
+        if (used + heldFree + freeUnits > limit) {
+          throw new RelayError("Free allowance exceeded.", "cloud_free_allowance_exceeded", { limit, used: used + heldFree, requested: freeUnits });
+        }
+      }
       const available = this.balanceInTransaction(input.customerId);
       if (available < input.amount) {
         throw new RelayError(`Insufficient balance: need ${input.amount}, available ${available}.`, "cloud_insufficient_balance", {
@@ -213,8 +250,8 @@ export class CloudLedger {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + (input.ttlMs ?? 24 * 60 * 60 * 1000)).toISOString();
       this.db.prepare(
-        "INSERT INTO reservations (id, customer_id, amount, status, idempotency_key, job_id, created_at, expires_at) VALUES (?, ?, ?, 'held', ?, ?, ?, ?)",
-      ).run(id, input.customerId, input.amount, input.idempotencyKey, input.jobId ?? null, now.toISOString(), expiresAt);
+        "INSERT INTO reservations (id, customer_id, amount, status, idempotency_key, job_id, free_units, free_json, created_at, expires_at) VALUES (?, ?, ?, 'held', ?, ?, ?, ?, ?, ?)",
+      ).run(id, input.customerId, input.amount, input.idempotencyKey, input.jobId ?? null, freeUnits, input.freeJson ?? null, now.toISOString(), expiresAt);
       this.db.exec("COMMIT");
       return toReservation({
         id,
@@ -223,6 +260,8 @@ export class CloudLedger {
         status: "held",
         idempotency_key: input.idempotencyKey,
         job_id: input.jobId ?? null,
+        free_units: freeUnits,
+        free_json: input.freeJson ?? null,
         created_at: now.toISOString(),
         expires_at: expiresAt,
       });
@@ -247,7 +286,7 @@ export class CloudLedger {
     return row ? toReservation(row) : null;
   }
 
-  commit(reservationId: string, actualAmount: number, postId?: string): LedgerEntry | null {
+  commit(reservationId: string, actualAmount: number, postId?: string, usedFreeUnits = 0): LedgerEntry | null {
     if (!Number.isInteger(actualAmount) || actualAmount < 0) {
       throw new RelayError("Charge amount must be a non-negative whole number.", "cloud_amount_invalid");
     }
@@ -261,7 +300,16 @@ export class CloudLedger {
         this.db.exec("COMMIT");
         return null;
       }
+      const reservedFree = Number(row.free_units ?? 0);
+      if (!Number.isInteger(usedFreeUnits) || usedFreeUnits < 0 || usedFreeUnits > reservedFree) {
+        throw new RelayError("Invalid free-unit settlement.", "cloud_free_units_invalid");
+      }
       this.db.prepare("UPDATE reservations SET status = 'committed' WHERE id = ?").run(reservationId);
+      if (usedFreeUnits > 0) {
+        this.db.prepare(
+          "INSERT INTO free_usage (customer_id, units_used) VALUES (?, ?) ON CONFLICT(customer_id) DO UPDATE SET units_used = units_used + excluded.units_used",
+        ).run(String(row.customer_id), usedFreeUnits);
+      }
       const entry = actualAmount > 0
         ? this.insertLedger({
             customerId: String(row.customer_id),
@@ -452,3 +500,6 @@ export class CloudLedger {
     this.db.close();
   }
 }
+
+
+

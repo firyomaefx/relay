@@ -318,7 +318,7 @@
         <div class="small">text posts from a $10 top-up</div>
       </div></div>
       <div class="bezel"><div class="core">
-        <div class="label">All video · $0.007</div>
+        <div class="label">All video · $0.006</div>
         <div class="big" id="exVideo">—</div>
         <div class="small">video posts from a $10 top-up</div>
       </div></div>
@@ -432,7 +432,7 @@ function renderPricing(d){
     </article>`).join("");
 
   const text=Number(d.prices?.threads?.text ?? d.prices?.x?.text ?? 3);
-  const video=Number(d.prices?.threads?.video ?? d.prices?.x?.video ?? 7);
+  const video=Number(d.prices?.threads?.video ?? d.prices?.x?.video ?? 6);
   const budget=10000;
   if(text>0&&video>0){
     const sets=Math.floor(budget/(2*text+video));
@@ -468,6 +468,8 @@ load();
 </script>
 </body>
 </html>
+
+
 
 
 
