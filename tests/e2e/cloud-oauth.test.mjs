@@ -15,6 +15,7 @@ test("cloud MCP supports OAuth discovery, registration and API-key authorization
   const store = CloudStore.open(dbPath);
   const customer = store.createCustomer({ displayName: "OAuth Customer" });
   const key = store.createApiKey(customer.id, "oauth");
+  const connect = store.createConnectToken(customer.id, "one-click");
   store.close();
 
   const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
@@ -111,10 +112,20 @@ test("cloud MCP supports OAuth discovery, registration and API-key authorization
     assert.equal(mcp.status, 200);
     const body = await mcp.json();
     assert.equal(body.result.serverInfo.name, "relay-cloud");
+
+    const direct = await fetch(`${BASE}/mcp?token=${encodeURIComponent(connect.token)}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "direct", version: "0" } } }),
+    });
+    assert.equal(direct.status, 200);
+    const directBody = await direct.json();
+    assert.equal(directBody.result.serverInfo.name, "relay-cloud");
   } finally {
     child.kill("SIGTERM");
     await sleep(300);
     await cleanupTempDir(dir);
   }
 });
+
 

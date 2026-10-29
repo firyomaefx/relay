@@ -1,10 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { RelayError, errorMessage } from "@relay/core";
 import { CloudLedger, CloudStore, loadCloudConfig } from "@relay/cloud";
+import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
 
 export interface CloudAdminDeps {
   store: CloudStore;
   ledger: CloudLedger;
+  billing?: StripeBillingConfig;
   close(): Promise<void>;
 }
 
@@ -16,6 +18,7 @@ export function openCloudAdmin(env: NodeJS.ProcessEnv): CloudAdminDeps | null {
   return {
     store,
     ledger,
+    billing: loadStripeConfig(env) ?? undefined,
     close: async () => {
       ledger.close();
       store.close();
@@ -92,6 +95,33 @@ export async function handleCloudAdmin(
       return;
     }
 
+    if (method === "POST" && resource === "connect-token") {
+      const body = await readJson(req);
+      const customerId = String(body.customerId ?? "").trim();
+      const created = deps.store.createConnectToken(customerId, String(body.label ?? "MCP connection"));
+      const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun/mcp";
+      send(res, 201, {
+        token: { id: created.id, prefix: created.prefix, label: created.label, createdAt: created.createdAt },
+        url: `${mcpBase}?token=${encodeURIComponent(created.token)}`,
+      });
+      return;
+    }
+
+    if (method === "POST" && resource === "checkout") {
+      if (!deps.billing) throw new RelayError("Card payments are not configured yet.", "stripe_unavailable", undefined, 503);
+      const body = await readJson(req);
+      const customerId = String(body.customerId ?? "").trim();
+      const amount = Number(body.amount);
+      if (!deps.store.getCustomer(customerId)) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+      try {
+        const session = await createCheckoutSession(deps.billing, { customerId, amount, baseUrl: process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun" });
+        send(res, 200, { url: session.url, id: session.id });
+      } catch (error) {
+        throw new RelayError(errorMessage(error), "stripe_checkout_failed", undefined, 502);
+      }
+      return;
+    }
+
     if (method === "POST" && resource === "topup") {
       const body = await readJson(req);
       const customerId = String(body.customerId ?? "").trim();
@@ -122,3 +152,4 @@ export async function handleCloudAdmin(
     send(res, status, { error: errorMessage(error), code: error instanceof RelayError ? error.code : "cloud_admin_error" });
   }
 }
+

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact Relay Cloud</title>
+<style>
+:root{--bg:#050706;--ink:#f2f5f1;--muted:#98a69d;--line:rgba(255,255,255,.12);--mint:#b8f5d0;--ease:cubic-bezier(.32,.72,0,1)}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(800px 500px at 10% -10%,rgba(58,130,92,.22),transparent 65%),var(--bg);color:var(--ink);font:15px/1.6 "Manrope",ui-sans-serif,system-ui,sans-serif;display:grid;place-items:center;padding:24px}
+main{width:min(620px,100%);border:1px solid var(--line);border-radius:24px;padding:34px;background:linear-gradient(160deg,#101a14,#080d0a)}
+a{color:var(--mint)}.eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--mint);font-weight:700}
+h1{font-family:"Sora",sans-serif;font-weight:400;font-size:38px;line-height:1.04;letter-spacing:-.05em;margin:14px 0 10px}
+p{color:var(--muted);line-height:1.7;margin:0 0 22px}
+label{display:block;font-size:11px;color:var(--dim);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.1em}
+input,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);background:#070b08;color:var(--ink);border-radius:10px;padding:11px 12px;font:inherit;outline:none}
+input:focus,textarea:focus{border-color:rgba(184,245,208,.45)}textarea{min-height:120px;resize:vertical}
+button{margin-top:18px;padding:11px 16px;border:0;border-radius:999px;background:var(--mint);color:#06110a;font:inherit;font-weight:700;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}.msg{font-size:13px;margin-top:14px;color:var(--mint)}.err{color:#ff9d8a}.back{display:inline-block;margin-top:22px;font-size:12px;text-decoration:none}
+</style>
+</head>
+<body><main>
+  <span class="eyebrow">Relay Cloud</span>
+  <h1>Talk to us.</h1>
+  <p>Agency plans, volume pricing, API access or a customer account. Leave a note and we will reply.</p>
+  <form id="contactForm">
+    <label for="name">Name</label>
+    <input id="name" name="name" required maxlength="120" autocomplete="name">
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" required maxlength="200" autocomplete="email">
+    <label for="message">What do you need?</label>
+    <textarea id="message" name="message" required maxlength="4000" placeholder="Brands, platforms, monthly volume, or the agent you want to connect."></textarea>
+    <button id="send" type="submit">Send request</button>
+    <div class="msg" id="msg" role="status"></div>
+  </form>
+  <a class="back" href="/pricing">← Back to pricing</a>
+</main>
+<script>
+const form=document.getElementById("contactForm"),msg=document.getElementById("msg"),send=document.getElementById("send");
+form.addEventListener("submit",async(e)=>{
+  e.preventDefault();msg.textContent="";msg.className="msg";
+  send.disabled=true;
+  try{
+    const body=Object.fromEntries(new FormData(form).entries());
+    const r=await fetch("/api/contact",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||"Could not send the request.");
+    form.reset();msg.textContent="Received. We will reply to your email.";msg.classList.add("msg");
+  }catch(err){msg.textContent=err.message;msg.className="msg err";}
+  finally{send.disabled=false;}
+});
+</script>
+</body>
+</html>

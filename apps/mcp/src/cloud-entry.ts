@@ -7,7 +7,7 @@
  * Relay customer API key, and currently exposes only an identity probe so Phase
  * 2 can add tenant-scoped tools without changing any existing tool.
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -28,7 +28,12 @@ function customerFromRequest(store: CloudStore, req: import("node:http").Incomin
   try {
     return authenticateApiKey(store, req);
   } catch {
-    return null;
+    try {
+      const token = new URL(req.url ?? "/", "http://relay.local").searchParams.get("token");
+      return token ? store.resolveConnectToken(token) : null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -45,10 +50,13 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
   const finance = new CloudFinance({ store, ledger, prices, tenants, limiter, rateConfig });
   const handleExtra = createCloudApi({ store, tenants, config, limiter, rateConfig });
   const token = randomBytes(32).toString("base64url");
+  const oauthSecret = createHash("sha256")
+    .update(Buffer.concat([config.tokenKey ?? Buffer.alloc(32), Buffer.from("relay-cloud-oauth", "utf8")]))
+    .digest("base64url");
   const cloudOAuth = createOAuthProvider({
     password: "",
     publicBaseUrl: process.env.RELAY_CLOUD_PUBLIC_URL?.trim() || "https://cloud-mcp.duitpoket.fun",
-    secret: token,
+    secret: oauthSecret,
     credentialLabel: "Relay Cloud API key",
     authenticate: async (credential) => {
       try {
@@ -194,6 +202,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1);
   });
 }
+
+
 
 
 

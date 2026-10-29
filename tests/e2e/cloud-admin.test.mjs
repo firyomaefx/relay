@@ -50,6 +50,13 @@ test("manual cloud top-up records one payment and is idempotent", async () => {
     assert.equal(payments.json.payments.length, 1);
     assert.equal(payments.json.payments[0].providerPaymentId, "BANK-2026-001");
 
+    const connectToken = await httpJson(server.baseUrl, "/api/cloud/admin/connect-token", { method: "POST", body: { customerId: customer.id } });
+    assert.equal(connectToken.status, 201, requestSummary(connectToken));
+    assert.match(connectToken.json.url, /^https:\/\/cloud-mcp\.duitpoket\.fun\/mcp\?token=rlc_/);
+
+    const checkout = await httpJson(server.baseUrl, "/api/cloud/admin/checkout", { method: "POST", body: { customerId: customer.id, amount: 10_000 } });
+    assert.equal(checkout.status, 503, requestSummary(checkout));
+
     const page = await fetch(`${server.baseUrl}/cloud-admin.html`);
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Cloud admin/);
@@ -58,4 +65,5 @@ test("manual cloud top-up records one payment and is idempotent", async () => {
     await cleanupTempDir(dir);
   }
 });
+
 

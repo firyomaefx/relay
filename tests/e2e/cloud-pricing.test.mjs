@@ -29,9 +29,30 @@ test("public pricing page and price API work without a console session", async (
 
     const protectedState = await httpJson(server.baseUrl, "/api/state");
     assert.equal(protectedState.status, 401);
+
+    const contactPage = await fetch(`${server.baseUrl}/contact`);
+    assert.equal(contactPage.status, 200);
+    const contact = await httpJson(server.baseUrl, "/api/contact", {
+      method: "POST",
+      body: { name: "Test", email: "test@example.com", message: "Agency inquiry" },
+    });
+    assert.equal(contact.status, 201);
+    assert.equal(contact.json.ok, true);
+
+    const connectPage = await fetch(`${server.baseUrl}/connect`);
+    assert.equal(connectPage.status, 200);
+    const connectHtml = await connectPage.text();
+    assert.match(connectHtml, /Connect your agent/);
+    assert.doesNotMatch(connectHtml, /mailto:/);
+
+    const billingPage = await fetch(`${server.baseUrl}/billing/success`);
+    assert.equal(billingPage.status, 200);
+    assert.equal(billingPage.headers.get("x-content-type-options"), "nosniff");
+    assert.ok(billingPage.headers.get("strict-transport-security"));
   } finally {
     await server.stop();
     await cleanupTempDir(dataDir);
   }
 });
+
 
