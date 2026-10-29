@@ -176,6 +176,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
         currency: deps.pricing.currency,
         unit: deps.pricing.unit,
         freeAllowancePosts: deps.pricing.free_allowance_posts ?? 0,
+        freeAllowanceUnits: deps.pricing.free_allowance_units ?? deps.pricing.free_allowance_posts ?? 0,
+        freeExcludedPlatforms: deps.pricing.free_excluded_platforms ?? [],
         prices: deps.pricing.prices,
       });
       return;
