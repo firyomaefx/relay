@@ -103,6 +103,7 @@ export async function handleCloudAdmin(
       send(res, 201, {
         token: { id: created.id, prefix: created.prefix, label: created.label, createdAt: created.createdAt },
         url: `${mcpBase}?token=${encodeURIComponent(created.token)}`,
+        connectUrl: `https://relay.duitpoket.fun/connect?token=${encodeURIComponent(created.token)}`,
       });
       return;
     }
@@ -152,4 +153,5 @@ export async function handleCloudAdmin(
     send(res, status, { error: errorMessage(error), code: error instanceof RelayError ? error.code : "cloud_admin_error" });
   }
 }
+
 
