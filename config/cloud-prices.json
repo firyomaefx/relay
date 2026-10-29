@@ -1,13 +1,14 @@
 {
-  "currency": "MYR",
-  "unit": "sen",
-  "free_allowance_posts": 5,
-  "_note": "Placeholder whole-integer prices in sen. Change before production.",
+  "currency": "USD",
+  "unit": "milliUSD",
+  "free_allowance_units": 25,
+  "free_excluded_platforms": ["x"],
+  "_note": "Whole integer milliUSD units: 1000 = $1.00. Text = 3 ($0.003), video = 7 ($0.007). Free allowance uses units: text 1, video 2; X is excluded from free.",
   "prices": {
-    "x": { "text": 50, "link": 60, "image": 80, "carousel": 100, "video": 120, "article": 150 },
-    "threads": { "text": 40, "link": 50, "image": 70, "carousel": 90, "video": 110 },
-    "tiktok": { "video": 80, "image": 50, "carousel": 70 },
-    "youtube": { "video": 100 },
-    "instagram": { "image": 60, "carousel": 80, "video": 100 }
+    "x": { "text": 3, "link": 3, "image": 3, "carousel": 3, "video": 7, "article": 3 },
+    "threads": { "text": 3, "link": 3, "image": 3, "carousel": 3, "video": 7 },
+    "tiktok": { "video": 7, "image": 3, "carousel": 3 },
+    "youtube": { "video": 7 },
+    "instagram": { "image": 3, "carousel": 3, "video": 7 }
   }
 }

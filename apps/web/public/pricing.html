@@ -147,6 +147,14 @@
   .loading{color:var(--dim);font-size:12px;padding:22px 0}
   .flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
   @media(max-width:720px){.flow{grid-template-columns:1fr}}
+  .example-grid{display:grid;grid-template-columns:1.2fr .9fr .9fr;gap:12px}
+  @media(max-width:760px){.example-grid{grid-template-columns:1fr}}
+  .example .core{padding:24px}
+  .example .label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .example .big{font-family:"Sora",sans-serif;font-size:clamp(34px,5vw,54px);letter-spacing:-.06em;line-height:1;margin:16px 0 6px;color:var(--mint)}
+  .example .small{font-size:11px;color:var(--muted);line-height:1.6}
+  .example .rate-line{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line-soft);padding:9px 0;font-size:11px;color:var(--muted)}
+  .example .rate-line b{color:#dfe9e2;font-family:var(--mono);font-weight:500}
   .step .core{padding:24px}
   .step-num{font-family:"Sora",sans-serif;font-size:11px;color:var(--mint);letter-spacing:.12em}
   .step h3{font-family:"Sora",sans-serif;font-size:18px;font-weight:500;letter-spacing:-.03em;margin:22px 0 8px}
@@ -219,7 +227,7 @@
       </div>
       <aside class="hero-side">
         <p>Every charge is written to an append-only ledger. No charge for a failed post.</p>
-        <div class="stat"><b id="freeStat">5</b><span>free posts to start</span></div>
+        <div class="stat"><b id="freeStat">25</b><span>free units to start</span></div>
         <div class="stat"><b>5</b><span>networks in one API</span></div>
         <div class="stat"><b>0</b><span>monthly platform fee</span></div>
         <div class="stat"><b>24/7</b><span>cloud scheduler</span></div>
@@ -236,11 +244,11 @@
       <article class="bezel plan">
         <div class="core">
           <div class="plan-label"><span class="name">Free start</span><span class="tag">Try it</span></div>
-          <p class="plan-desc">For a first test post or a small automation. See the exact result before adding balance.</p>
-          <div class="price">RM0<small> to start</small></div>
-          <div class="plan-sub" id="freePlanSub">Includes free-post allowance</div>
+          <p class="plan-desc" id="freePlanDesc">Up to 25 free units. Text uses 1 unit, video uses 2 units. X is excluded from free.</p>
+          <div class="price">$0<small> to start</small></div>
+          <div class="plan-sub" id="freePlanSub">Free units · X excluded</div>
           <ul class="plan-list">
-            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>All five networks</li>
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>All networks except X on free</li>
             <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>MCP + cloud API</li>
             <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>No failed-post charge</li>
           </ul>
@@ -252,7 +260,7 @@
         <div class="core">
           <div class="plan-label"><span class="name">Pay as you go</span><span class="tag">Most popular</span></div>
           <p class="plan-desc">The default. Top up, publish, and only successful posts consume the balance.</p>
-          <div class="price" id="fromPrice">RM0.40<small> / post</small></div>
+          <div class="price" id="fromPrice">$0.003<small> / post</small></div>
           <div class="plan-sub" id="fromSub">From the lowest current platform rate</div>
           <ul class="plan-list">
             <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Per-post pricing by platform</li>
@@ -296,6 +304,31 @@
         <div class="loading">Loading live rates…</div>
       </div>
     </div>
+  </section>
+
+  <section class="section wrap reveal" id="example">
+    <div class="section-head">
+      <div><span class="eyebrow">Budget math</span><h2>What $10 actually buys.</h2></div>
+      <p>Calculated from the live text and video rates. The free allowance is separate and excludes X.</p>
+    </div>
+    <div class="example-grid example">
+      <div class="bezel"><div class="core">
+        <div class="label">All text · $0.003</div>
+        <div class="big" id="exText">—</div>
+        <div class="small">text posts from a $10 top-up</div>
+      </div></div>
+      <div class="bezel"><div class="core">
+        <div class="label">All video · $0.007</div>
+        <div class="big" id="exVideo">—</div>
+        <div class="small">video posts from a $10 top-up</div>
+      </div></div>
+      <div class="bezel"><div class="core">
+        <div class="label">2 text + 1 video</div>
+        <div class="big" id="exMix">—</div>
+        <div class="small" id="exMixSub">posts in a repeatable 3-post marketing set</div>
+      </div></div>
+    </div>
+    <div style="margin-top:14px" class="small muted" id="exNote">Rates are whole milliUSD units: 1,000 = $1.00. Video uses 2 free units; text uses 1.</div>
   </section>
 
   <section class="section wrap reveal" id="how">
@@ -374,21 +407,41 @@
 const labels={x:"X",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",instagram:"Instagram"};
 const kindLabels={text:"Text",link:"Link",image:"Image",carousel:"Carousel",video:"Video",article:"Article"};
 const $=(id)=>document.getElementById(id);
-const money=(sen,currency="MYR")=>currency==="MYR"?"RM"+(Number(sen)/100).toFixed(2):(Number(sen)/100).toFixed(2)+" "+currency;
+const money=(amount,currency="USD",unit="milliUSD")=>{
+  if(unit==="milliUSD") return "$"+(Number(amount)/1000).toFixed(3);
+  if(unit==="microUSD") return "$"+(Number(amount)/1_000_000).toFixed(3);
+  return currency==="MYR"?"RM"+(Number(amount)/100).toFixed(2):(Number(amount)/100).toFixed(2)+" "+currency;
+};
 const seeded=(()=>{try{return JSON.parse($("priceData").textContent||"null")}catch{return null}})();
 
 function renderPricing(d){
-  const free=d.freeAllowancePosts||0;
+  const free=d.freeAllowanceUnits ?? d.free_allowance_units ?? d.freeAllowancePosts ?? d.free_allowance_posts ?? 0;
+  const excluded=(d.freeExcludedPlatforms ?? d.free_excluded_platforms ?? []).map(p=>labels[p]||p);
   $("freeStat").textContent=free?String(free):"0";
-  $("freePlanSub").textContent=free?`Includes ${free} free posts`:"Pay as you go from the first post";
+  $("freePlanSub").textContent=free?`${free} free units · ${excluded.length?excluded.join(", ")+" excluded":"all platforms"}`:"Pay as you go from the first post";
+  $("freePlanDesc").textContent=free
+    ? `Up to ${free} free units. Text uses 1 unit, video uses 2. ${excluded.length?excluded.join(", ")+" is excluded from free.":""}`
+    : "Pay as you go from the first post.";
   const all=Object.values(d.prices).flatMap(p=>Object.values(p)).filter(n=>Number.isFinite(n));
   const min=all.length?Math.min(...all):0;
-  if(min){$("fromPrice").innerHTML=money(min,d.currency)+"<small> / post</small>";$("fromSub").textContent="From the lowest current platform rate";}
+  if(min){$("fromPrice").innerHTML=money(min,d.currency,d.unit)+"<small> / post</small>";$("fromSub").textContent="From the lowest current platform rate";}
   $("platformGrid").innerHTML=Object.entries(d.prices).map(([p,rows])=>`
     <article class="platform">
       <div class="platform-head"><span class="pname">${labels[p]||p}</span><span class="pdot"></span></div>
-      ${Object.entries(rows).map(([k,v])=>`<div class="rate-row"><span>${kindLabels[k]||k}</span><b>${money(v,d.currency)}</b></div>`).join("")}
+      ${Object.entries(rows).map(([k,v])=>`<div class="rate-row"><span>${kindLabels[k]||k}</span><b>${money(v,d.currency,d.unit)}</b></div>`).join("")}
     </article>`).join("");
+
+  const text=Number(d.prices?.threads?.text ?? d.prices?.x?.text ?? 3);
+  const video=Number(d.prices?.threads?.video ?? d.prices?.x?.video ?? 7);
+  const budget=10000;
+  if(text>0&&video>0){
+    const sets=Math.floor(budget/(2*text+video));
+    $("exText").textContent=Math.floor(budget/text).toLocaleString();
+    $("exVideo").textContent=Math.floor(budget/video).toLocaleString();
+    $("exMix").textContent=(sets*3).toLocaleString();
+    $("exMixSub").textContent=`${(sets*2).toLocaleString()} text + ${sets.toLocaleString()} video = ${(sets*3).toLocaleString()} posts`;
+    $("exNote").textContent=`${money(text,d.currency,d.unit)} per text post · ${money(video,d.currency,d.unit)} per video · $10 = 10,000 units. Free allowance is separate and excludes X.`;
+  }
 }
 
 async function load(){
@@ -415,4 +468,7 @@ load();
 </script>
 </body>
 </html>
+
+
+
 

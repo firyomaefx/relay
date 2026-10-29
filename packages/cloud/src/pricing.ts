@@ -5,7 +5,9 @@ import { RelayError, type PlatformId, type PostDraft } from "@relay/core";
 export interface CloudPrices {
   currency: string;
   unit: string;
+  free_allowance_units?: number;
   free_allowance_posts?: number;
+  free_excluded_platforms?: string[];
   prices: Record<string, Record<string, number>>;
 }
 
