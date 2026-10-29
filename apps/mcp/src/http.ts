@@ -28,6 +28,8 @@ export interface HttpServerOptions {
   dataDir: string;
   token?: string;
   oauth?: { password?: string; publicBaseUrl?: string };
+  /** Optional prebuilt OAuth provider; cloud entry supplies a customer-aware one. */
+  oauthProvider?: OAuthProvider;
   /** Optional additional auth layer for a cloud-only entry point. Existing
    *  callers omit it, preserving the owner bearer/OAuth behaviour exactly. */
   authorize?: (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
@@ -105,7 +107,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 export async function startHttpServer(options: HttpServerOptions): Promise<RunningHttpServer> {
   const { token, source } = await resolveToken(options);
   const url = `http://${options.host}:${options.port}/mcp`;
-  const oauth: OAuthProvider = createOAuthProvider({
+  const oauth: OAuthProvider = options.oauthProvider ?? createOAuthProvider({
     password: options.oauth?.password ?? "",
     publicBaseUrl: options.oauth?.publicBaseUrl,
     secret: token,
@@ -237,3 +239,4 @@ export async function startHttpServer(options: HttpServerOptions): Promise<Runni
     },
   };
 }
+

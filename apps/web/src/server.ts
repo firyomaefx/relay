@@ -228,6 +228,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
     return;
   }
 
+  // Public connection guide. It must work without a console session.
+  if (isGet && (pathname === "/connect" || pathname === "/connect.html")) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, "connect.html"), { html: true });
+    if (!served) throw new RelayError("The connection guide is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
   // Uploaded media is public by design: Threads and TikTok fetch it from a
   // public URL (a tunnel pointed at this server), so it must not require a session.
   if (isGet && segments.length === 2 && segments[0] === "media") {
