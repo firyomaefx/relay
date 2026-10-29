@@ -16,6 +16,7 @@ import { loadCloudConfig, CloudStore, TenantManager } from "@relay/cloud";
 import { authenticateApiKey } from "@relay/cloud";
 import { registerTools } from "./tools.js";
 import { startHttpServer, type RunningHttpServer } from "./http.js";
+import { createCloudApi } from "./cloud-api.js";
 
 function log(message: string): void {
   process.stderr.write(`[relay-cloud-mcp] ${message}\n`);
@@ -35,6 +36,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
   const store = CloudStore.open(config.dbPath);
   store.ensureOwnerCustomer();
   const tenants = new TenantManager({ store, config, env: process.env, logger: log });
+  const handleExtra = createCloudApi({ store, tenants, config });
   const token = randomBytes(32).toString("base64url");
 
   const running = await startHttpServer({
@@ -43,6 +45,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
     dataDir: path.dirname(config.dbPath),
     token,
     authorize: async (req) => Boolean(customerFromRequest(store, req)),
+    handleExtra,
     createServer: async (req) => {
       const identity = req ? customerFromRequest(store, req) : null;
       if (!identity) throw new Error("Cloud customer authentication failed.");
