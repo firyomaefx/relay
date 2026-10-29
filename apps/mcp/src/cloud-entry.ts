@@ -12,7 +12,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { loadCloudConfig, CloudStore, TenantManager, CloudLedger, PriceTable, defaultPricePath } from "@relay/cloud";
+import { loadCloudConfig, CloudStore, TenantManager, CloudLedger, PriceTable, defaultPricePath, RateLimiter, loadRateConfig } from "@relay/cloud";
 import { authenticateApiKey } from "@relay/cloud";
 import { registerTools } from "./tools.js";
 import { startHttpServer, type RunningHttpServer } from "./http.js";
@@ -39,8 +39,10 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
   const tenants = new TenantManager({ store, config, env: process.env, logger: log });
   const ledger = new CloudLedger(config.dbPath);
   const prices = PriceTable.load(defaultPricePath());
-  const finance = new CloudFinance({ store, ledger, prices, tenants });
-  const handleExtra = createCloudApi({ store, tenants, config });
+  const rateConfig = loadRateConfig();
+  const limiter = new RateLimiter(config.dbPath);
+  const finance = new CloudFinance({ store, ledger, prices, tenants, limiter, rateConfig });
+  const handleExtra = createCloudApi({ store, tenants, config, limiter, rateConfig });
   const token = randomBytes(32).toString("base64url");
 
   const running = await startHttpServer({
@@ -48,7 +50,12 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
     port: config.mcpPort,
     dataDir: path.dirname(config.dbPath),
     token,
-    authorize: async (req) => Boolean(customerFromRequest(store, req)),
+    authorize: async (req) => {
+      const identity = customerFromRequest(store, req);
+      if (!identity) return false;
+      limiter.check(identity.customer.id, "mcp", rateConfig.mcpPerMinute, 60_000);
+      return true;
+    },
     handleExtra,
     createServer: async (req) => {
       const identity = req ? customerFromRequest(store, req) : null;
@@ -152,6 +159,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       await running.close();
       await tenants.close();
       ledger.close();
+      limiter.close();
       store.close();
     },
   };

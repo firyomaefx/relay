@@ -53,6 +53,8 @@
     <section class="card">
       <h2>Selected customer</h2>
       <div id="summary" class="muted">Choose a customer.</div>
+      <h2 style="margin-top:22px">Accounts</h2>
+      <div id="details" class="muted">No accounts loaded.</div>
       <h2 style="margin-top:22px">Recent payments</h2>
       <div id="payments" class="muted">No payments loaded.</div>
     </section>
@@ -72,7 +74,7 @@ async function loadCustomers() {
     `<option value="${c.id}">${c.displayName} — available ${money(c.available)}</option>`
   ).join('');
   renderSummary();
-  if (customers[0]) loadPayments(customers[0].id);
+  if (customers[0]) { loadDetails(customers[0].id); loadPayments(customers[0].id); }
 }
 
 function renderSummary() {
@@ -81,6 +83,17 @@ function renderSummary() {
   $('summary').innerHTML = `<div class="balance">${money(c.available)}</div>
     <div class="muted">available · held ${money(c.held)} · balance ${money(c.balance)}</div>
     <div style="margin-top:8px" class="pill">${c.status}</div>`;
+}
+
+async function loadDetails(id) {
+  const r = await fetch('/api/cloud/admin/customers/' + encodeURIComponent(id), { credentials: 'same-origin' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { $('details').textContent = data.error || 'Unable to load customer details'; return; }
+  $('details').innerHTML = data.accounts.length
+    ? `<table><thead><tr><th>Platform</th><th>Status</th><th>Account</th></tr></thead><tbody>${data.accounts.map(a =>
+        `<tr><td>${a.platform}</td><td>${a.status}</td><td>${a.accountRef || '—'}</td></tr>`
+      ).join('')}</tbody></table>`
+    : 'No customer accounts yet.';
 }
 
 async function loadPayments(id) {
@@ -94,7 +107,7 @@ async function loadPayments(id) {
     : 'No payments yet.';
 }
 
-$('customer').addEventListener('change', () => { renderSummary(); loadPayments($('customer').value); });
+$('customer').addEventListener('change', () => { renderSummary(); loadDetails($('customer').value); loadPayments($('customer').value); });
 
 $('topup').addEventListener('click', async () => {
   const button = $('topup');
@@ -141,3 +154,4 @@ loadCustomers().catch(error => {
 </script>
 </body>
 </html>
+
