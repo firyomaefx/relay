@@ -181,7 +181,7 @@ $('connect').addEventListener('click', async () => {
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || 'Could not create a connect link');
-    $('connectLink').innerHTML = `<div class="muted">Share this private URL with the customer. Anyone with it can act as this customer.</div><input readonly style="width:100%;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:12px monospace" value="${data.url.replace(/"/g, '&quot;')}">`;
+    $('connectLink').innerHTML = `<div class="muted">Share this connect page with the customer. It contains a private URL that acts as this customer.</div><input readonly style="width:100%;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:12px monospace" value="${data.connectUrl.replace(/"/g, '&quot;')}">`;
   } catch (error) { $('connectLink').textContent = error.message; }
 });
 
@@ -192,6 +192,7 @@ loadCustomers().catch(error => {
 </script>
 </body>
 </html>
+
 
 
 

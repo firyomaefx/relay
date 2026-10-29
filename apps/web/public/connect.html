@@ -19,6 +19,11 @@
   .bezel{padding:1px;border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.025),rgba(255,255,255,.08))}.core{background:linear-gradient(160deg,#101a14,#080d0a);border-radius:21px;padding:24px;height:100%;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
   .core h2{font-family:"Sora",sans-serif;font-size:17px;font-weight:500;letter-spacing:-.025em;margin:0 0 3px}.sub{color:var(--dim);font-size:11px;margin:0 0 16px}
   .code{position:relative;background:#060a07;border:1px solid rgba(255,255,255,.055);border-radius:12px;padding:12px 40px 12px 12px;margin-top:12px}.code code{font:11px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c7d7cc;white-space:pre-wrap;word-break:break-word;display:block}.copy{position:absolute;top:7px;right:7px;background:rgba(255,255,255,.06);border:0;color:var(--muted);font:11px system-ui;border-radius:7px;padding:5px 8px;cursor:pointer}.copy:hover{color:#fff;background:rgba(255,255,255,.11)}
+  .personal{display:none;margin-top:26px;border:1px solid rgba(184,245,208,.3);border-radius:18px;padding:18px;background:rgba(184,245,208,.055)}
+  .personal h2{font-family:"Sora",sans-serif;font-size:15px;font-weight:500;margin:0 0 4px}
+  .personal p{font-size:11px;color:var(--dim);margin:0 0 12px}
+  .personal code{display:block;background:#050806;border:1px solid var(--line);border-radius:9px;padding:10px;font:11px/1.6 ui-monospace,monospace;color:var(--mint);word-break:break-all}
+  .personal .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .keybar{display:flex;justify-content:space-between;align-items:end;gap:18px;flex-wrap:wrap;margin-top:26px;padding:18px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.025)}
   .keybar label{display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mint);font-weight:700;margin-bottom:7px}
   .keybar input{width:min(440px,calc(100vw - 80px));box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:#050806;color:#fff;padding:10px 12px;font:12px ui-monospace,monospace;outline:none}
@@ -44,7 +49,13 @@
   <p class="lede">One remote MCP endpoint for Claude, ChatGPT, Codex, Cursor, Grok, DeepSeek and any MCP-capable client. Authentication is a customer API key or OAuth when the client requires it.</p>
   <div class="badges"><span class="badge">Streamable HTTP</span><span class="badge">OAuth discovery</span><span class="badge">API-key bearer</span><span class="badge">No local install</span></div>
 
-  <div class="keybar">
+  <div class="personal" id="personal">
+    <h2>Your private connection URL</h2>
+    <p>One URL, no header and no key entry in the client. Anyone with this link can act as this customer, so share it like a password.</p>
+    <code id="personalUrl"></code>
+    <div class="row"><button class="copy" id="personalCopy" type="button">Copy URL</button><a class="install" id="personalCursor" href="/connect">Install in Cursor <span>↗</span></a></div>
+  </div>
+  <div class="keybar" id="keybar">
     <div><label for="apiKey">Your Relay Cloud API key</label><input id="apiKey" type="password" autocomplete="off" placeholder="relay_sk_..." spellcheck="false"><p>Stays in this browser. Fills every snippet below; never sent to this page.</p></div>
     <a id="cursorInstall" class="install disabled" href="/connect" aria-disabled="true">Install in Cursor <span>↗</span></a>
   </div>
@@ -125,6 +136,21 @@ document.querySelectorAll(".copy").forEach((button) => {
     setTimeout(() => { button.textContent = "Copy"; }, 1600);
   });
 });
+const params = new URLSearchParams(location.search);
+const personalToken = params.get("token");
+const mcpBase = "https://cloud-mcp.duitpoket.fun/mcp";
+if (personalToken) {
+  const personalUrl = `${mcpBase}?token=${encodeURIComponent(personalToken)}`;
+  document.getElementById("personal").style.display = "block";
+  document.getElementById("keybar").style.display = "none";
+  document.getElementById("personalUrl").textContent = personalUrl;
+  const cursor = document.getElementById("personalCursor");
+  cursor.href = `cursor://anysphere.cursor-deeplink/mcp/install?name=relay-cloud&config=${encodeURIComponent(btoa(JSON.stringify({ url: personalUrl })))}`;
+  document.getElementById("personalCopy").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(personalUrl).catch(() => undefined);
+    document.getElementById("personalCopy").textContent = "Copied";
+  });
+}
 const keyInput = document.getElementById("apiKey");
 const install = document.getElementById("cursorInstall");
 function setKey() {
@@ -144,6 +170,7 @@ setKey();
 </script>
 </body>
 </html>
+
 
 
 
