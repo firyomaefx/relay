@@ -19,12 +19,14 @@ import {
 import { createRelay } from "@relay/platforms";
 import { PriceTable, defaultPricePath, type CloudPrices } from "@relay/cloud";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
+import { loadStripeConfig, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
 import { SessionManager } from "./auth.js";
 import { readConfig } from "./config.js";
 import {
   asRecord,
   contentTypeFor,
   readJsonBody,
+  readRawBody,
   redirect,
   resolveWithin,
   sendFile,
@@ -92,6 +94,8 @@ interface HandlerDeps {
   relay: () => RelayService;
   cloudAdmin?: CloudAdminDeps;
   pricing: CloudPrices | null;
+  contactFile?: string;
+  billing?: StripeBillingConfig;
 }
 
 function splitPath(pathname: string): string[] {
@@ -137,6 +141,11 @@ function createHandler(deps: HandlerDeps): (req: IncomingMessage, res: ServerRes
 async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: HandlerDeps): Promise<void> {
   const method = (req.method ?? "GET").toUpperCase();
   const isGet = method === "GET" || method === "HEAD";
+  res.setHeader("x-content-type-options", "nosniff");
+  res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
+  res.setHeader("x-frame-options", "DENY");
+  res.setHeader("permissions-policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
 
   let url: URL;
   try {
@@ -154,8 +163,59 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
     return;
   }
 
+  // Stripe webhook: public, raw-body signature verification, idempotent top-up.
+  if (method === "POST" && segments.length === 3 && segments[0] === "api" && segments[1] === "stripe" && segments[2] === "webhook") {
+    if (!deps.billing?.webhookSecret || !deps.cloudAdmin) {
+      throw new RelayError("Card payments are not configured yet.", "stripe_unavailable", undefined, 503);
+    }
+    const raw = await readRawBody(req, 1024 * 1024);
+    const signature = req.headers["stripe-signature"];
+    if (typeof signature !== "string" || !verifyStripeSignature(raw.toString("utf8"), signature, deps.billing.webhookSecret)) {
+      throw new RelayError("Invalid Stripe signature.", "stripe_signature_invalid", undefined, 400);
+    }
+    let event: { type?: string; data?: { object?: Record<string, unknown> } };
+    try {
+      event = JSON.parse(raw.toString("utf8")) as typeof event;
+    } catch {
+      throw new RelayError("Invalid Stripe payload.", "stripe_payload_invalid", undefined, 400);
+    }
+    const session = event.data?.object as
+      | { id?: string; payment_status?: string; metadata?: Record<string, string> }
+      | undefined;
+    if (event.type === "checkout.session.completed" && session?.id && session.payment_status === "paid") {
+      const customerId = String(session.metadata?.customer_id ?? "");
+      const amount = Number(session.metadata?.amount_milli ?? 0);
+      if (deps.cloudAdmin.store.getCustomer(customerId) && Number.isInteger(amount) && amount > 0) {
+        deps.cloudAdmin.ledger.recordTopup({
+          customerId,
+          amount,
+          currency: deps.pricing?.currency ?? "USD",
+          provider: "stripe",
+          reference: session.id,
+          note: "Stripe checkout",
+        });
+      }
+    }
+    sendJson(res, 200, { received: true });
+    return;
+  }
+
   // Public endpoints: the login screen and the health probe need them.
   if (segments[0] === "api") {
+    if (method === "POST" && segments.length === 2 && segments[1] === "contact") {
+      const body = asRecord(await readJsonBody(req, 64 * 1024));
+      const name = String(body.name ?? "").trim();
+      const email = String(body.email ?? "").trim();
+      const message = String(body.message ?? "").trim();
+      if (!name || !email || !message || name.length > 120 || email.length > 200 || message.length > 4000 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new RelayError("Name, a valid email and a message are required.", "contact_invalid", undefined, 400);
+      }
+      if (!deps.contactFile) throw new RelayError("Contact requests are not configured.", "contact_unavailable", undefined, 503);
+      await mkdir(path.dirname(deps.contactFile), { recursive: true });
+      await appendFile(deps.contactFile, `${JSON.stringify({ name, email, message, createdAt: new Date().toISOString(), ip: req.socket.remoteAddress ?? null })}\n`, "utf8");
+      sendJson(res, 201, { ok: true });
+      return;
+    }
     if (isGet && segments.length === 2 && segments[1] === "health") {
       sendJson(res, 200, {
         ok: true,
@@ -232,6 +292,25 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   if (isGet && (pathname === "/connect" || pathname === "/connect.html")) {
     const served = await sendFile(req, res, path.join(deps.publicDir, "connect.html"), { html: true });
     if (!served) throw new RelayError("The connection guide is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
+  // Public Stripe return pages; no session required.
+  if (isGet && (pathname === "/billing/success" || pathname === "/billing/success.html")) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, "billing-success.html"), { html: true });
+    if (!served) throw new RelayError("The billing return page is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+  if (isGet && (pathname === "/billing/cancel" || pathname === "/billing/cancel.html")) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, "billing-cancel.html"), { html: true });
+    if (!served) throw new RelayError("The billing return page is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
+  // Public contact page for agency and access requests.
+  if (isGet && (pathname === "/contact" || pathname === "/contact.html")) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, "contact.html"), { html: true });
+    if (!served) throw new RelayError("The contact page is missing", "console_assets_missing", undefined, 500);
     return;
   }
 
@@ -672,6 +751,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   const publicDir =
     options.publicDir ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
   const session = new SessionManager(password);
+  const billing = loadStripeConfig(env);
   let cloudAdmin: CloudAdminDeps | null = null;
   let pricing: CloudPrices | null = null;
   try {
@@ -693,6 +773,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       publicDir,
       cloudAdmin: cloudAdmin ?? undefined,
       pricing,
+      contactFile: path.join(path.resolve(dataDirOption), "contact-requests.ndjson"),
+      billing: billing ?? undefined,
       relay: () => {
         if (!relay) throw new RelayError("The console is still starting", "not_ready", undefined, 503);
         return relay;
@@ -810,3 +892,7 @@ export async function runMain(): Promise<void> {
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
+
+
+
+

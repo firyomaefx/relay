@@ -1,0 +1,70 @@
+# Relay Cloud production readiness
+
+Last audited: 2026-10-30 (Asia/Kuala_Lumpur)
+
+## Public surface
+
+| URL | Purpose | Expected |
+|---|---|---|
+| `https://relay.duitpoket.fun/pricing` | Public prices, free units and $10 examples | 200 HTML |
+| `https://relay.duitpoket.fun/connect` | MCP connection guide and one-click Cursor install | 200 HTML |
+| `https://relay.duitpoket.fun/contact` | Agency / access request form | 200 HTML |
+| `https://relay.duitpoket.fun/billing/success` | Stripe return page | 200 HTML |
+| `https://relay.duitpoket.fun/billing/cancel` | Stripe cancel page | 200 HTML |
+| `https://relay.duitpoket.fun/login` | Console login | 200 HTML |
+| `https://relay.duitpoket.fun/cloud-admin.html` | Admin; requires session | 302 → `/login` when signed out |
+| `https://cloud-mcp.duitpoket.fun/mcp` | Streamable HTTP MCP | 401 in a browser; use an MCP client |
+| `https://cloud-mcp.duitpoket.fun/health` | Cloud health | 200 JSON |
+| `https://cloud-mcp.duitpoket.fun/.well-known/oauth-protected-resource` | OAuth discovery | 200 JSON |
+
+The public link crawl is checked with `node tools/audit-live-links.mjs`. It exits non-zero on any 4xx/5xx link.
+
+## MCP authentication
+
+- API key: `Authorization: Bearer <customer-api-key>`.
+- OAuth: discovery + dynamic registration + customer-scoped access/refresh tokens.
+- One-click URL: admin can create a revocable `.../mcp?token=rlc_...` link. The token is customer-scoped and stored only as a hash.
+- OAuth tokens survive process restarts because the signing secret is derived from `RELAY_CLOUD_TOKEN_KEY`.
+
+## Free allowance
+
+- 25 lifetime units per customer.
+- Text = 1 unit; video = 2 units.
+- X is excluded from free allowance.
+- Free units are held on reservation and consumed only on a successful post.
+- Failed, cancelled and rejected posts release the hold.
+- Paid posts reserve and settle through the same ledger.
+
+## Payments
+
+Stripe Checkout is implemented behind environment variables:
+
+```env
+RELAY_STRIPE_SECRET_KEY=sk_live_...
+RELAY_STRIPE_WEBHOOK_SECRET=whsec_...
+RELAY_STRIPE_CURRENCY=usd
+RELAY_STRIPE_SUCCESS_URL=https://relay.duitpoket.fun/billing/success?session_id={CHECKOUT_SESSION_ID}
+RELAY_STRIPE_CANCEL_URL=https://relay.duitpoket.fun/billing/cancel
+RELAY_PUBLIC_URL=https://relay.duitpoket.fun
+```
+
+Admin checkout: `POST /api/cloud/admin/checkout` with `{ customerId, amount }` where amount is milliUSD (10,000 = $10.00). It returns a Stripe Checkout URL.
+
+Webhook: `POST /api/stripe/webhook`, Stripe signature required. `checkout.session.completed` with `payment_status=paid` credits the ledger with the Stripe session ID as the idempotency reference.
+
+Until Stripe keys are installed, checkout returns 503 and manual top-up remains available.
+
+## Verification
+
+```bash
+npm run build
+npm test                 # 150 tests
+node tools/audit-live-links.mjs
+```
+
+## Known external dependencies
+
+- GCS offsite backups need the VM service account to have object-write permission; local daily snapshots are active.
+- Uptime checks exist but a notification channel/alert policy still needs an email or pager destination.
+- There is no self-service signup. Customers are provisioned by an operator and receive an API key or personal MCP URL.
+- Real customer OAuth/posting end-to-end requires a real customer account and platform app credentials.

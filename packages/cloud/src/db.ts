@@ -30,6 +30,22 @@ export interface CreatedApiKey extends ApiKeyRecord {
   key: string;
 }
 
+export interface ConnectTokenRecord {
+  id: string;
+  customerId: string;
+  prefix: string;
+  label: string | null;
+  status: "active" | "revoked";
+  createdAt: string;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+}
+
+export interface CreatedConnectToken extends ConnectTokenRecord {
+  /** Returned exactly once. Never stored. */
+  token: string;
+}
+
 export interface ApiKeyIdentity {
   customer: Customer;
   key: ApiKeyRecord;
@@ -136,6 +152,18 @@ export class CloudStore {
         updated_at TEXT NOT NULL,
         PRIMARY KEY (customer_id, platform)
       );
+      CREATE TABLE IF NOT EXISTS connect_tokens (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES customers(id),
+        token_hash TEXT NOT NULL UNIQUE,
+        prefix TEXT NOT NULL,
+        label TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TEXT NOT NULL,
+        revoked_at TEXT,
+        last_used_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS connect_tokens_customer ON connect_tokens(customer_id);
       CREATE TABLE IF NOT EXISTS oauth_states (
         state TEXT PRIMARY KEY,
         customer_id TEXT NOT NULL REFERENCES customers(id),
@@ -231,6 +259,66 @@ export class CloudStore {
       this.db.prepare("UPDATE api_keys SET status = 'revoked', revoked_at = ? WHERE id = ?").run(new Date().toISOString(), id);
     }
     return toKey(this.db.prepare("SELECT * FROM api_keys WHERE id = ?").get(id) as Record<string, unknown>);
+  }
+
+  createConnectToken(customerId: string, label?: string): CreatedConnectToken {
+    const customer = this.getCustomer(customerId);
+    if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+    if (customer.status !== "active") throw new RelayError("Customer is disabled.", "cloud_customer_disabled", undefined, 409);
+    const prefix = randomBytes(5).toString("hex");
+    const secret = randomBytes(32).toString("base64url");
+    const raw = `rlc_${prefix}_${secret}`;
+    const id = `ct_${randomUUID()}`;
+    const createdAt = new Date().toISOString();
+    this.db.prepare(
+      "INSERT INTO connect_tokens (id, customer_id, token_hash, prefix, label, status, created_at) VALUES (?, ?, ?, ?, ?, 'active', ?)",
+    ).run(id, customerId, hashKey(raw), prefix, label?.trim() || null, createdAt);
+    return { id, customerId, prefix, label: label?.trim() || null, status: "active", createdAt, revokedAt: null, lastUsedAt: null, token: raw };
+  }
+
+  listConnectTokens(customerId?: string): ConnectTokenRecord[] {
+    const rows = customerId
+      ? (this.db.prepare("SELECT * FROM connect_tokens WHERE customer_id = ? ORDER BY created_at ASC").all(customerId) as Record<string, unknown>[])
+      : (this.db.prepare("SELECT * FROM connect_tokens ORDER BY created_at ASC").all() as Record<string, unknown>[]);
+    return rows.map((row) => ({
+      id: String(row.id),
+      customerId: String(row.customer_id),
+      prefix: String(row.prefix),
+      label: row.label == null ? null : String(row.label),
+      status: String(row.status) === "revoked" ? "revoked" : "active",
+      createdAt: String(row.created_at),
+      revokedAt: row.revoked_at == null ? null : String(row.revoked_at),
+      lastUsedAt: row.last_used_at == null ? null : String(row.last_used_at),
+    }));
+  }
+
+  resolveConnectToken(rawToken: string): ApiKeyIdentity {
+    if (!rawToken || !rawToken.startsWith("rlc_")) {
+      throw new RelayError("Invalid connect token.", "cloud_connect_token_invalid", undefined, 401);
+    }
+    const row = this.db.prepare(
+      `SELECT t.*, c.id AS c_id, c.display_name, c.status AS c_status, c.owner, c.daily_cap, c.monthly_cap, c.created_at AS c_created_at
+       FROM connect_tokens t JOIN customers c ON c.id = t.customer_id
+       WHERE t.token_hash = ?`,
+    ).get(hashKey(rawToken)) as Record<string, unknown> | undefined;
+    if (!row) throw new RelayError("Invalid connect token.", "cloud_connect_token_invalid", undefined, 401);
+    if (String(row.status) !== "active") throw new RelayError("Connect token revoked.", "cloud_connect_token_revoked", undefined, 401);
+    if (String(row.c_status) !== "active") throw new RelayError("Customer disabled.", "cloud_customer_disabled", undefined, 403);
+    this.db.prepare("UPDATE connect_tokens SET last_used_at = ? WHERE id = ?").run(new Date().toISOString(), String(row.id));
+    return {
+      customer: {
+        id: String(row.c_id), displayName: String(row.display_name), status: "active",
+        owner: Number(row.owner) === 1,
+        dailyCap: row.daily_cap == null ? null : Number(row.daily_cap),
+        monthlyCap: row.monthly_cap == null ? null : Number(row.monthly_cap),
+        createdAt: String(row.c_created_at),
+      },
+      key: {
+        id: String(row.id), customerId: String(row.c_id), prefix: String(row.prefix),
+        label: row.label == null ? null : String(row.label),
+        status: "active", createdAt: String(row.created_at), revokedAt: null, lastUsedAt: null,
+      },
+    };
   }
 
   /** Resolve a raw API key to exactly one active customer. */
@@ -381,3 +469,4 @@ export class CloudStore {
     return { customerId: String(row.customer_id), platform: String(row.platform) };
   }
 }
+
