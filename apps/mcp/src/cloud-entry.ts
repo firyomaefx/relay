@@ -16,6 +16,7 @@ import { loadCloudConfig, CloudStore, TenantManager, CloudLedger, PriceTable, de
 import { authenticateApiKey } from "@relay/cloud";
 import { registerTools } from "./tools.js";
 import { startHttpServer, type RunningHttpServer } from "./http.js";
+import { createOAuthProvider } from "./oauth.js";
 import { createCloudApi } from "./cloud-api.js";
 import { CloudFinance } from "./cloud-finance.js";
 
@@ -44,12 +45,27 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
   const finance = new CloudFinance({ store, ledger, prices, tenants, limiter, rateConfig });
   const handleExtra = createCloudApi({ store, tenants, config, limiter, rateConfig });
   const token = randomBytes(32).toString("base64url");
+  const cloudOAuth = createOAuthProvider({
+    password: "",
+    publicBaseUrl: process.env.RELAY_CLOUD_PUBLIC_URL?.trim() || "https://cloud-mcp.duitpoket.fun",
+    secret: token,
+    credentialLabel: "Relay Cloud API key",
+    authenticate: async (credential) => {
+      try {
+        const resolved = store.resolveApiKey(credential);
+        return { subject: resolved.customer.id };
+      } catch {
+        return null;
+      }
+    },
+  });
 
   const running = await startHttpServer({
     host: "127.0.0.1",
     port: config.mcpPort,
     dataDir: path.dirname(config.dbPath),
     token,
+    oauthProvider: cloudOAuth,
     authorize: async (req) => {
       const identity = customerFromRequest(store, req);
       if (!identity) return false;
@@ -59,10 +75,17 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
     handleExtra,
     createServer: async (req) => {
       const identity = req ? customerFromRequest(store, req) : null;
-      if (!identity) throw new Error("Cloud customer authentication failed.");
-      const relay = await tenants.get(identity.customer);
+      let customer = identity?.customer;
+      let keyPrefix = identity?.key.prefix ?? null;
+      if (!customer && req) {
+        const subject = cloudOAuth.subject(req);
+        if (subject) customer = store.getCustomer(subject) ?? undefined;
+        keyPrefix = null;
+      }
+      if (!customer) throw new Error("Cloud customer authentication failed.");
+      const relay = await tenants.get(customer);
       const server = new McpServer({ name: "relay-cloud", version: "0.1.0" });
-      registerTools(server, { relay, ...finance.hooks(identity.customer) });
+      registerTools(server, { relay, ...finance.hooks(customer) });
       server.registerTool(
         "relay_cloud_whoami",
         {
@@ -74,9 +97,9 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
             {
               type: "text",
               text: JSON.stringify({
-                customerId: identity.customer.id,
-                displayName: identity.customer.displayName,
-                keyPrefix: identity.key.prefix,
+                customerId: customer.id,
+                displayName: customer.displayName,
+                keyPrefix: keyPrefix,
               }),
             },
           ],
@@ -90,7 +113,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
           annotations: { readOnlyHint: true },
         },
         async () => {
-          const balance = finance.balance(identity.customer.id);
+          const balance = finance.balance(customer.id);
           return {
             content: [
               {
@@ -115,7 +138,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
               text: JSON.stringify({
                 currency: prices.list().currency,
                 unit: prices.list().unit,
-                entries: finance.usage(identity.customer.id, args.limit ?? 20),
+                entries: finance.usage(customer.id, args.limit ?? 20),
               }),
             },
           ],
@@ -171,3 +194,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1);
   });
 }
+
+
+

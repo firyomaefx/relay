@@ -23,6 +23,7 @@ interface OAuthClient {
 interface AuthCode {
   code: string;
   clientId: string;
+  subject: string;
   redirectUri: string;
   codeChallenge?: string;
   codeChallengeMethod?: "S256" | "plain";
@@ -34,10 +35,14 @@ interface TokenPayload {
   typ: "access" | "refresh";
   exp: number;
   client_id: string;
+  sub: string;
 }
 
 export interface OAuthOptions {
   password: string;
+  /** Optional custom credential check, used by the cloud server to map an API key to a customer. */
+  authenticate?: (credential: string) => Promise<{ subject: string } | null>;
+  credentialLabel?: string;
   /** Public origin, for example https://mcp.duitpoket.fun */
   publicBaseUrl?: string;
   /** Signing secret; defaults to the static MCP token. */
@@ -47,6 +52,7 @@ export interface OAuthOptions {
 export interface OAuthProvider {
   handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean>;
   authorized(req: IncomingMessage): boolean;
+  subject(req: IncomingMessage): string | null;
   challenge(res: ServerResponse, baseUrl: string): void;
 }
 
@@ -160,20 +166,20 @@ export function createOAuthProvider(options: OAuthOptions): OAuthProvider {
     if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
     try {
       const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as TokenPayload;
-      if (payload.typ !== type || payload.exp <= Math.floor(Date.now() / 1000) || !payload.client_id) return null;
+      if (payload.typ !== type || payload.exp <= Math.floor(Date.now() / 1000) || !payload.client_id || !payload.sub) return null;
       return payload;
     } catch {
       return null;
     }
   }
 
-  function issueTokens(clientId: string, scope: string): Record<string, unknown> {
+  function issueTokens(clientId: string, scope: string, subject: string): Record<string, unknown> {
     const now = Math.floor(Date.now() / 1000);
     return {
-      access_token: sign({ typ: "access", exp: now + ACCESS_TTL_SECONDS, client_id: clientId }),
+      access_token: sign({ typ: "access", exp: now + ACCESS_TTL_SECONDS, client_id: clientId, sub: subject }),
       token_type: "Bearer",
       expires_in: ACCESS_TTL_SECONDS,
-      refresh_token: sign({ typ: "refresh", exp: now + REFRESH_TTL_SECONDS, client_id: clientId }),
+      refresh_token: sign({ typ: "refresh", exp: now + REFRESH_TTL_SECONDS, client_id: clientId, sub: subject }),
       scope,
     };
   }
@@ -219,12 +225,12 @@ button{width:100%;margin-top:14px;padding:11px 12px;border:0;border-radius:9px;b
 </style></head><body><main>
 <p style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8b7cff">Relay Cloud</p>
 <h1>Authorize this connector</h1>
-<p>Claude is asking to connect to <code>${escapeHtml(base)}</code>. Enter the Relay console password to approve access.</p>
+<p>Claude is asking to connect to <code>${escapeHtml(base)}</code>. Enter your Relay Cloud API key to approve access.</p>
 ${error ? `<p class="error">${escapeHtml(error)}</p>` : ""}
 <form method="post" action="/authorize">
 ${hidden}
-<label for="password">Relay console password</label>
-<input id="password" name="password" type="password" autocomplete="current-password" required autofocus />
+<label for="password">${escapeHtml(options.credentialLabel || "Relay console password")}</label>
+<input id="password" name="password" type="password" autocomplete="off" required autofocus />
 <button type="submit">Authorize Relay</button>
 </form>
 </main></body></html>`;
@@ -294,7 +300,15 @@ ${hidden}
       return;
     }
     const { password: _password, ...safeParams } = params;
-    if (!options.password || !safeEqual(params.password ?? "", options.password)) {
+    let subject = "owner";
+    if (options.authenticate) {
+      const result = await options.authenticate(params.password ?? "");
+      if (!result) {
+        sendHtml(res, 401, loginPage(publicBase(req, options.publicBaseUrl), safeParams, "Invalid Relay Cloud API key."));
+        return;
+      }
+      subject = result.subject;
+    } else if (!options.password || !safeEqual(params.password ?? "", options.password)) {
       sendHtml(res, 401, loginPage(publicBase(req, options.publicBaseUrl), safeParams, "Incorrect Relay console password."));
       return;
     }
@@ -302,6 +316,7 @@ ${hidden}
     codes.set(code, {
       code,
       clientId,
+      subject,
       redirectUri,
       codeChallenge: params.code_challenge || undefined,
       codeChallengeMethod: params.code_challenge_method === "plain" ? "plain" : "S256",
@@ -322,7 +337,7 @@ ${hidden}
         sendJson(res, 400, { error: "invalid_grant", error_description: "Refresh token is invalid or expired" });
         return;
       }
-      sendJson(res, 200, issueTokens(payload.client_id, "mcp"));
+      sendJson(res, 200, issueTokens(payload.client_id, "mcp", payload.sub));
       return;
     }
     if (grantType !== "authorization_code") {
@@ -350,7 +365,7 @@ ${hidden}
         return;
       }
     }
-    sendJson(res, 200, issueTokens(entry.clientId, entry.scope));
+    sendJson(res, 200, issueTokens(entry.clientId, entry.scope, entry.subject));
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
@@ -388,16 +403,25 @@ ${hidden}
     return false;
   }
 
-  function authorized(req: IncomingMessage): boolean {
+  function subject(req: IncomingMessage): string | null {
     const header = req.headers.authorization;
-    if (typeof header !== "string" || !header.startsWith("Bearer ")) return false;
+    if (typeof header !== "string" || !header.startsWith("Bearer ")) return null;
     const token = header.slice("Bearer ".length).trim();
-    return verify(token, "access") !== null;
+    return verify(token, "access")?.sub ?? null;
+  }
+
+  function authorized(req: IncomingMessage): boolean {
+    return subject(req) !== null;
   }
 
   function challenge(res: ServerResponse, base: string): void {
     res.setHeader("WWW-Authenticate", `Bearer realm="relay-mcp", resource_metadata="${base}/.well-known/oauth-protected-resource"`);
   }
 
-  return { handle, authorized, challenge };
+  return { handle, authorized, subject, challenge };
 }
+
+
+
+
+
