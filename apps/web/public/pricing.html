@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay Cloud — pricing</title>
+<style>
+  :root{--bg:#f7f5ef;--ink:#131a16;--muted:#67726b;--line:#dfe4dd;--card:#fff;--accent:#19624a;--accent2:#d7a33d;--soft:#e9f1ec}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:radial-gradient(1100px 500px at 15% -10%,#e5f0e8 0%,transparent 60%),var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  a{color:inherit}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:750;letter-spacing:-.02em;font-size:19px}
+  .mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(145deg,var(--accent),#2f9a70);display:grid;place-items:center;color:#fff;font-size:16px}
+  nav a{margin-left:22px;text-decoration:none;color:var(--muted);font-size:14px}
+  nav a:hover{color:var(--ink)}
+  .hero{padding:54px 0 26px;max-width:760px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid #cfe0d4;border-radius:999px;background:#eef6f0;color:var(--accent);font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.08em}
+  h1{font-size:clamp(38px,6vw,66px);line-height:1.02;letter-spacing:-.045em;margin:18px 0 18px;max-width:720px}
+  .lede{font-size:clamp(17px,2vw,21px);color:var(--muted);max-width:620px;margin:0}
+  .hero-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:28px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:650;font-size:15px;border:1px solid transparent}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#14513e}
+  .btn-ghost{border-color:var(--line);background:#fff}
+  .free{margin-top:18px;display:inline-flex;gap:9px;align-items:center;color:var(--muted);font-size:14px}
+  .free b{color:var(--ink)}
+  .section-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin:54px 0 18px}
+  h2{font-size:clamp(24px,3vw,34px);letter-spacing:-.03em;margin:0}
+  .section-head p{margin:0;color:var(--muted);font-size:14px;max-width:420px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}nav{display:none}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 14px;box-shadow:0 1px 0 rgba(19,26,22,.03)}
+  .card h3{margin:0 0 2px;font-size:17px;letter-spacing:-.015em}
+  .card .tag{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .price-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid #edf0ec}
+  .price-row:first-of-type{border-top:0}
+  .kind{color:var(--muted);font-size:13px;text-transform:capitalize}
+  .amount{font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .amount small{font-weight:500;color:var(--muted);font-size:11px;margin-left:2px}
+  .note{margin-top:26px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:16px 18px;color:var(--muted);font-size:14px;display:flex;gap:12px;align-items:flex-start}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);margin-top:7px;flex:0 0 auto}
+  footer{margin-top:60px;padding:26px 0 44px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .skeleton{height:150px;border-radius:16px;background:linear-gradient(90deg,#eef1ed,#f8faf7,#eef1ed);background-size:200% 100%;animation:sh 1.2s infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  .error{border:1px solid #e6cbc7;background:#fbf1ef;color:#8d3b31;border-radius:12px;padding:14px 16px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="mark">R</span> Relay Cloud</div>
+    <nav><a href="#prices">Prices</a><a href="#how">How it works</a><a href="/login">Console</a></nav>
+  </header>
+
+  <section class="hero">
+    <span class="eyebrow">Pay per post</span>
+    <h1>Publish once.<br>Pay only for what goes out.</h1>
+    <p class="lede">Relay Cloud connects your social accounts through MCP and charges per successful post. No monthly platform fee, no charge for failed or cancelled posts.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="/login">Open Relay console</a>
+      <a class="btn btn-ghost" href="#prices">See prices</a>
+    </div>
+    <div class="free"><b id="free">—</b><span>free allowance included when you start</span></div>
+  </section>
+
+  <div class="section-head" id="prices">
+    <h2>Prices by platform</h2>
+    <p id="unit-note">Whole-unit pricing. Final charges are recorded in your Relay Cloud ledger.</p>
+  </div>
+  <div class="grid" id="grid" aria-live="polite">
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+  </div>
+
+  <div class="note" id="how">
+    <span class="dot"></span>
+    <span>Relay reserves the price when you post or schedule, charges only for successful posts, and releases the hold when a post fails or a scheduled job is cancelled.</span>
+  </div>
+
+  <footer>
+    <span>Relay Cloud</span>
+    <span id="updated">Prices loaded from the Relay Cloud price table.</span>
+  </footer>
+</div>
+
+<script>
+const labels = { x: "X", threads: "Threads", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram" };
+const kindLabels = { text: "Text post", link: "Link post", image: "Image post", carousel: "Carousel", video: "Video", article: "Article" };
+const money = (sen, currency) => {
+  if (currency === "MYR") return "RM" + (Number(sen) / 100).toFixed(2);
+  return (Number(sen) / 100).toFixed(2) + " " + currency;
+};
+
+async function render() {
+  try {
+    const response = await fetch("/api/pricing", { headers: { accept: "application/json" } });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Pricing is unavailable.");
+    document.getElementById("free").textContent = data.freeAllowancePosts
+      ? data.freeAllowancePosts + " free posts"
+      : "Pay as you go";
+    document.getElementById("unit-note").textContent =
+      "Prices in " + data.currency + " (" + data.unit + "). Charged only after a successful post.";
+    document.getElementById("grid").innerHTML = Object.entries(data.prices).map(([platform, rows]) => `
+      <article class="card">
+        <h3>${labels[platform] || platform}</h3>
+        <div class="tag">${Object.keys(rows).length} post type${Object.keys(rows).length === 1 ? "" : "s"}</div>
+        ${Object.entries(rows).map(([kind, sen]) => `
+          <div class="price-row">
+            <span class="kind">${kindLabels[kind] || kind}</span>
+            <span class="amount">${money(sen, data.currency)}<small>${data.unit}</small></span>
+          </div>`).join("")}
+      </article>`).join("");
+    document.getElementById("updated").textContent = "Updated " + new Date().toLocaleDateString();
+  } catch (error) {
+    document.getElementById("grid").innerHTML = `<div class="error" style="grid-column:1/-1">${error.message}</div>`;
+    document.getElementById("free").textContent = "Pricing unavailable";
+  }
+}
+render();
+</script>
+</body>
+</html>

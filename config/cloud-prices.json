@@ -1,6 +1,7 @@
 {
   "currency": "MYR",
   "unit": "sen",
+  "free_allowance_posts": 5,
   "_note": "Placeholder whole-integer prices in sen. Change before production.",
   "prices": {
     "x": { "text": 50, "link": 60, "image": 80, "carousel": 100, "video": 120, "article": 150 },
