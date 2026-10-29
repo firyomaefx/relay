@@ -151,6 +151,34 @@ export function createOAuthProvider(options: OAuthOptions): OAuthProvider {
   const codes = new Map<string, AuthCode>();
   const key = digest(`relay-oauth:${options.secret}`);
 
+  function encodeClient(client: OAuthClient): string {
+    const encoded = base64url(JSON.stringify({ client_name: client.client_name, redirect_uris: client.redirect_uris, issued_at: client.issued_at }));
+    const signature = createHmac("sha256", key).update(`client:${encoded}`, "utf8").digest("base64url");
+    return `relay_client_${encoded}.${signature}`;
+  }
+
+  function decodeClient(clientId: string): OAuthClient | null {
+    if (!clientId.startsWith("relay_client_")) return null;
+    const body = clientId.slice("relay_client_".length);
+    const separator = body.lastIndexOf(".");
+    if (separator <= 0) return null;
+    const encoded = body.slice(0, separator);
+    const provided = Buffer.from(body.slice(separator + 1), "utf8");
+    const expected = Buffer.from(createHmac("sha256", key).update(`client:${encoded}`, "utf8").digest("base64url"), "utf8");
+    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
+    try {
+      const data = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as Omit<OAuthClient, "client_id">;
+      if (!Array.isArray(data.redirect_uris) || data.redirect_uris.length === 0) return null;
+      return { client_id: clientId, ...data };
+    } catch {
+      return null;
+    }
+  }
+
+  function getClient(clientId: string): OAuthClient | undefined {
+    return clients.get(clientId) ?? decodeClient(clientId) ?? undefined;
+  }
+
   function sign(payload: TokenPayload): string {
     const encoded = base64url(JSON.stringify(payload));
     const signature = createHmac("sha256", key).update(encoded, "utf8").digest("base64url");
@@ -249,16 +277,17 @@ ${hidden}
       sendJson(res, 400, { error: "invalid_redirect_uri", error_description: "Provide at least one https or loopback redirect_uri" });
       return;
     }
-    const clientId = `relay_client_${randomBytes(18).toString("base64url")}`;
+    const clientId = "";
     const client: OAuthClient = {
-      client_id: clientId,
+      client_id: "",
       client_name: typeof body.client_name === "string" ? body.client_name : undefined,
       redirect_uris: redirectUris,
       issued_at: Math.floor(Date.now() / 1000),
     };
-    clients.set(clientId, client);
+    client.client_id = encodeClient(client);
+    clients.set(client.client_id, client);
     sendJson(res, 201, {
-      client_id: clientId,
+      client_id: client.client_id,
       client_id_issued_at: client.issued_at,
       client_name: client.client_name,
       redirect_uris: redirectUris,
@@ -273,13 +302,13 @@ ${hidden}
     const clientId = url.searchParams.get("client_id") ?? "";
     const redirectUri = url.searchParams.get("redirect_uri") ?? "";
     const responseType = url.searchParams.get("response_type") ?? "";
-    const client = clients.get(clientId);
+    const client = getClient(clientId);
     if (!client || !client.redirect_uris.includes(redirectUri) || responseType !== "code") {
       sendHtml(res, 400, "<h1>Invalid authorization request</h1><p>Unknown client or redirect URI.</p>");
       return;
     }
     sendHtml(res, 200, loginPage(publicBase(req, options.publicBaseUrl), {
-      client_id: clientId,
+      client_id: client.client_id,
       redirect_uri: redirectUri,
       state: url.searchParams.get("state") ?? "",
       code_challenge: url.searchParams.get("code_challenge") ?? "",
@@ -294,7 +323,7 @@ ${hidden}
     const params = Object.fromEntries(form.entries());
     const clientId = params.client_id ?? "";
     const redirectUri = params.redirect_uri ?? "";
-    const client = clients.get(clientId);
+    const client = getClient(clientId);
     if (!client || !client.redirect_uris.includes(redirectUri)) {
       sendHtml(res, 400, "<h1>Invalid authorization request</h1>");
       return;
@@ -420,6 +449,8 @@ ${hidden}
 
   return { handle, authorized, subject, challenge };
 }
+
+
 
 
 

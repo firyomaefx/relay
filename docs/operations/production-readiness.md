@@ -62,9 +62,14 @@ npm test                 # 150 tests
 node tools/audit-live-links.mjs
 ```
 
-## Known external dependencies
+## Operational state
 
-- GCS offsite backups need the VM service account to have object-write permission; local daily snapshots are active.
-- Uptime checks exist but a notification channel/alert policy still needs an email or pager destination.
-- There is no self-service signup. Customers are provisioned by an operator and receive an API key or personal MCP URL.
-- Real customer OAuth/posting end-to-end requires a real customer account and platform app credentials.
+- **GCS offsite backup:** active. The VM service account has `roles/storage.objectAdmin` and `devstorage.read_write`; backup script uploads the encrypted tarball and `.sha256` to `gs://relay-prod-backups-a22a835c`. Verified: `relay-20261029T202909Z.tgz`.
+- **Uptime alerting:** active. Cloud Monitoring checks `relay.duitpoket.fun/api/health` and `cloud-mcp.duitpoket.fun/health` every 5 minutes. Alert policy `Relay production uptime` notifies the email channel `Relay production alerts` (`ttrgautomation@gmail.com`).
+- **Stripe:** code-complete; live keys are not installed. Checkout returns 503 until `RELAY_STRIPE_SECRET_KEY` and `RELAY_STRIPE_WEBHOOK_SECRET` are set.
+- **Contact requests:** stored locally at `/var/lib/relay/.data/contact-requests.ndjson`. Set `RELAY_CONTACT_WEBHOOK_URL` to forward each request to Slack/Google Chat/Zapier; no direct transactional-email provider is connected yet.
+- **Self-service signup:** not implemented. Customers are provisioned by an operator.
+- **Real-account E2E:** requires a real customer account and platform app credentials.
+- **OAuth client registrations:** now self-validating signed client IDs, so they survive process restarts. Access/refresh tokens are signed from `RELAY_CLOUD_TOKEN_KEY`.
+
+
