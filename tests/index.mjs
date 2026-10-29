@@ -23,6 +23,7 @@ import "./unit/label.test.mjs";
 import "./unit/cloud-auth.test.mjs";
 import "./e2e/cloud-mcp.test.mjs";
 import "./e2e/cloud-isolation.test.mjs";
+import "./e2e/cloud-credentials.test.mjs";
 import "./e2e/mcp.test.mjs";
 import "./e2e/mcp-article.test.mjs";
 import "./e2e/mcp-comments.test.mjs";

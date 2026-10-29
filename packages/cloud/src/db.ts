@@ -127,6 +127,21 @@ export class CloudStore {
         customer_id TEXT NOT NULL REFERENCES customers(id),
         source TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS customer_accounts (
+        customer_id TEXT NOT NULL REFERENCES customers(id),
+        platform TEXT NOT NULL,
+        account_ref TEXT,
+        status TEXT NOT NULL,
+        profile_json TEXT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (customer_id, platform)
+      );
+      CREATE TABLE IF NOT EXISTS oauth_states (
+        state TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES customers(id),
+        platform TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
     `);
     return new CloudStore(db);
   }
@@ -305,5 +320,64 @@ export class CloudStore {
       | { customer_id: string }
       | undefined;
     return row?.customer_id ?? null;
+  }
+
+  setCustomerAccount(
+    customerId: string,
+    platform: string,
+    status: "not_connected" | "needs_reconnect" | "ready",
+    account: Record<string, unknown> | null,
+  ): void {
+    this.db.prepare(
+      `INSERT INTO customer_accounts (customer_id, platform, account_ref, status, profile_json, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(customer_id, platform) DO UPDATE SET
+         account_ref = excluded.account_ref,
+         status = excluded.status,
+         profile_json = excluded.profile_json,
+         updated_at = excluded.updated_at`,
+    ).run(
+      customerId,
+      platform,
+      typeof account?.handle === "string" ? account.handle : null,
+      status,
+      account ? JSON.stringify(account) : null,
+      new Date().toISOString(),
+    );
+  }
+
+  listCustomerAccounts(customerId: string): Array<{
+    platform: string;
+    accountRef: string | null;
+    status: string;
+    profile: Record<string, unknown> | null;
+    updatedAt: string;
+  }> {
+    const rows = this.db.prepare("SELECT * FROM customer_accounts WHERE customer_id = ? ORDER BY platform").all(customerId) as Record<string, unknown>[];
+    return rows.map((row) => ({
+      platform: String(row.platform),
+      accountRef: row.account_ref == null ? null : String(row.account_ref),
+      status: String(row.status),
+      profile: row.profile_json ? (JSON.parse(String(row.profile_json)) as Record<string, unknown>) : null,
+      updatedAt: String(row.updated_at),
+    }));
+  }
+
+  saveOauthState(state: string, customerId: string, platform: string): void {
+    this.db.prepare("INSERT OR REPLACE INTO oauth_states (state, customer_id, platform, created_at) VALUES (?, ?, ?, ?)").run(
+      state,
+      customerId,
+      platform,
+      new Date().toISOString(),
+    );
+  }
+
+  consumeOauthState(state: string): { customerId: string; platform: string } | null {
+    const row = this.db.prepare("SELECT * FROM oauth_states WHERE state = ?").get(state) as
+      | Record<string, unknown>
+      | undefined;
+    if (!row) return null;
+    this.db.prepare("DELETE FROM oauth_states WHERE state = ?").run(state);
+    return { customerId: String(row.customer_id), platform: String(row.platform) };
   }
 }

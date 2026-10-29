@@ -1,7 +1,8 @@
-import { mkdir } from "node:fs/promises";
+import { createHmac } from "node:crypto";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRelay } from "@relay/platforms";
-import type { RelayService } from "@relay/core";
+import { PLATFORM_IDS, type RelayService } from "@relay/core";
 import type { CloudConfig } from "./config.js";
 import type { CloudStore, Customer } from "./db.js";
 
@@ -54,6 +55,7 @@ export class TenantManager {
     const dataDir = stored ?? fallback;
     if (!stored) this.options.store.getOrCreateCustomerData(customer.id, dataDir);
     await mkdir(dataDir, { recursive: true });
+    if (!customer.owner) await this.ensureTenantSecret(dataDir, customer.id);
     const relay = await createRelay({
       dataDir,
       forceMock: this.forceMock,
@@ -65,11 +67,42 @@ export class TenantManager {
     return relay;
   }
 
+  /** Customer tokens use a per-tenant key derived from RELAY_CLOUD_TOKEN_KEY. */
+  private async ensureTenantSecret(dataDir: string, customerId: string): Promise<void> {
+    const file = path.join(dataDir, "secret.key");
+    try {
+      await readFile(file);
+      return;
+    } catch {
+      // Create below.
+    }
+    const root = this.options.config.tokenKey;
+    if (!root) throw new Error("RELAY_CLOUD_TOKEN_KEY is not configured.");
+    const key = createHmac("sha256", root).update(`relay-cloud-tenant:${customerId}`).digest();
+    await writeFile(file, key, { mode: 0o600 });
+    try {
+      await chmod(file, 0o600);
+    } catch {
+      // Windows ACLs are host-managed.
+    }
+  }
+
   /** Mapping tables are additive audit metadata; tenant isolation itself is the data directory. */
   async recordMappings(customer: Customer, relay: RelayService): Promise<void> {
     const accounts = await relay.accounts();
+    const prior = new Map(this.options.store.listCustomerAccounts(customer.id).map((entry) => [entry.platform, entry.status]));
     for (const account of accounts) {
       this.options.store.recordAccountOwner(customer.id, account.platform, account.handle || account.platform, customer.owner ? "owner" : "cloud");
+    }
+    for (const platform of PLATFORM_IDS) {
+      const account = accounts.find((entry) => entry.platform === platform);
+      const status = account ? "ready" : prior.get(platform) === "needs_reconnect" ? "needs_reconnect" : "not_connected";
+      this.options.store.setCustomerAccount(
+        customer.id,
+        platform,
+        status,
+        account ? (account as unknown as Record<string, unknown>) : null,
+      );
     }
     const queue = await relay.listQueue();
     for (const job of queue) this.options.store.recordJobOwner(customer.id, job.id, customer.owner ? "owner" : "cloud");

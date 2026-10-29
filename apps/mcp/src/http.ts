@@ -31,6 +31,8 @@ export interface HttpServerOptions {
   /** Optional additional auth layer for a cloud-only entry point. Existing
    *  callers omit it, preserving the owner bearer/OAuth behaviour exactly. */
   authorize?: (req: IncomingMessage) => Promise<boolean>;
+  /** Optional cloud-only REST routes. Existing callers omit this. */
+  handleExtra?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>;
   createServer: (req?: IncomingMessage) => McpServer | Promise<McpServer>;
   log: (message: string) => void;
 }
@@ -127,6 +129,10 @@ export async function startHttpServer(options: HttpServerOptions): Promise<Runni
 
     if (requestUrl.pathname === "/health") {
       sendJson(res, 200, { ok: true, name: "relay-mcp-http", transport: "streamable-http" });
+      return;
+    }
+
+    if (options.handleExtra && (await options.handleExtra(req, res, requestUrl))) {
       return;
     }
 

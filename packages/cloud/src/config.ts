@@ -8,6 +8,7 @@ export interface CloudConfig {
   mcpPort: number;
   tenantDataRoot: string;
   ownerDataDir: string;
+  oauthBase: string;
 }
 
 function parseTokenKey(raw: string): Buffer {
@@ -29,7 +30,7 @@ function parseTokenKey(raw: string): Buffer {
 /** Cloud mode is entirely additive: false/unset returns disabled config. */
 export function loadCloudConfig(env: NodeJS.ProcessEnv = process.env): CloudConfig {
   const enabled = /^(1|true|yes)$/i.test(env.RELAY_CLOUD_ENABLED?.trim() ?? "");
-  if (!enabled) return { enabled: false, dbPath: "", tokenKey: null, mcpPort: 0, tenantDataRoot: "", ownerDataDir: "" };
+  if (!enabled) return { enabled: false, dbPath: "", tokenKey: null, mcpPort: 0, tenantDataRoot: "", ownerDataDir: "", oauthBase: "" };
   const rawKey = env.RELAY_CLOUD_TOKEN_KEY?.trim() ?? "";
   if (!rawKey) {
     throw new RelayError(
@@ -47,5 +48,6 @@ export function loadCloudConfig(env: NodeJS.ProcessEnv = process.env): CloudConf
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new RelayError("RELAY_CLOUD_MCP_PORT must be a valid TCP port.", "cloud_port_invalid", undefined, 500);
   }
-  return { enabled: true, dbPath, tokenKey: parseTokenKey(rawKey), mcpPort: port, tenantDataRoot, ownerDataDir };
+  const oauthBase = (env.RELAY_CLOUD_OAUTH_BASE?.trim() || env.RELAY_CONSOLE_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+  return { enabled: true, dbPath, tokenKey: parseTokenKey(rawKey), mcpPort: port, tenantDataRoot, ownerDataDir, oauthBase };
 }
