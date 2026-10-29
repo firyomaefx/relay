@@ -1,0 +1,12 @@
+{
+  "currency": "MYR",
+  "unit": "sen",
+  "_note": "Placeholder whole-integer prices in sen. Change before production.",
+  "prices": {
+    "x": { "text": 50, "link": 60, "image": 80, "carousel": 100, "video": 120, "article": 150 },
+    "threads": { "text": 40, "link": 50, "image": 70, "carousel": 90, "video": 110 },
+    "tiktok": { "video": 80, "image": 50, "carousel": 70 },
+    "youtube": { "video": 100 },
+    "instagram": { "image": 60, "carousel": 80, "video": 100 }
+  }
+}

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
-import { CloudStore } from "../../packages/cloud/dist/index.js";
+import { CloudStore, CloudLedger } from "../../packages/cloud/dist/index.js";
 import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helpers.mjs";
 
 const TOKEN_KEY = Buffer.alloc(32, 17).toString("base64");
@@ -45,6 +45,10 @@ test("cloud customers connect their own credentials and cannot post without an a
   const key = store.createApiKey(customer.id, "test");
   const emptyKey = store.createApiKey(noCredentials.id, "empty");
   store.close();
+  const seed = new CloudLedger(dbPath);
+  seed.credit({ customerId: customer.id, amount: 1000, type: "topup", idempotencyKey: "seed-customer" });
+  seed.credit({ customerId: noCredentials.id, amount: 1000, type: "topup", idempotencyKey: "seed-empty" });
+  seed.close();
 
   const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
     cwd: repoRoot,
@@ -106,3 +110,4 @@ test("cloud customers connect their own credentials and cannot post without an a
     await cleanupTempDir(dir);
   }
 });
+

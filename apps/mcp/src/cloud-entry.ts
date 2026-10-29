@@ -12,11 +12,12 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { loadCloudConfig, CloudStore, TenantManager } from "@relay/cloud";
+import { loadCloudConfig, CloudStore, TenantManager, CloudLedger, PriceTable, defaultPricePath } from "@relay/cloud";
 import { authenticateApiKey } from "@relay/cloud";
 import { registerTools } from "./tools.js";
 import { startHttpServer, type RunningHttpServer } from "./http.js";
 import { createCloudApi } from "./cloud-api.js";
+import { CloudFinance } from "./cloud-finance.js";
 
 function log(message: string): void {
   process.stderr.write(`[relay-cloud-mcp] ${message}\n`);
@@ -36,6 +37,9 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
   const store = CloudStore.open(config.dbPath);
   store.ensureOwnerCustomer();
   const tenants = new TenantManager({ store, config, env: process.env, logger: log });
+  const ledger = new CloudLedger(config.dbPath);
+  const prices = PriceTable.load(defaultPricePath());
+  const finance = new CloudFinance({ store, ledger, prices, tenants });
   const handleExtra = createCloudApi({ store, tenants, config });
   const token = randomBytes(32).toString("base64url");
 
@@ -51,7 +55,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       if (!identity) throw new Error("Cloud customer authentication failed.");
       const relay = await tenants.get(identity.customer);
       const server = new McpServer({ name: "relay-cloud", version: "0.1.0" });
-      registerTools(server, { relay });
+      registerTools(server, { relay, ...finance.hooks(identity.customer) });
       server.registerTool(
         "relay_cloud_whoami",
         {
@@ -71,17 +75,83 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
           ],
         }),
       );
+      server.registerTool(
+        "relay_balance",
+        {
+          description: "Show the authenticated Relay Cloud customer's balance, held funds and available balance.",
+          inputSchema: z.object({}),
+          annotations: { readOnlyHint: true },
+        },
+        async () => {
+          const balance = finance.balance(identity.customer.id);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({ ...balance, currency: prices.list().currency, unit: prices.list().unit }),
+              },
+            ],
+          };
+        },
+      );
+      server.registerTool(
+        "relay_usage",
+        {
+          description: "Show recent Relay Cloud ledger entries for the authenticated customer.",
+          inputSchema: z.object({ limit: z.number().int().min(1).max(200).optional() }),
+          annotations: { readOnlyHint: true },
+        },
+        async (args) => ({
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                currency: prices.list().currency,
+                unit: prices.list().unit,
+                entries: finance.usage(identity.customer.id, args.limit ?? 20),
+              }),
+            },
+          ],
+        }),
+      );
+      server.registerTool(
+        "relay_prices",
+        {
+          description: "Show the Relay Cloud price table.",
+          inputSchema: z.object({}),
+          annotations: { readOnlyHint: true },
+        },
+        async () => ({
+          content: [{ type: "text", text: JSON.stringify(prices.list()) }],
+        }),
+      );
       return server;
     },
     log,
   });
 
   log(`cloud MCP listening on ${running.url}`);
+  const scheduler = setInterval(() => {
+    void (async () => {
+      for (const customer of store.listCustomers()) {
+        if (customer.owner) continue; // The owner scheduler remains the console/MCP owner process.
+        try {
+          const relay = await tenants.get(customer);
+          await relay.runDueJobs();
+          await finance.reconcile(customer, relay);
+        } catch (error) {
+          log(`cloud scheduler error for ${customer.id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    })();
+  }, 15000);
   return {
     ...running,
     close: async () => {
+      clearInterval(scheduler);
       await running.close();
       await tenants.close();
+      ledger.close();
       store.close();
     },
   };

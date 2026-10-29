@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
-import { CloudStore } from "../../packages/cloud/dist/index.js";
+import { CloudStore, CloudLedger } from "../../packages/cloud/dist/index.js";
 import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helpers.mjs";
 
 const TOKEN_KEY = Buffer.alloc(32, 13).toString("base64");
@@ -31,6 +31,10 @@ test("cloud customers A and B cannot read, cancel or publish into each other's d
   const keyA = store.createApiKey(a.id, "A");
   const keyB = store.createApiKey(b.id, "B");
   store.close();
+  const ledger = new CloudLedger(dbPath);
+  ledger.credit({ customerId: a.id, amount: 1000, type: "topup", idempotencyKey: "seed-a" });
+  ledger.credit({ customerId: b.id, amount: 1000, type: "topup", idempotencyKey: "seed-b" });
+  ledger.close();
 
   const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
     cwd: repoRoot,
@@ -94,5 +98,6 @@ test("cloud customers A and B cannot read, cancel or publish into each other's d
     await cleanupTempDir(dir);
   }
 });
+
 
 

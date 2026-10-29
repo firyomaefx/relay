@@ -265,6 +265,11 @@ export interface ToolContext {
   relay: RelayService;
   /** Absolute path of the built server entry, used to render client config snippets. */
   entryPath?: string;
+  /** Cloud-only hooks. Existing owner contexts omit them. */
+  beforePost?: (draft: PostDraft) => Promise<unknown>;
+  afterPost?: (hold: unknown, result: Awaited<ReturnType<RelayService["createPost"]>>) => Promise<void>;
+  afterPostError?: (hold: unknown) => Promise<void>;
+  afterCancel?: (jobId: string) => Promise<void>;
 }
 
 function toArticleDraft(input: z.infer<typeof articleInputSchema>): ArticleDraft {
@@ -505,7 +510,15 @@ export function registerTools(server: McpServer, context: ToolContext): void {
           );
         }
 
-        const result = await relay.createPost(draft, { force: args.force === true });
+        const hold = context.beforePost ? await context.beforePost(draft) : null;
+        let result: Awaited<ReturnType<RelayService["createPost"]>>;
+        try {
+          result = await relay.createPost(draft, { force: args.force === true });
+        } catch (error) {
+          await context.afterPostError?.(hold);
+          throw error;
+        }
+        await context.afterPost?.(hold, result);
         if (!result.report.ok) {
           return errorResult(
             "Post not published: validation failed while creating the post.",
@@ -665,6 +678,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
             { jobId: args.job_id, canceled: false },
           );
         }
+        await context.afterCancel?.(args.job_id);
         return textResult(`Canceled scheduled job ${args.job_id}. It will not be published.`, {
           jobId: args.job_id,
           canceled: true,
