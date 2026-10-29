@@ -17,6 +17,7 @@ import {
   type RelayService,
 } from "@relay/core";
 import { createRelay } from "@relay/platforms";
+import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { SessionManager } from "./auth.js";
 import { readConfig } from "./config.js";
 import {
@@ -88,6 +89,7 @@ interface HandlerDeps {
   logger: (message: string) => void;
   publicDir: string;
   relay: () => RelayService;
+  cloudAdmin?: CloudAdminDeps;
 }
 
 function splitPath(pathname: string): string[] {
@@ -240,6 +242,10 @@ async function handleApi(
   url: URL,
   deps: HandlerDeps,
 ): Promise<void> {
+  if (segments[1] === "cloud" && segments[2] === "admin") {
+    await handleCloudAdmin(req, res, segments, url, deps.cloudAdmin);
+    return;
+  }
   const relay = deps.relay();
   const resource = segments[1] ?? "";
 
@@ -626,6 +632,12 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   const publicDir =
     options.publicDir ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
   const session = new SessionManager(password);
+  let cloudAdmin: CloudAdminDeps | null = null;
+  try {
+    cloudAdmin = openCloudAdmin(env);
+  } catch (error) {
+    logger(`cloud admin disabled: ${errorMessage(error)}`);
+  }
 
   let relay: RelayService | null = null;
   const server = createServer(
@@ -633,6 +645,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       session,
       logger,
       publicDir,
+      cloudAdmin: cloudAdmin ?? undefined,
       relay: () => {
         if (!relay) throw new RelayError("The console is still starting", "not_ready", undefined, 503);
         return relay;
@@ -679,6 +692,11 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
           relay = null;
           await active.stopScheduler();
           await active.close();
+        }
+        if (cloudAdmin) {
+          const activeCloud = cloudAdmin;
+          cloudAdmin = null;
+          await activeCloud.close();
         }
       })();
     }

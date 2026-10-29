@@ -2,7 +2,6 @@
 import { loadCloudConfig } from "./config.js";
 import { CloudStore } from "./db.js";
 import { CloudLedger } from "./ledger.js";
-import { randomUUID } from "node:crypto";
 
 function usage(): void {
   process.stderr.write(`Relay Cloud admin
@@ -11,7 +10,8 @@ Usage:
   relay-cloud-admin create-customer <name> [--owner]
   relay-cloud-admin create-key <customerId> [label]
   relay-cloud-admin revoke-key <keyId>
-  relay-cloud-admin credit <customerId> <amount> [reason]
+  relay-cloud-admin credit <customerId> <amount> [reference] [note]
+  relay-cloud-admin payments <customerId>
   relay-cloud-admin list-customers
   relay-cloud-admin list-keys [customerId]
 
@@ -69,15 +69,16 @@ function main(): void {
         const amount = Number(args[1]);
         if (!customerId || !store.getCustomer(customerId)) throw new Error("A valid customerId is required.");
         if (!Number.isInteger(amount) || amount <= 0) throw new Error("Amount must be a positive whole number.");
-        const reason = args.slice(2).join(" ").trim() || "manual top-up";
-        const entry = ledger.credit({
-          customerId,
-          amount,
-          type: "topup",
-          idempotencyKey: `topup:${customerId}:${randomUUID()}`,
-          reason,
-        });
-        process.stdout.write(`${JSON.stringify({ entry, balance: ledger.balanceWithHold(customerId) }, null, 2)}\n`);
+        const reference = args[2]?.trim() || `manual:${Date.now()}`;
+        const note = args.slice(3).join(" ").trim() || "manual top-up";
+        const result = ledger.recordTopup({ customerId, amount, reference, note, currency: "MYR", provider: "manual" });
+        process.stdout.write(`${JSON.stringify({ ...result, balance: ledger.balanceWithHold(customerId) }, null, 2)}\n`);
+        return;
+      }
+      case "payments": {
+        const customerId = args[0];
+        if (!customerId || !store.getCustomer(customerId)) throw new Error("A valid customerId is required.");
+        process.stdout.write(`${JSON.stringify(ledger.listPayments(customerId, 50), null, 2)}\n`);
         return;
       }
       default:
