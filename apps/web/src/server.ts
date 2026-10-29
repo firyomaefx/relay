@@ -17,6 +17,7 @@ import {
   type RelayService,
 } from "@relay/core";
 import { createRelay } from "@relay/platforms";
+import { PriceTable, defaultPricePath, type CloudPrices } from "@relay/cloud";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { SessionManager } from "./auth.js";
 import { readConfig } from "./config.js";
@@ -90,6 +91,7 @@ interface HandlerDeps {
   publicDir: string;
   relay: () => RelayService;
   cloudAdmin?: CloudAdminDeps;
+  pricing: CloudPrices | null;
 }
 
 function splitPath(pathname: string): string[] {
@@ -166,6 +168,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       });
       return;
     }
+    if (isGet && segments.length === 2 && segments[1] === "pricing") {
+      if (!deps.pricing) {
+        throw new RelayError("Pricing is not configured", "pricing_unavailable", undefined, 503);
+      }
+      sendJson(res, 200, {
+        currency: deps.pricing.currency,
+        unit: deps.pricing.unit,
+        freeAllowancePosts: deps.pricing.free_allowance_posts ?? 0,
+        prices: deps.pricing.prices,
+      });
+      return;
+    }
     if (method === "POST" && segments.length === 2 && segments[1] === "login") {
       await handleLogin(req, res, deps);
       return;
@@ -192,6 +206,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
     }
     const served = await sendFile(req, res, path.join(deps.publicDir, "login.html"), { html: true });
     if (!served) throw new RelayError("The console login page is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
+  // Public pricing page. It must work without a console session.
+  if (isGet && (pathname === "/pricing" || pathname === "/pricing.html")) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, "pricing.html"), { html: true });
+    if (!served) throw new RelayError("The pricing page is missing", "console_assets_missing", undefined, 500);
     return;
   }
 
@@ -633,6 +654,12 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     options.publicDir ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
   const session = new SessionManager(password);
   let cloudAdmin: CloudAdminDeps | null = null;
+  let pricing: CloudPrices | null = null;
+  try {
+    pricing = PriceTable.load(defaultPricePath(env)).list();
+  } catch (error) {
+    logger(`pricing page disabled: ${errorMessage(error)}`);
+  }
   try {
     cloudAdmin = openCloudAdmin(env);
   } catch (error) {
@@ -646,6 +673,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       logger,
       publicDir,
       cloudAdmin: cloudAdmin ?? undefined,
+      pricing,
       relay: () => {
         if (!relay) throw new RelayError("The console is still starting", "not_ready", undefined, 503);
         return relay;

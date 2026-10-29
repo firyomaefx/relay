@@ -28,6 +28,7 @@ import "./e2e/cloud-credentials.test.mjs";
 import "./e2e/cloud-finance.test.mjs";
 import "./e2e/cloud-tools.test.mjs";
 import "./e2e/cloud-admin.test.mjs";
+import "./e2e/cloud-pricing.test.mjs";
 import "./e2e/mcp.test.mjs";
 import "./e2e/mcp-article.test.mjs";
 import "./e2e/mcp-comments.test.mjs";
