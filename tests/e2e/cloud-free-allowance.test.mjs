@@ -65,6 +65,13 @@ test("free text posts spend free credit; X is excluded and the credit is finite"
     assert.equal((await call(base, key.key, "relay_connect", { platform: "threads" })).isError, false);
     assert.equal((await call(base, key.key, "relay_connect", { platform: "x" })).isError, false);
 
+    const quoted = await call(base, key.key, "relay_validate", {
+      platforms: ["threads"],
+      thread: [{ text: "one" }, { text: "two" }, { text: "three" }],
+    });
+    assert.equal(quoted.isError, false, quoted.text);
+    assert.match(quoted.text, /Estimated cost/);
+    assert.match(quoted.text, /3 part\(s\)/);
     // Threads consumes 3 milliUSD from the free credit; X is explicitly excluded.
     const freePost = await call(base, key.key, "relay_post", { platforms: ["threads"], text: "free text post" });
     assert.equal(freePost.isError, false, freePost.text);
@@ -86,3 +93,4 @@ test("free text posts spend free credit; X is excluded and the credit is finite"
     await cleanupTempDir(dir);
   }
 });
+

@@ -4,12 +4,21 @@ import type { CloudLedger, PriceTable, RateLimiter, CloudRateConfig } from "@rel
 import type { CloudStore, Customer } from "@relay/cloud";
 import type { ToolContext } from "./tools.js";
 
+interface QuotePart {
+  kind: string;
+  amount: number;
+}
+
 interface QuoteHold {
   platform: string;
   kind: string;
   amount: number;
+  parts: number;
+  breakdown: QuotePart[];
   units: number;
   free: boolean;
+  freeAmount: number;
+  paidAmount: number;
 }
 
 interface Hold {
@@ -18,8 +27,42 @@ interface Hold {
   quotes: QuoteHold[];
 }
 
+export interface QuotePreviewLine {
+  platform: string;
+  kind: string;
+  parts: number;
+  amount: number;
+  freeAmount: number;
+  paidAmount: number;
+  breakdown: QuotePart[];
+}
+
+export interface QuotePreview {
+  currency: string;
+  unit: string;
+  total: number;
+  freeCreditApplied: number;
+  paidTotal: number;
+  lines: QuotePreviewLine[];
+}
+
 function unitFor(kind: string): number {
   return kind === "video" ? 2 : 1;
+}
+
+/** Older reservations stored only `free`/`units`; normalize them when reconciling. */
+function normalizeHold(entry: QuoteHold): QuoteHold {
+  const paidAmount = Number.isFinite(Number(entry.paidAmount))
+    ? Number(entry.paidAmount)
+    : entry.free
+      ? 0
+      : entry.amount;
+  const freeAmount = Number.isFinite(Number(entry.freeAmount))
+    ? Number(entry.freeAmount)
+    : entry.free
+      ? Number(entry.units)
+      : 0;
+  return { ...entry, paidAmount, freeAmount };
 }
 
 /** Cloud-only finance hooks around the existing relay_post / relay_cancel tools. */
@@ -35,12 +78,13 @@ export class CloudFinance {
     },
   ) {}
 
-  hooks(customer: Customer): Pick<ToolContext, "beforePost" | "afterPost" | "afterPostError" | "afterCancel"> {
+  hooks(customer: Customer): Pick<ToolContext, "beforePost" | "afterPost" | "afterPostError" | "afterCancel" | "quotePost"> {
     return {
       beforePost: async (draft) => this.reserve(customer, draft),
       afterPost: async (hold, result) => this.settle(hold as Hold | null, result),
       afterPostError: async (hold) => this.release(hold as Hold | null),
       afterCancel: async (jobId) => this.cancel(customer, jobId),
+      quotePost: (draft) => this.quote(customer, draft),
     };
   }
 
@@ -69,21 +113,69 @@ export class CloudFinance {
     };
   }
 
-  private async reserve(customer: Customer, draft: PostDraft): Promise<Hold | null> {
-    this.options.limiter?.check(customer.id, "posts", this.options.rateConfig?.postsPerHour ?? 60, 60 * 60 * 1000);
-    const platforms = draft.platforms ?? [];
-    const quote = this.options.prices.quote(draft, platforms);
+  /** Price a draft without reserving or charging. Used by relay_validate and the cost preview. */
+  quote(customer: Customer, draft: PostDraft): QuotePreview {
+    const priced = this.options.prices.quote(draft, draft.platforms ?? []);
     const { freeLimit, creditMode, excluded } = this.pricingConfig();
     let freeRemaining = this.options.ledger.freeRemaining(customer.id, freeLimit);
-    const quotes: QuoteHold[] = quote.quotes.map((entry) => {
-      // $0.50 free credit is spent at the real post price; legacy configs count post units.
-      const units = creditMode ? entry.amount : unitFor(entry.kind);
-      const free = !excluded.has(entry.platform) && freeRemaining >= units;
-      if (free) freeRemaining -= units;
-      return { ...entry, units, free };
+    const lines: QuotePreviewLine[] = priced.quotes.map((entry) => {
+      const units = creditMode
+        ? entry.amount
+        : entry.breakdown.reduce((sum, part) => sum + unitFor(part.kind), 0);
+      const freeAmount = !excluded.has(entry.platform)
+        ? (creditMode ? Math.min(entry.amount, freeRemaining) : freeRemaining >= units ? units : 0)
+        : 0;
+      freeRemaining -= freeAmount;
+      const paidAmount = creditMode ? entry.amount - freeAmount : freeAmount > 0 ? 0 : entry.amount;
+      return {
+        platform: entry.platform,
+        kind: entry.kind,
+        parts: entry.parts,
+        amount: entry.amount,
+        freeAmount,
+        paidAmount,
+        breakdown: entry.breakdown,
+      };
     });
-    const paidTotal = quotes.filter((entry) => !entry.free).reduce((sum, entry) => sum + entry.amount, 0);
-    const freeUnits = quotes.filter((entry) => entry.free).reduce((sum, entry) => sum + entry.units, 0);
+    return {
+      currency: priced.currency,
+      unit: priced.unit,
+      total: lines.reduce((sum, line) => sum + line.amount, 0),
+      freeCreditApplied: creditMode ? lines.reduce((sum, line) => sum + line.freeAmount, 0) : 0,
+      paidTotal: lines.reduce((sum, line) => sum + line.paidAmount, 0),
+      lines,
+    };
+  }
+
+  private async reserve(customer: Customer, draft: PostDraft): Promise<Hold | null> {
+    this.options.limiter?.check(customer.id, "posts", this.options.rateConfig?.postsPerHour ?? 60, 60 * 60 * 1000);
+    const { freeLimit, creditMode, excluded } = this.pricingConfig();
+    const priced = this.options.prices.quote(draft, draft.platforms ?? []);
+    let freeRemaining = this.options.ledger.freeRemaining(customer.id, freeLimit);
+    const quotes: QuoteHold[] = priced.quotes.map((entry) => {
+      // $0.50 free credit is spent at the real post price; legacy configs count post units.
+      const units = creditMode
+        ? entry.amount
+        : entry.breakdown.reduce((sum, part) => sum + unitFor(part.kind), 0);
+      const freeAmount = !excluded.has(entry.platform)
+        ? (creditMode ? Math.min(entry.amount, freeRemaining) : freeRemaining >= units ? units : 0)
+        : 0;
+      freeRemaining -= freeAmount;
+      const paidAmount = creditMode ? entry.amount - freeAmount : freeAmount > 0 ? 0 : entry.amount;
+      return {
+        platform: entry.platform,
+        kind: entry.kind,
+        amount: entry.amount,
+        parts: entry.parts,
+        breakdown: entry.breakdown,
+        units,
+        free: freeAmount > 0,
+        freeAmount,
+        paidAmount,
+      };
+    });
+    const paidTotal = quotes.reduce((sum, entry) => sum + entry.paidAmount, 0);
+    const freeUnits = quotes.reduce((sum, entry) => sum + entry.freeAmount, 0);
     if (paidTotal === 0 && freeUnits === 0) return null;
     const reservation = this.options.ledger.reserve({
       customerId: customer.id,
@@ -108,11 +200,11 @@ export class CloudFinance {
     }
     const succeeded = new Set(result.results.filter((entry) => entry.ok).map((entry) => entry.platform));
     const actual = hold.quotes
-      .filter((entry) => !entry.free && succeeded.has(entry.platform as never))
-      .reduce((sum, entry) => sum + entry.amount, 0);
+      .filter((entry) => succeeded.has(entry.platform as never))
+      .reduce((sum, entry) => sum + entry.paidAmount, 0);
     const freeUsed = hold.quotes
-      .filter((entry) => entry.free && succeeded.has(entry.platform as never))
-      .reduce((sum, entry) => sum + entry.units, 0);
+      .filter((entry) => succeeded.has(entry.platform as never))
+      .reduce((sum, entry) => sum + entry.freeAmount, 0);
     this.options.ledger.commit(
       hold.reservationId,
       actual,
@@ -143,17 +235,19 @@ export class CloudFinance {
       if (job.status !== "done" && job.status !== "failed") continue;
       let quotes: QuoteHold[] = [];
       try {
-        quotes = reservation.freeJson ? (JSON.parse(reservation.freeJson) as QuoteHold[]) : [];
+        quotes = reservation.freeJson
+          ? (JSON.parse(reservation.freeJson) as QuoteHold[]).map(normalizeHold)
+          : [];
       } catch {
         quotes = [];
       }
       const succeeded = new Set((job.results ?? []).filter((entry) => entry.ok).map((entry) => entry.platform));
       const actual = quotes
-        .filter((entry) => !entry.free && succeeded.has(entry.platform as never))
-        .reduce((sum, entry) => sum + entry.amount, 0);
+        .filter((entry) => succeeded.has(entry.platform as never))
+        .reduce((sum, entry) => sum + entry.paidAmount, 0);
       const freeUsed = quotes
-        .filter((entry) => entry.free && succeeded.has(entry.platform as never))
-        .reduce((sum, entry) => sum + entry.units, 0);
+        .filter((entry) => succeeded.has(entry.platform as never))
+        .reduce((sum, entry) => sum + entry.freeAmount, 0);
       this.options.ledger.commit(reservation.id, actual, job.results?.find((entry) => entry.ok)?.postId, freeUsed);
     }
   }

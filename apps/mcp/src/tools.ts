@@ -270,6 +270,38 @@ export interface ToolContext {
   afterPost?: (hold: unknown, result: Awaited<ReturnType<RelayService["createPost"]>>) => Promise<void>;
   afterPostError?: (hold: unknown) => Promise<void>;
   afterCancel?: (jobId: string) => Promise<void>;
+  /** Cloud-only: price a draft without reserving or publishing. */
+  quotePost?: (draft: PostDraft) => unknown;
+}
+
+function safeQuote(context: ToolContext, draft: PostDraft): unknown {
+  try {
+    return context.quotePost?.(draft) ?? null;
+  } catch {
+    // An invalid draft may have no valid price for a platform; validation reports that first.
+    return null;
+  }
+}
+
+function formatQuote(value: unknown): string {
+  const quote = value as {
+    unit?: string;
+    total?: number;
+    freeCreditApplied?: number;
+    paidTotal?: number;
+    lines?: Array<{ platform?: string; amount?: number; paidAmount?: number; parts?: number }>;
+  } | null;
+  if (!quote || !Array.isArray(quote.lines) || quote.lines.length === 0) return "";
+  const money = (amount: number): string =>
+    quote.unit === "milliUSD" ? `$${(amount / 1000).toFixed(3)}` : `${amount} ${quote.unit ?? "units"}`;
+  const lines = quote.lines.map((line) => {
+    const label = line.platform ? platformLabel(line.platform as never) : "platform";
+    return `- ${label}: ${line.parts ?? 1} part(s), ${money(Number(line.amount ?? 0))} (${money(Number(line.paidAmount ?? 0))} paid)`;
+  });
+  return [
+    `Estimated cost: ${money(Number(quote.total ?? 0))} total · ${money(Number(quote.freeCreditApplied ?? 0))} free credit · ${money(Number(quote.paidTotal ?? 0))} paid.`,
+    ...lines,
+  ].join("\n");
 }
 
 function toArticleDraft(input: z.infer<typeof articleInputSchema>): ArticleDraft {
@@ -497,6 +529,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
         const platformProblem = platformArgsProblem(args.platforms);
         if (platformProblem) return platformProblem;
         const draft = toDraft(args);
+        const quote = safeQuote(context, draft);
         const report = await relay.validate(draft);
         if (!report.ok) {
           return errorResult(
@@ -506,7 +539,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
               "",
               "Fix the issues above and call relay_post again, or call relay_validate to iterate without publishing.",
             ].join("\n"),
-            { valid: false, issues: report.issues, perPlatform: report.perPlatform },
+            { valid: false, issues: report.issues, perPlatform: report.perPlatform, quote },
           );
         }
 
@@ -533,6 +566,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
           return textResult(
             [
               `Scheduled "${preview}" for ${scheduleAt} (job ${result.jobId}).`,
+              ...(formatQuote(quote) ? [formatQuote(quote)] : []),
               "Nothing was published yet. The scheduler publishes due jobs while any Relay process holds the scheduler lock — this MCP server or the Relay console.",
               "Use relay_queue to inspect it and relay_cancel to cancel it before it runs.",
             ].join("\n"),
@@ -542,6 +576,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
               scheduleAt,
               platforms: draft.platforms,
               report: result.report,
+              quote,
             },
           );
         }
@@ -560,6 +595,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
             ? `Published "${preview}" to ${succeeded} platform(s).`
             : `Published to ${succeeded} of ${result.results.length} platform(s); some platforms failed.`,
           formatResults(result.results),
+          ...(formatQuote(quote) ? [formatQuote(quote)] : []),
         ];
         if (succeeded === 0) {
           lines.push("No platform accepted the post. Connect the missing accounts with relay_connect, then retry relay_post.");
@@ -568,6 +604,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
           scheduled: false,
           results: result.results,
           report: result.report,
+          quote,
         });
         return succeeded === 0 ? { ...content, isError: true } : content;
       }, HINTS.post),
@@ -578,7 +615,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
     {
       title: "Validate a post draft",
       description:
-        "Dry run: validate platforms, text length, thread parts, media and per-platform options without publishing anything. Returns a per-platform report with actionable issues. Use this to iterate on a draft before relay_post.",
+        "Dry run: validate platforms, text length, thread parts, media and per-platform options without publishing anything. Returns a per-platform report, actionable issues, and in cloud mode a per-part cost estimate. Use this to iterate on a draft before relay_post.",
       inputSchema: postInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -587,12 +624,14 @@ export function registerTools(server: McpServer, context: ToolContext): void {
         const platformProblem = platformArgsProblem(args.platforms);
         if (platformProblem) return platformProblem;
         const draft = toDraft(args);
+        const quote = safeQuote(context, draft);
         const report: ValidationReport = await relay.validate(draft);
         const targets = draft.platforms.map((platform) => platformLabel(platform)).join(", ");
         const summary = report.ok
           ? `Draft is valid for ${targets}. Dry run only — nothing was published.`
           : [`Draft is invalid for ${targets} (${report.issues.length} issue(s)). Nothing was published.`, formatIssues(report.issues)].join("\n");
-        return textResult(summary, report);
+        const pricing = formatQuote(quote);
+        return textResult(pricing ? `${summary}\n\n${pricing}` : summary, { ...report, quote });
       }, HINTS.validate),
   );
 
@@ -1145,3 +1184,5 @@ function buildClientConfig(entryPath: string, dataDir: string, consoleUrl: strin
     },
   };
 }
+
+

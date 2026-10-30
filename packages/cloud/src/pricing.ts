@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { RelayError, type PlatformId, type PostDraft } from "@relay/core";
+import { RelayError, type PlatformId, type PostDraft, type ThreadPartDraft } from "@relay/core";
 
 export interface CloudPrices {
   currency: string;
@@ -13,19 +13,32 @@ export interface CloudPrices {
   prices: Record<string, Record<string, number>>;
 }
 
-export interface PriceQuote {
-  platform: PlatformId;
+export interface PriceBreakdownPart {
   kind: string;
   amount: number;
 }
 
-function kindFor(draft: PostDraft): string {
-  const media = (draft.thread?.flatMap((part) => part.media ?? []) ?? draft.media ?? []);
+export interface PriceQuote {
+  platform: PlatformId;
+  kind: string;
+  /** Total price for every part published on this platform. */
+  amount: number;
+  /** Number of billable post parts on this platform. */
+  parts: number;
+  breakdown: PriceBreakdownPart[];
+}
+
+function kindForPart(part: ThreadPartDraft): string {
+  const media = part.media ?? [];
   if (media.some((item) => item.kind === "video")) return "video";
   if (media.filter((item) => item.kind === "image").length > 1) return "carousel";
   if (media.some((item) => item.kind === "image")) return "image";
-  const text = draft.text ?? draft.thread?.map((part) => part.text).join(" ") ?? "";
-  return /https?:\/\//i.test(text) ? "link" : "text";
+  return /https?:\/\//i.test(part.text ?? "") ? "link" : "text";
+}
+
+function partsFor(draft: PostDraft): ThreadPartDraft[] {
+  if (draft.thread?.length) return draft.thread;
+  return [{ text: draft.text ?? "", ...(draft.media?.length ? { media: draft.media } : {}) }];
 }
 
 export class PriceTable {
@@ -49,14 +62,22 @@ export class PriceTable {
   }
 
   quote(draft: PostDraft, platforms: PlatformId[]): { quotes: PriceQuote[]; total: number; currency: string; unit: string } {
-    const kind = kindFor(draft);
+    const parts = partsFor(draft);
     const quotes = platforms.map((platform) => {
       const platformPrices = this.config.prices[platform];
-      const amount = platformPrices?.[kind] ?? platformPrices?.text;
-      if (!Number.isInteger(amount) || amount < 0) {
-        throw new RelayError(`No valid price for ${platform}/${kind}.`, "cloud_price_missing", undefined, 500);
+      if (!platformPrices) {
+        throw new RelayError(`No price configuration for ${platform}.`, "cloud_price_missing", undefined, 500);
       }
-      return { platform, kind, amount };
+      const breakdown = parts.map((part) => {
+        const kind = kindForPart(part);
+        const amount = platformPrices[kind] ?? platformPrices.text;
+        if (!Number.isInteger(amount) || amount < 0) {
+          throw new RelayError(`No valid price for ${platform}/${kind}.`, "cloud_price_missing", undefined, 500);
+        }
+        return { kind, amount };
+      });
+      const amount = breakdown.reduce((sum, entry) => sum + entry.amount, 0);
+      return { platform, kind: breakdown[0]?.kind ?? "text", amount, parts: breakdown.length, breakdown };
     });
     return { quotes, total: quotes.reduce((sum, quote) => sum + quote.amount, 0), currency: this.config.currency, unit: this.config.unit };
   }
