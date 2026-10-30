@@ -20,6 +20,7 @@ import { createRelay } from "@relay/platforms";
 import { PriceTable, defaultPricePath, type CloudPrices } from "@relay/cloud";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { loadStripeConfig, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
+import { centsToMilliUSD, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
 import { SessionManager } from "./auth.js";
 import { readConfig } from "./config.js";
 import {
@@ -96,6 +97,7 @@ interface HandlerDeps {
   pricing: CloudPrices | null;
   contactFile?: string;
   billing?: StripeBillingConfig;
+  polar?: PolarConfig;
 }
 
 function splitPath(pathname: string): string[] {
@@ -160,6 +162,39 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   // the protection, so this route stays reachable without a console session.
   if (isGet && segments.length === 3 && segments[0] === "auth" && segments[1] === "callback") {
     await handleAuthCallback(res, segments[2], url, deps);
+    return;
+  }
+
+  // Polar sandbox/production webhook: raw body, Standard Webhooks signature, idempotent top-up.
+  if (method === "POST" && segments.length === 3 && segments[0] === "api" && segments[1] === "polar" && segments[2] === "webhook") {
+    if (!deps.polar?.webhookSecret || !deps.cloudAdmin) {
+      throw new RelayError("Polar payments are not configured yet.", "polar_unavailable", undefined, 503);
+    }
+    const raw = await readRawBody(req, 1024 * 1024);
+    if (!verifyPolarWebhook(raw, req.headers, deps.polar.webhookSecret)) {
+      throw new RelayError("Invalid Polar signature.", "polar_signature_invalid", undefined, 400);
+    }
+    let event: PolarOrderPaidEvent;
+    try {
+      event = JSON.parse(raw.toString("utf8")) as PolarOrderPaidEvent;
+    } catch {
+      throw new RelayError("Invalid Polar payload.", "polar_payload_invalid", undefined, 400);
+    }
+    if (event.type === "order.paid" && event.data?.id) {
+      const customerId = String(event.data.metadata?.customer_id ?? "");
+      const amount = Number(event.data.metadata?.amount_milli) || centsToMilliUSD(Number(event.data.totalAmount));
+      if (deps.cloudAdmin.store.getCustomer(customerId) && Number.isInteger(amount) && amount > 0) {
+        deps.cloudAdmin.ledger.recordTopup({
+          customerId,
+          amount,
+          currency: String(event.data.currency ?? deps.pricing?.currency ?? "USD").toUpperCase(),
+          provider: "polar",
+          reference: event.data.id,
+          note: "Polar checkout",
+        });
+      }
+    }
+    sendJson(res, 200, { received: true });
     return;
   }
 
@@ -758,6 +793,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     options.publicDir ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
   const session = new SessionManager(password);
   const billing = loadStripeConfig(env);
+  const polar = loadPolarConfig(env);
   let cloudAdmin: CloudAdminDeps | null = null;
   let pricing: CloudPrices | null = null;
   try {
@@ -781,6 +817,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       pricing,
       contactFile: path.join(path.resolve(dataDirOption), "contact-requests.ndjson"),
       billing: billing ?? undefined,
+      polar: polar ?? undefined,
       relay: () => {
         if (!relay) throw new RelayError("The console is still starting", "not_ready", undefined, 503);
         return relay;
@@ -898,6 +935,7 @@ export async function runMain(): Promise<void> {
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
+
 
 
 
