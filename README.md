@@ -236,6 +236,7 @@ Cloud auto-reply is gated:
 
 - **$10 minimum lifetime paid top-up** — free starter credit does not count
 - **Your own DeepSeek API key** — stored encrypted per tenant and never returned
+- **A connected Threads account** with `threads_read_replies` + `threads_manage_replies`
 - **30-minute window** after a Threads post; spam and hostile comments are skipped
 
 Use the cloud-only `relay_cloud_autoreply` tool with `status`, `set_key`, `clear_key`, `enable` or `disable`. Explicit `relay_reply` / `relay_threads_reply` calls remain available without the unlock.
@@ -333,6 +334,7 @@ See [LICENSE](LICENSE).
 
 **Live product:** <https://relay.duitpoket.fun>
 **MCP endpoint:** `https://mcp.duitpoket.fun/mcp`
+
 
 
 
