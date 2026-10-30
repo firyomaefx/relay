@@ -19,11 +19,11 @@ Examples at current prices:
 
 | Draft | Units | Total |
 |---|---:|---:|
-| 1 text post on X | 1 | $0.020 |
-| 1 text post on X + Threads | 2 | $0.040 |
-| 3-part text thread on X + Threads | 6 | $0.120 |
-| 1 video post on all five networks | 5 | $0.200 |
-| 3-part thread, each part a video, X + Threads | 6 | $0.240 |
+| 1 text post on X | 1 | $0.02 |
+| 1 text post on X + Threads | 2 | $0.04 |
+| 3-part text thread on X + Threads | 6 | $0.12 |
+| 1 video post on all five networks | 5 | $0.20 |
+| 3-part thread, each part a video, X + Threads | 6 | $0.24 |
 
 `price` is the starting rate. Actual settlement depends on which platforms accept the post and which parts succeed.
 
@@ -80,5 +80,6 @@ A “starting price” is therefore a floor, not a bill. The UI must show the qu
 - Never charge a part that did not publish.
 - Do not let a quote silently exceed the available balance; reservation fails with the exact required amount.
 - Do not advertise Plus or a flat monthly price until the live payment provider and monthly entitlements exist.
+
 
 
