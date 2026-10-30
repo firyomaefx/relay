@@ -77,6 +77,27 @@ export async function handleCloudAdmin(
   const method = (req.method ?? "GET").toUpperCase();
   const resource = segments[3] ?? "";
   try {
+    if (method === "GET" && resource === "billing") {
+      const owner = deps.store.ensureOwnerCustomer("Owner");
+      const freeLimit = deps.pricing?.list().free_allowance_milli_usd ?? 0;
+      const freeCredit = freeLimit > 0
+        ? { limit: freeLimit, remaining: deps.ledger.freeRemaining(owner.id, freeLimit), currency: "USD" }
+        : null;
+      const balance = deps.ledger.balanceWithHold(owner.id);
+      send(res, 200, {
+        customer: { id: owner.id, displayName: owner.displayName },
+        balance,
+        freeCredit,
+        totalAvailable: balance.available + (freeCredit?.remaining ?? 0),
+        payments: deps.ledger.listPayments(owner.id, 20),
+        providers: {
+          stripe: Boolean(deps.billing),
+          polar: Boolean(deps.polar),
+        },
+      });
+      return;
+    }
+
     if (method === "GET" && resource === "me") {
       const owner = deps.store.ensureOwnerCustomer("Owner");
       const freeLimit = deps.pricing?.list().free_allowance_milli_usd ?? 0;
