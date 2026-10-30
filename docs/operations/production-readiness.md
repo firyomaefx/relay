@@ -54,6 +54,26 @@ Webhook: `POST /api/stripe/webhook`, Stripe signature required. `checkout.sessio
 
 Until Stripe keys are installed, checkout returns 503 and manual top-up remains available.
 
+### Polar sandbox
+
+Polar Checkout is implemented as a second payment provider. The current production install points at the **Polar sandbox** only; it does not charge real money.
+
+```env
+RELAY_POLAR_ACCESS_TOKEN=polar_oat_...
+RELAY_POLAR_PRODUCT_ID=...
+RELAY_POLAR_WEBHOOK_SECRET=whsec_...
+RELAY_POLAR_API_BASE=https://sandbox-api.polar.sh
+RELAY_POLAR_SUCCESS_URL=https://relay.duitpoket.fun/billing/success
+RELAY_POLAR_CANCEL_URL=https://relay.duitpoket.fun/billing/cancel
+```
+
+- Admin checkout: `POST /api/cloud/admin/polar-checkout` with `{ customerId }` or the **Create Polar checkout** button on `/cloud-admin.html`.
+- Webhook: `POST /api/polar/webhook`, Standard Webhooks signature required. `order.paid` credits the ledger using the order ID as the idempotency reference.
+- The sandbox product used for the trial is `Relay Cloud Sandbox Credit` at `US$10`.
+- Sandbox checkout URL creation and signed webhook delivery were verified. A real card payment was not completed; a signed sandbox event was used to verify the credit path.
+
+For live use, replace the sandbox access token, API base and product ID with live values and create a live webhook endpoint. Do not leave a sandbox token installed on a public production checkout.
+
 ## Verification
 
 ```bash

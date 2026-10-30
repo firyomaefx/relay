@@ -2,11 +2,13 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { RelayError, errorMessage } from "@relay/core";
 import { CloudLedger, CloudStore, loadCloudConfig } from "@relay/cloud";
 import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
+import { createPolarCheckout, loadPolarConfig, type PolarConfig } from "./polar.js";
 
 export interface CloudAdminDeps {
   store: CloudStore;
   ledger: CloudLedger;
   billing?: StripeBillingConfig;
+  polar?: PolarConfig;
   close(): Promise<void>;
 }
 
@@ -19,6 +21,7 @@ export function openCloudAdmin(env: NodeJS.ProcessEnv): CloudAdminDeps | null {
     store,
     ledger,
     billing: loadStripeConfig(env) ?? undefined,
+    polar: loadPolarConfig(env) ?? undefined,
     close: async () => {
       ledger.close();
       store.close();
@@ -123,6 +126,20 @@ export async function handleCloudAdmin(
       return;
     }
 
+    if (method === "POST" && resource === "polar-checkout") {
+      if (!deps.polar) throw new RelayError("Polar payments are not configured yet.", "polar_unavailable", undefined, 503);
+      const body = await readJson(req);
+      const customerId = String(body.customerId ?? "").trim();
+      if (!deps.store.getCustomer(customerId)) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+      try {
+        const session = await createPolarCheckout(deps.polar, { customerId });
+        send(res, 200, { url: session.url, id: session.id });
+      } catch (error) {
+        throw new RelayError(errorMessage(error), "polar_checkout_failed", undefined, 502);
+      }
+      return;
+    }
+
     if (method === "POST" && resource === "topup") {
       const body = await readJson(req);
       const customerId = String(body.customerId ?? "").trim();
@@ -153,5 +170,6 @@ export async function handleCloudAdmin(
     send(res, status, { error: errorMessage(error), code: error instanceof RelayError ? error.code : "cloud_admin_error" });
   }
 }
+
 
 

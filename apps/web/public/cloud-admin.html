@@ -35,7 +35,7 @@
 <body>
 <main>
   <h1>Cloud admin</h1>
-  <p class="sub">Manual top-ups and Stripe checkout. Every payment writes a payment event and an append-only ledger entry.</p>
+  <p class="sub">Manual top-ups plus Stripe or Polar checkout. Every payment writes a payment event and an append-only ledger entry.</p>
   <div class="grid">
     <section class="card">
       <h2>Record a top-up</h2>
@@ -49,6 +49,7 @@
       <input id="note" placeholder="optional">
       <button id="topup">Record top-up</button>
       <button id="checkout" class="secondary" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--line)">Create Stripe checkout</button>
+      <button id="polarCheckout" class="secondary" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--line)">Create Polar checkout</button>
       <p id="message" class="muted"></p>
     </section>
     <section class="card">
@@ -150,6 +151,21 @@ $('topup').addEventListener('click', async () => {
   }
 });
 
+$('polarCheckout').addEventListener('click', async () => {
+  const customerId = $('customer').value;
+  try {
+    const r = await fetch('/api/cloud/admin/polar-checkout', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ customerId })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Polar checkout is not available');
+    window.open(data.url, '_blank', 'noopener');
+    $('message').textContent = 'Polar checkout opened in a new tab.';
+    $('message').className = 'ok';
+  } catch (error) { $('message').textContent = error.message; $('message').className = 'error'; }
+});
 $('checkout').addEventListener('click', async () => {
   const customerId = $('customer').value;
   const amount = Number($('amount').value);
@@ -192,6 +208,9 @@ loadCustomers().catch(error => {
 </script>
 </body>
 </html>
+
+
+
 
 
 
