@@ -56,10 +56,25 @@ test("CloudFinance quotes and settles every thread part on every platform", asyn
     });
     assert.equal(ledger.balance(customer.id), 0);
     assert.equal(ledger.freeRemaining(customer.id, 500), 491);
+
+    // A failed platform must not be charged; a successful Threads thread still consumes free credit.
+    ledger.recordTopup({ customerId: customer.id, amount: 9, currency: "USD", provider: "manual", reference: "test-topup-2" });
+    const failedHold = await finance.hooks(customer).beforePost(draft);
+    await finance.hooks(customer).afterPost(failedHold, {
+      scheduled: false,
+      results: [
+        { platform: "x", ok: false, mode: "mock", error: "x failed" },
+        { platform: "threads", ok: true, mode: "mock", postId: "th_2" },
+      ],
+      report: { ok: false, issues: [], perPlatform: {} },
+    });
+    assert.equal(ledger.balance(customer.id), 9);
+    assert.equal(ledger.freeRemaining(customer.id, 500), 482);
   } finally {
     ledger.close();
     store.close();
     await cleanupTempDir(dir);
   }
 });
+
 
