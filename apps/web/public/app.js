@@ -6,7 +6,7 @@
    * Constants
    * ------------------------------------------------------------------ */
   const PLATFORMS = ["x", "threads", "tiktok", "youtube", "instagram"];
-  const SCREENS = ["compose", "queue", "history", "accounts", "settings"];
+  const SCREENS = ["compose", "queue", "history", "accounts", "billing", "settings"];
   const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
   const MAX_MEDIA_PER_PART = 35;
 
@@ -88,6 +88,7 @@
     queue: { eyebrow: "Scheduler", title: "Queue" },
     history: { eyebrow: "Archive", title: "History" },
     accounts: { eyebrow: "Accounts", title: "Accounts" },
+    billing: { eyebrow: "Wallet", title: "Billing" },
     settings: { eyebrow: "Configuration", title: "Settings" },
   };
 
@@ -517,8 +518,9 @@
       }
       const data = await response.json();
       const available = Number(data.balance?.available ?? 0);
-      const freeRemaining = data.freeCredit?.remaining;
-      els.creditBalance.textContent = `$${(Math.max(0, available) / 1000).toFixed(2)}`;
+      const freeRemaining = Number(data.freeCredit?.remaining ?? 0);
+      const total = available + (Number.isFinite(freeRemaining) ? freeRemaining : 0);
+      els.creditBalance.textContent = `$${(Math.max(0, total) / 1000).toFixed(2)}`;
       els.creditFree.textContent = Number.isFinite(freeRemaining)
         ? `\u00a0·\u00a0$${(Math.max(0, freeRemaining) / 1000).toFixed(2)} free`
         : "";
@@ -1516,6 +1518,51 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Billing
+   * ------------------------------------------------------------------ */
+  async function renderBilling() {
+    if (!els.billingSummary) return;
+    els.billingSummary.innerHTML = `<p class="list-excerpt">Loading wallet…</p>`;
+    try {
+      const response = await fetch("/api/cloud/admin/billing", { credentials: "same-origin" });
+      if (!response.ok) {
+        els.billingSummary.innerHTML = `<p class="list-excerpt">Billing is not available for this account.</p>`;
+        return;
+      }
+      const data = await response.json();
+      const paid = Number(data.balance?.available ?? 0) / 1000;
+      const freeRemaining = Number(data.freeCredit?.remaining ?? 0) / 1000;
+      const freeLimit = Number(data.freeCredit?.limit ?? 0) / 1000;
+      const total = Number(data.totalAvailable ?? 0) / 1000;
+      els.billingSummary.innerHTML = `
+        <div class="kv-row"><span class="kv-key">Available credit</span><span class="kv-value"><strong>$${total.toFixed(2)}</strong></span></div>
+        <div class="kv-row"><span class="kv-key">Paid balance</span><span class="kv-value">$${paid.toFixed(2)}</span></div>
+        <div class="kv-row"><span class="kv-key">Starter credit</span><span class="kv-value">$${freeRemaining.toFixed(2)} of $${freeLimit.toFixed(2)} remaining</span></div>
+      `;
+      if (els.billingProviderStatus) {
+        els.billingProviderStatus.textContent = data.providers?.stripe || data.providers?.polar
+          ? "A payment provider is configured. Top-ups are issued by the operator until public checkout is enabled."
+          : "Live card checkout is not configured yet. Request a top-up and the operator will issue credit.";
+      }
+      const payments = Array.isArray(data.payments) ? data.payments : [];
+      els.billingPaymentsCount.textContent = String(payments.length);
+      els.billingPayments.innerHTML = payments.length
+        ? payments.map((payment) => `
+          <div class="list-row">
+            <div class="list-marker" data-tone="done"><span>PAY</span></div>
+            <div class="list-main">
+              <div class="list-title">${escapeHtml(String(payment.provider ?? "manual"))} ${statusBadge(String(payment.status ?? "succeeded"), "done")}</div>
+              <p class="list-excerpt">$${(Number(payment.amount ?? 0) / 1000).toFixed(2)} ${escapeHtml(String(payment.currency ?? "USD"))}</p>
+              <div class="list-meta"><span class="meta-text">${escapeHtml(formatShort(payment.createdAt))}</span><span class="meta-text">${escapeHtml(String(payment.id ?? ""))}</span></div>
+            </div>
+          </div>`).join("")
+        : `<p class="list-excerpt">No payments yet. Your $0.50 starter credit is already available.</p>`;
+    } catch {
+      els.billingSummary.innerHTML = `<p class="list-excerpt">Unable to load billing right now.</p>`;
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
    * Settings
    * ------------------------------------------------------------------ */
   function renderSettings({ skipForms = false } = {}) {
@@ -1845,6 +1892,8 @@
       renderHistory();
     } else if (state.screen === "accounts") {
       renderAccounts();
+    } else if (state.screen === "billing") {
+      void renderBilling();
     } else if (state.screen === "settings") {
       const typingInForm = els.credentialForms?.contains(document.activeElement) ?? false;
       renderSettings({ skipForms: typingInForm });
@@ -1879,6 +1928,7 @@
     closeSidebar();
     window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
     observeReveals();
+    renderActiveScreen();
   }
 
   async function refreshAll() {
@@ -2082,6 +2132,10 @@
       creditCard: $("#creditCard"),
       creditBalance: $("#creditBalance"),
       creditFree: $("#creditFree"),
+      billingSummary: $("#billingSummary"),
+      billingPayments: $("#billingPayments"),
+      billingPaymentsCount: $("#billingPaymentsCount"),
+      billingProviderStatus: $("#billingProviderStatus"),
       toasts: $("#toasts"),
       toastTemplate: $("#toastTemplate"),
       modalRoot: $("#modalRoot"),
@@ -2421,4 +2475,10 @@
     if (pollTimer) window.clearInterval(pollTimer);
   });
 })();
+
+
+
+
+
+
 
