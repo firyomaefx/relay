@@ -179,10 +179,13 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
           const relay = await tenants.get(customer);
           await relay.runDueJobs();
           const paidTopups = ledger.totalTopups(customer.id);
+          const comments = await relay.commentsStatus();
+          const threads = comments.find((entry) => entry.platform === "threads");
           if (
             paidTopups >= AUTOREPLY_MIN_TOPUP_MILLI_USD &&
             relay.getDeepSeekApiKey() &&
-            relay.isThreadsAutoReplyEnabled()
+            relay.isThreadsAutoReplyEnabled() &&
+            threads?.ready
           ) {
             await relay.runThreadsAutoReplyTick();
           }
