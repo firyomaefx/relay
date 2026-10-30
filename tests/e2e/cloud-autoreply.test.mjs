@@ -18,7 +18,7 @@ async function call(base, key, name, args = {}) {
   return { isError: Boolean(body?.result?.isError), text: String(body?.result?.content?.[0]?.text ?? "") };
 }
 
-test("cloud auto-reply requires a paid 10 USD top-up and a DeepSeek key", async () => {
+test("cloud auto-reply requires a paid 10 USD top-up, DeepSeek key and Threads reply readiness", async () => {
   const dir = await makeTempDir("relay-cloud-autoreply-");
   const dbPath = path.join(dir, "cloud.sqlite");
   const pricePath = path.join(dir, "prices.json");
@@ -64,6 +64,7 @@ test("cloud auto-reply requires a paid 10 USD top-up and a DeepSeek key", async 
     assert.equal(initialStatus.eligible, false);
     assert.equal(initialStatus.paidTopupMilliUsd, 0);
     assert.equal(initialStatus.keyConfigured, false);
+    assert.equal(initialStatus.threadsConnected, false);
 
     const setKey = await call(base, key.key, "relay_cloud_autoreply", {
       action: "set_key",
@@ -83,10 +84,17 @@ test("cloud auto-reply requires a paid 10 USD top-up and a DeepSeek key", async 
       note: "test paid top-up",
     });
 
+    const needsThreads = await call(base, key.key, "relay_cloud_autoreply", { action: "enable" });
+    assert.equal(needsThreads.isError, true);
+    assert.match(needsThreads.text, /Connect a Threads account/);
+
+    assert.equal((await call(base, key.key, "relay_connect", { platform: "threads" })).isError, false);
+
     const eligible = await call(base, key.key, "relay_cloud_autoreply", { action: "status" });
     const status = JSON.parse(eligible.text);
     assert.equal(status.paidTopupMilliUsd, 10000);
     assert.equal(status.keyConfigured, true);
+    assert.equal(status.threadsReady, true);
     assert.equal(status.eligible, true);
 
     const enabled = await call(base, key.key, "relay_cloud_autoreply", { action: "enable" });
@@ -104,4 +112,6 @@ test("cloud auto-reply requires a paid 10 USD top-up and a DeepSeek key", async 
     await cleanupTempDir(dir);
   }
 });
+
+
 
