@@ -336,8 +336,11 @@
     </div>
     <div class="flow">
       <div class="bezel step"><div class="core"><div class="step-num">01</div><h3>Reserve</h3><p>Before a post is attempted, Relay holds the price from your available balance. Scheduled posts hold the price while they wait.</p></div></div>
-      <div class="bezel step"><div class="core"><div class="step-num">02</div><h3>Settle</h3><p>When a platform accepts the post, the hold becomes a ledger charge for that platform only. No success, no charge.</p></div></div>
+      <div class="bezel step"><div class="core"><div class="step-num">02</div><h3>Settle</h3><p>When a platform accepts the post, the hold becomes a ledger charge for each successful part on that platform. No success, no charge.</p></div></div>
       <div class="bezel step"><div class="core"><div class="step-num">03</div><h3>Release</h3><p>Failed publishes and cancelled scheduled jobs release the unused hold. Your balance is available again.</p></div></div>
+    </div>
+    <div style="margin-top:14px" class="small muted">
+      A billable unit is one post part on one platform. A 3-part thread to 2 platforms is 6 text units ($0.018). A 5-platform single text post is 5 units ($0.015). Starting rates are per unit, not per draft.
     </div>
   </section>
 
