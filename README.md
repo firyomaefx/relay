@@ -6,211 +6,155 @@ Relay is a self-hosted social publishing control plane. It gives creators and te
 
 **Live:** <https://relay.duitpoket.fun> · **MCP:** `https://mcp.duitpoket.fun/mcp` · **5 platforms** · **19 agent tools**
 
-![Relay console — compose](docs/console-compose.png)
+![Relay flow: install, connect accounts, compose with a human or agent, validate and publish through Relay, then reach five networks](docs/assets/relay-flow.png)
 
 ---
 
-## Investor snapshot
+## What Relay is
 
-| | |
+Relay is the **execution layer** between a content workflow and the social platforms.
+
+| Piece | What it does |
 |---|---|
-| **What it is** | A unified social publishing and conversation layer, exposed through both a console and the Model Context Protocol (MCP) |
-| **Who it is for** | Solo creators, social teams, agencies, and anyone running AI-agent content workflows |
-| **Platforms live** | X, Threads, TikTok, YouTube, Instagram |
-| **Current stage** | Private beta — single-tenant production deployment |
-| **Hosting** | Tencent Cloud Singapore + Cloudflare named tunnel |
-| **Agent surface** | 19 MCP tools for publishing, scheduling, comments, replies, accounts and validation |
-| **Automated tests** | 120 passing (unit + end-to-end) |
-| **Data model** | Self-hosted; encrypted credentials; customer owns the data directory |
-| **Business model** | Hosted subscription, self-hosted licence and usage-based API access are under evaluation — not yet monetised |
+| **Console** | Compose, preview, schedule, queue, history, accounts and billing |
+| **MCP server** | The same publish/schedule/comment tools for Claude, Cursor, Grok and other agents |
+| **Relay core** | Validation, media rules, encrypted credentials, scheduler, queue lock and retries |
+| **Adapters** | X, Threads, TikTok, YouTube and Instagram API integrations |
 
-> Relay is deliberately focused. It is not another analytics dashboard. It is the **execution layer** between a content workflow and the social platforms.
+It is not an analytics dashboard, inbox or social CRM. It does one job: get content published reliably and let humans and agents operate the same control plane.
 
 ---
 
-## The problem
+## Production status
 
-Publishing across multiple social platforms is still fragmented:
+Relay is **ready for a controlled production deployment**, not yet a fully self-service SaaS.
 
-- Each network has its own OAuth flow, media rules, character limits, quotas and API quirks.
-- Creators and small teams juggle five dashboards to do one job: get a post live.
-- Existing tools are **dashboard-first**. They are built for a human clicking a UI, not for an AI agent that needs a clean, reliable API.
-- Agencies and privacy-sensitive teams do not want their social tokens and content history sitting in a vendor's multi-tenant database.
-- Comments, replies and long-form formats are usually separate products or not supported at all.
-
-At the same time, AI agents are becoming the place where content is drafted, reviewed and executed. Those agents need a **trusted publishing tool**, not a browser automation script.
-
----
-
-## The Relay proposition
-
-**One control plane. Any client. Every channel.**
-
-1. **Compose once, publish everywhere.** Text, images, video, threads, carousels, X Articles, comments and replies — with per-platform validation before anything is sent.
-2. **Agent-native.** The same 19 tools are available to Claude, Cursor, Grok, DeepSeek Harness or any MCP client. Publishing becomes a tool call, not a screen-scrape.
-3. **Own the data.** Relay runs on your machine or your cloud. Tokens are encrypted at rest. There is no Relay telemetry and no vendor database in the middle.
-4. **Operate like infrastructure.** A scheduler, queue, retry and health checks run as services, even when the console is closed.
-5. **Stay focused.** No analytics, no inbox, no approval bloat. Relay does the posting and conversation work exceptionally well.
-
----
-
-## What is live today
-
-### Channels
-
-| Platform | Publishing | Conversation | Notes |
-|---|---|---|---|
-| **X** | Text, images, video, threads, quote posts, **X Articles** with inline images | Replies | Delete supported |
-| **Threads** | Text, images, video, multi-part chains | Read comments, reply | Auto-reply available |
-| **TikTok** | Video, photo carousels | — | Public posting depends on TikTok app audit |
-| **YouTube** | Video upload | Read comments, reply | Daily API quota applies |
-| **Instagram** | Image and Reel publishing | Read comments, reply | Business/Creator account required |
-
-### Cross-platform capabilities
-
-- Scheduling and a persistent queue
-- Per-platform previews with auto-adapted variants
-- Visual content calendar and recurring/evergreen schedules
-- Per-platform options and validation
-- Draft-level and per-platform reply targeting
-- Post history, deletion and account status
-- One shared encrypted data store across console and MCP
-- Simulated mode for demos and development without live credentials
-
-### The 19 MCP tools
-
-| Group | Tools |
+| Area | Status |
 |---|---|
-| **Accounts** | `relay_accounts`, `relay_connect`, `relay_disconnect`, `relay_console`, `relay_limits` |
-| **Publishing** | `relay_post`, `relay_validate`, `relay_preview`, `relay_article`, `relay_article_validate` |
-| **Queue & history** | `relay_queue`, `relay_cancel`, `relay_history`, `relay_delete` |
-| **Conversation** | `relay_threads_comments`, `relay_threads_reply`, `relay_threads_autoreply`, `relay_comments_new`, `relay_reply` |
+| Console, queue, history, accounts, billing screen | ✅ Live |
+| Five platform adapters | ✅ Live, subject to each platform's app approval and quotas |
+| MCP over stdio and authenticated HTTP | ✅ Live |
+| Per-part billing and $0.50 starter credit | ✅ Implemented |
+| Unit, integration and end-to-end tests | ✅ **158 passing** |
+| Health checks, readiness script and link audit | ✅ Passing |
+| Backups, uptime alerting and process supervision | ✅ Configured |
+| Live card checkout | ⛔ Not configured — manual/operator top-ups only |
+| Self-service signup and customer portal | ⛔ Not implemented |
+| Transactional email | ⛔ Not configured |
+| Full real-account E2E across every platform | ⚠️ Depends on platform approval, credentials and content |
 
-Every tool is available over stdio (local clients) and over authenticated Streamable HTTP (hosted agents such as Grok Bot).
-
----
-
-## Why now
-
-- **MCP is becoming the standard interface between agents and tools.** Claude, Cursor, Grok and DeepSeek Harness all support it. A publishing layer that speaks MCP can be used by every agent without custom integrations.
-- **Agent-mediated content is moving from demo to daily workflow.** Drafting is already AI-assisted; publishing is still manual and fragmented.
-- **Platform APIs are mature enough to unify.** The hard part is no longer "can we post?" — it is reliability, media rules, retries, quotas and conversation state.
-- **Data ownership is a buying criterion.** Agencies and privacy-sensitive teams increasingly refuse to hand social tokens to another SaaS silo.
+**Honest summary:** the software and deployment are production-ready for a controlled/self-hosted rollout. The commercial SaaS layer — live payments, self-service onboarding, email and billing automation — is the remaining gap.
 
 ---
 
-## How it works
+## Quick start
 
-```text
-   AI agent (Claude / Cursor / Grok / DeepSeek)
-                    │
-          MCP over stdio or HTTPS
-                    │
-        ┌───────────▼───────────┐
-        │      Relay MCP        │
-        │  19 tools, auth,      │
-        │  validation           │
-        └───────────┬───────────┘
-                    │
-   Browser ──HTTP──▶ Relay console
-                    │
-        ┌───────────▼───────────┐
-        │    Relay core         │
-        │  scheduler · queue ·  │
-        │  encrypted state      │
-        └───────────┬───────────┘
-                    │
-      ┌─────────────┼─────────────┬─────────────┬─────────────┐
-      ▼             ▼             ▼             ▼             ▼
-      X          Threads        TikTok       YouTube      Instagram
-```
+### Requirements
 
-**Deployment shape**
+- **Node.js 24** recommended. Minimum supported by the repo is **22.18**; Node 24 is what production runs.
+- npm 10+
+- Platform developer apps and OAuth credentials for any network you want to publish to live.
 
-- `relay-console` and `relay-mcp` run as systemd services on Linux.
-- Cloudflare named tunnel provides stable HTTPS hostnames.
-- State lives in `/var/lib/relay/.data`; credentials are AES-256-GCM encrypted.
-- Only one Relay process owns the scheduler lock, so scheduled posts fire once.
-
-See [deploy/DEPLOY.md](deploy/DEPLOY.md) and [docs/ALWAYS-ON.md](docs/ALWAYS-ON.md).
-
----
-
-## Why Relay wins
-
-| | Relay | Dashboard-first tools |
-|---|---|---|
-| Agent-native MCP interface | ✅ Native | ❌ UI-first |
-| Self-hosted / data ownership | ✅ Yes | ❌ Vendor cloud |
-| Post + comment/reply in one layer | ✅ Yes | ⚠️ Partial |
-| X Articles / long-form | ✅ Yes | ❌ Rare |
-| Open architecture and adapters | ✅ Yes | ❌ Closed |
-| Analytics and inbox | ❌ Deliberately not included | ✅ Yes |
-
-Relay does not try to win on analytics breadth. It wins on **execution reliability, agent compatibility and data ownership** — the layer every AI content workflow needs.
-
----
-
-## Business model (planned)
-
-Three options are being evaluated; none is live yet:
-
-1. **Relay Cloud** — managed hosting with per-seat or per-channel pricing.
-2. **Relay Self-hosted** — annual licence for agencies and teams that need their own infrastructure.
-3. **Agent API** — usage-based access for platforms and agent builders that need a publishing tool.
-
-The wedge is the agent ecosystem: every MCP client that needs to publish becomes a distribution channel for Relay.
-
----
-
-## Roadmap
-
-**Now**
-- Five live platforms, 19 MCP tools
-- Per-platform previews and auto-threading variants
-- Visual calendar plus recurring/evergreen scheduling
-- Scheduling, queue, retries and health checks
-- Comments and replies across Threads, Instagram and YouTube
-- X Articles and post deletion
-
-**Next**
-- Analytics and a unified inbox
-- Team workspaces and approval workflows
-- Hosted multi-tenant Relay Cloud
-- Audit logs and per-action permissions
-- Additional platforms and webhooks
-
-**Later**
-- Agency white-label
-- Template and campaign marketplace
-- Deeper agent memory and content-plan integration
-
----
-
-## Security and trust
-
-- Tokens encrypted at rest with AES-256-GCM.
-- Credentials never leave the Relay data directory.
-- Console binds to localhost; public access is through a token-protected MCP endpoint and Cloudflare TLS.
-- Per-account OAuth scopes — Relay only requests what a platform needs.
-- No telemetry or third-party analytics.
-- Scheduler lock prevents duplicate scheduled posts across processes.
-
----
-
-## Quick start (technical)
+### 1. Install
 
 ```bash
-git clone https://origin.cursor.com/ttrg/relay.git
+git clone https://github.com/firyomaefx/relay.git
 cd relay
 npm install
 npm run build
-npm run start
 ```
 
-Open <http://127.0.0.1:4317>. Live posting requires developer apps for the platforms you enable; every platform also works in simulated mode without credentials.
+### 2. Run the tests
 
-**Use Relay from an MCP client**
+```bash
+npm test
+```
+
+Expected: **158 tests passing**.
+
+### 3. Start the console
+
+```bash
+npm start
+```
+
+Or on Windows, double-click **[start-relay.cmd](start-relay.cmd)**.
+
+Open <http://127.0.0.1:4317>.
+
+Every platform runs in **simulated mode** until credentials are added. You can compose, preview, queue and publish end-to-end without touching a real account.
+
+### 4. Configure credentials
+
+Copy the reference file:
+
+```bash
+cp .env.example .env
+```
+
+Edit the values you need. Relay reads credentials from the process environment; load `.env` with your shell or process manager, or use Node's env-file support:
+
+```bash
+node --env-file=.env apps/web/dist/index.js
+```
+
+For production, use your service manager's environment file rather than a repo `.env`.
+
+Common variables:
+
+| Variable | Purpose |
+|---|---|
+| `RELAY_DATA_DIR` | Data directory; defaults to `./.data` |
+| `RELAY_HOST` / `RELAY_PORT` | Console bind address; defaults `127.0.0.1:4317` |
+| `RELAY_CONSOLE_PASSWORD` | Required when the console is exposed beyond localhost |
+| `RELAY_PUBLIC_MEDIA_BASE_URL` | Public URL for uploaded media (required for Threads/TikTok media) |
+| `RELAY_MOCK=1` | Force simulated mode; no real API calls |
+| `X_CLIENT_ID` / `X_CLIENT_SECRET` | X OAuth app |
+| `THREADS_CLIENT_ID` / `THREADS_CLIENT_SECRET` | Threads app |
+| `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` | TikTok content posting app |
+| `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` | Google/YouTube OAuth |
+| `INSTAGRAM_CLIENT_ID` / `INSTAGRAM_CLIENT_SECRET` | Meta/Instagram app |
+
+See [.env.example](.env.example) for the full list and comments.
+
+---
+
+## Connect accounts
+
+1. Open the console and sign in.
+2. Go to **Accounts**.
+3. Choose a platform and click **Connect**.
+4. Complete OAuth in the browser.
+5. Return to Relay and confirm the account shows **Live**.
+
+Threads and Instagram need valid redirect URIs in the Meta app. TikTok public posting depends on TikTok app audit. YouTube uploads are bounded by the daily API quota.
+
+Detailed guides:
+
+- [Connect accounts](docs/CONNECT-ACCOUNTS.md)
+- [Going live](docs/GOING-LIVE.md)
+- [Claude/MCP setup](docs/CLAUDE.md)
+
+---
+
+## Use the console
+
+| Screen | What you do there |
+|---|---|
+| **Compose** | Pick platforms, write text, attach media, add thread parts, validate, preview and publish or schedule |
+| **Queue** | Inspect scheduled and recurring jobs, cancel pending jobs |
+| **History** | See every published/scheduled record and per-platform result |
+| **Accounts** | Connect, disconnect and check live/simulated status |
+| **Billing** | Available credit, starter credit, payment history and top-up guidance |
+| **Settings** | Credentials, MCP connection details and console configuration |
+
+The console and MCP server share one encrypted data directory. Publishing from Claude or Cursor appears in the same history as a post written in the browser.
+
+---
+
+## Use Relay from an AI agent
+
+### Hosted HTTP MCP
 
 ```json
 {
@@ -218,31 +162,99 @@ Open <http://127.0.0.1:4317>. Live posting requires developer apps for the platf
     "relay": {
       "type": "http",
       "url": "https://mcp.duitpoket.fun/mcp",
-      "headers": { "Authorization": "Bearer <RELAY_MCP_TOKEN>" }
+      "headers": {
+        "Authorization": "Bearer <RELAY_MCP_TOKEN>"
+      }
     }
   }
 }
 ```
 
-For local agents, use the stdio server:
+### Local stdio MCP
 
-```bash
-node apps/mcp/dist/index.js --data-dir .data --console-url https://relay.duitpoket.fun
+```json
+{
+  "mcpServers": {
+    "relay": {
+      "command": "node",
+      "args": [
+        "C:/path/to/relay/apps/mcp/dist/index.js"
+      ],
+      "env": {
+        "RELAY_DATA_DIR": "C:/path/to/relay/.data",
+        "RELAY_CONSOLE_URL": "http://127.0.0.1:4317"
+      }
+    }
+  }
+}
 ```
 
-More: [Claude/MCP setup](docs/CLAUDE.md) · [Connect accounts](docs/CONNECT-ACCOUNTS.md) · [Going live](docs/GOING-LIVE.md) · [Architecture and operations](docs/ALWAYS-ON.md)
+Start the HTTP MCP server locally:
+
+```bash
+npm run mcp:http
+```
+
+Default HTTP port: `4320`.
+
+### Tool groups
+
+| Group | Tools |
+|---|---|
+| **Accounts** | `relay_accounts`, `relay_connect`, `relay_disconnect`, `relay_console`, `relay_limits` |
+| **Publishing** | `relay_post`, `relay_validate`, `relay_preview`, `relay_article`, `relay_article_validate` |
+| **Queue and history** | `relay_queue`, `relay_cancel`, `relay_history`, `relay_delete` |
+| **Conversation** | `relay_threads_comments`, `relay_threads_reply`, `relay_threads_autoreply`, `relay_comments_new`, `relay_reply` |
 
 ---
 
-## Current limitations
+## Billing model
 
-- TikTok public posting depends on TikTok's app audit.
-- YouTube uploads are bounded by the platform's daily API quota.
-- Meta apps must stay in good standing; Threads and Instagram reconnects require valid redirect URIs.
-- Relay is single-tenant today; multi-tenant hosting is on the roadmap.
-- Analytics and inbox are intentionally out of scope for this release.
+Relay prices **one post part on one platform** as one billable unit.
 
-These are platform constraints or deliberate product boundaries — not hidden failures.
+| Draft | Billable units | Price |
+|---|---:|---:|
+| Text post on X | 1 | $0.003 |
+| Text post on X + Threads | 2 | $0.006 |
+| 3-part thread on X + Threads | 6 | $0.018 |
+| Video post on all five networks | 5 | $0.030 |
+
+- **Text:** $0.003 per part, per platform
+- **Video:** $0.006 per part, per platform
+- **Starter credit:** **$0.50**, spent at the real unit price
+- **X:** excluded from free starter credit
+- **Failed posts:** not charged
+- **Published parts:** quoted before publishing, reserved, then settled per successful platform
+
+`relay_validate` returns the quote and per-part cost estimate before you publish.
+
+Billing is implemented in the **cloud MCP** mode. Self-hosted owner mode is not charged. See [billing model](docs/product/billing-model.md).
+
+### Live payments
+
+Production currently has **no live payment provider configured**. The Billing screen truthfully states that live card checkout is not configured and directs top-ups through the operator. Adding a live provider is a separate integration step.
+
+---
+
+## Operations
+
+| Concern | How Relay handles it |
+|---|---|
+| **Scheduler** | One process owns the lock, so scheduled jobs fire once |
+| **Health** | `/api/health` on the console and `/health` on Cloud MCP |
+| **Data** | Local data directory with encrypted credentials |
+| **Backups** | `tools/relay-backup.sh` uploads encrypted snapshots to GCS with lifecycle retention |
+| **Monitoring** | Uptime policy and email alert channel in `tools/monitoring/` |
+| **Readiness** | `node tools/production-readiness.mjs` |
+| **Links** | `node tools/audit-live-links.mjs` |
+| **Deploy** | [deploy/DEPLOY.md](deploy/DEPLOY.md) and [docs/ALWAYS-ON.md](docs/ALWAYS-ON.md) |
+
+Production reference deployment:
+
+- GCP VM in Singapore
+- Cloudflare named tunnel for `relay`, `mcp` and `cloud-mcp` hostnames
+- systemd services for console and cloud MCP
+- SQLite ledger and encrypted platform credentials
 
 ---
 
@@ -251,18 +263,67 @@ These are platform constraints or deliberate product boundaries — not hidden f
 | Path | Purpose |
 |---|---|
 | `apps/web` | Browser console, OAuth callbacks, scheduler host |
-| `apps/mcp` | MCP server (stdio + authenticated HTTP) |
-| `packages/core` | Service, validation, encrypted store, scheduler |
+| `apps/mcp` | MCP server (stdio + authenticated HTTP) and cloud finance hooks |
+| `packages/core` | Service, validation, encrypted store, scheduler, previews |
 | `packages/platforms` | X, Threads, TikTok, YouTube and Instagram adapters |
-| `deploy` | systemd units, deploy script, Cloudflare example |
-| `docs` | Product, operations and connection guides |
+| `packages/cloud` | Cloud store, pricing, ledger, tenants and rate limits |
+| `deploy` | systemd units, deploy script and Cloudflare example |
+| `docs` | Product, billing, operations and connection guides |
 | `tests` | Unit and end-to-end tests |
 
 ---
 
-## Contact
+## Testing
 
-Relay is currently a private beta. For investor or partnership conversations, contact the repository owner.
+```bash
+npm test
+```
+
+Covers unit, adapter and end-to-end flows, including:
+
+- per-part quoting and settlement
+- free-credit exhaustion and X exclusion
+- scheduling and queue locking
+- platform adapters and validation
+- cloud admin, billing and payment webhooks
+- console auth and API routes
+
+Production verification:
+
+```bash
+node tools/production-readiness.mjs
+node tools/audit-live-links.mjs
+```
+
+---
+
+## Security
+
+- Credentials encrypted at rest with AES-256-GCM.
+- Console binds to localhost by default; set `RELAY_CONSOLE_PASSWORD` before exposing it.
+- MCP HTTP requests require a bearer token or OAuth.
+- No telemetry and no third-party analytics.
+- Never commit `.env`, credentials, tokens or the data directory.
+- The scheduler lock prevents duplicate scheduled posts.
+
+---
+
+## Current limitations
+
+- TikTok public posting depends on TikTok app audit.
+- YouTube uploads are bounded by the platform's daily API quota.
+- Threads and Instagram reconnects require valid Meta redirect URIs.
+- Live card checkout, self-service signup, customer portal and transactional email are not implemented.
+- Analytics and a unified inbox are intentionally out of scope.
+- Relay is currently single-tenant per deployment; multi-tenant cloud mode exists but onboarding is operator-driven.
+
+---
+
+## License and source
+
+Source: <https://github.com/firyomaefx/relay>
+
+See [LICENSE](LICENSE).
 
 **Live product:** <https://relay.duitpoket.fun>
-**Source:** <https://origin.cursor.com/ttrg/relay>
+**MCP endpoint:** `https://mcp.duitpoket.fun/mcp`
