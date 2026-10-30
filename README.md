@@ -210,13 +210,13 @@ Relay prices **one post part on one platform** as one billable unit.
 
 | Draft | Billable units | Price |
 |---|---:|---:|
-| Text post on X | 1 | $0.020 |
-| Text post on X + Threads | 2 | $0.040 |
-| 3-part thread on X + Threads | 6 | $0.120 |
-| Video post on all five networks | 5 | $0.200 |
+| Text post on X | 1 | $0.02 |
+| Text post on X + Threads | 2 | $0.04 |
+| 3-part thread on X + Threads | 6 | $0.12 |
+| Video post on all five networks | 5 | $0.20 |
 
-- **Text:** $0.020 per part, per platform
-- **Video:** $0.040 per part, per platform
+- **Text:** $0.02 per part, per platform
+- **Video:** $0.04 per part, per platform
 - **Starter credit:** **$0.50**, spent at the real unit price
 - **X:** excluded from free starter credit
 - **Failed posts:** not charged
@@ -333,6 +333,7 @@ See [LICENSE](LICENSE).
 
 **Live product:** <https://relay.duitpoket.fun>
 **MCP endpoint:** `https://mcp.duitpoket.fun/mcp`
+
 
 
 

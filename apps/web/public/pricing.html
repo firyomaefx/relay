@@ -258,7 +258,7 @@
         <div class="core">
           <div class="plan-label"><span class="name">Pay as you go</span><span class="tag">Most popular</span></div>
           <p class="plan-desc">The default. Top up, publish, and only successful posts consume the balance.</p>
-          <div class="price" id="fromPrice">$0.020<small> / post</small></div>
+          <div class="price" id="fromPrice">$0.02<small> / post</small></div>
           <div class="plan-sub" id="fromSub">From the lowest current platform rate</div>
           <ul class="plan-list">
             <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Per-post pricing by platform</li>
@@ -311,12 +311,12 @@
     </div>
     <div class="example-grid example">
       <div class="bezel"><div class="core">
-        <div class="label">All text · $0.020</div>
+        <div class="label">All text · $0.02</div>
         <div class="big" id="exText">—</div>
         <div class="small">text posts from a $10 top-up</div>
       </div></div>
       <div class="bezel"><div class="core">
-        <div class="label">All video · $0.040</div>
+        <div class="label">All video · $0.04</div>
         <div class="big" id="exVideo">—</div>
         <div class="small">video posts from a $10 top-up</div>
       </div></div>
@@ -340,7 +340,7 @@
       <div class="bezel step"><div class="core"><div class="step-num">03</div><h3>Release</h3><p>Failed publishes and cancelled scheduled jobs release the unused hold. Your balance is available again.</p></div></div>
     </div>
     <div style="margin-top:14px" class="small muted">
-      A billable unit is one post part on one platform. A 3-part thread to 2 platforms is 6 text units ($0.120). A 5-platform single text post is 5 units ($0.100). Starting rates are per unit, not per draft.
+      A billable unit is one post part on one platform. A 3-part thread to 2 platforms is 6 text units ($0.12). A 5-platform single text post is 5 units ($0.10). Starting rates are per unit, not per draft.
     </div>
   </section>
 
@@ -410,7 +410,7 @@ const labels={x:"X",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",instagra
 const kindLabels={text:"Text",link:"Link",image:"Image",carousel:"Carousel",video:"Video",article:"Article"};
 const $=(id)=>document.getElementById(id);
 const money=(amount,currency="USD",unit="milliUSD")=>{
-  if(unit==="milliUSD") return "$"+(Number(amount)/1000).toFixed(3);
+  if(unit==="milliUSD"){const value=Number(amount)/1000;return "$"+(Math.round(value*100)===value*100?value.toFixed(2):value.toFixed(3));}
   if(unit==="microUSD") return "$"+(Number(amount)/1_000_000).toFixed(3);
   return currency==="MYR"?"RM"+(Number(amount)/100).toFixed(2):(Number(amount)/100).toFixed(2)+" "+currency;
 };
@@ -478,6 +478,7 @@ load();
 </script>
 </body>
 </html>
+
 
 
 
