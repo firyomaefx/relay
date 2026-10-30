@@ -41,6 +41,9 @@ test("GET /api/health reports a healthy simulated console", async () => {
   assert.equal(health.ok, true, `GET /api/health failed: ${requestSummary(health)}`);
   assert.equal(health.json.ok, true);
   assert.equal(health.json.mock, true, "RELAY_MOCK=1 must put the console in simulated mode");
+  assert.equal(typeof health.json.payments?.stripeConfigured, "boolean");
+  assert.equal(typeof health.json.payments?.polarConfigured, "boolean");
+  assert.equal(typeof health.json.payments?.polarSandbox, "boolean");
 });
 
 test("GET / serves the Relay console HTML shell", async () => {

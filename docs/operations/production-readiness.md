@@ -78,8 +78,9 @@ For live use, replace the sandbox access token, API base and product ID with liv
 
 ```bash
 npm run build
-npm test                 # 150 tests
+npm test                 # 154 tests, recursive test discovery
 node tools/audit-live-links.mjs
+node tools/production-readiness.mjs
 ```
 
 ## Operational state
@@ -87,6 +88,7 @@ node tools/audit-live-links.mjs
 - **GCS offsite backup:** active. The VM service account has `roles/storage.objectAdmin` and `devstorage.read_write`; backup script uploads the encrypted tarball and `.sha256` to `gs://relay-prod-backups-a22a835c`. Verified: `relay-20261029T202909Z.tgz`.
 - **Uptime alerting:** active. Cloud Monitoring checks `relay.duitpoket.fun/api/health` and `cloud-mcp.duitpoket.fun/health` every 5 minutes. Alert policy `Relay production uptime` notifies the email channel `Relay production alerts` (`ttrgautomation@gmail.com`).
 - **Stripe:** code-complete; live keys are not installed. Checkout returns 503 until `RELAY_STRIPE_SECRET_KEY` and `RELAY_STRIPE_WEBHOOK_SECRET` are set.
+- **Polar:** sandbox product, access token and webhook are installed on production for the operator trial. `GET /api/health` reports `payments.polarSandbox: true`; public checkout must stay disabled. Live product/token/webhook are required before monetization.
 - **Contact requests:** stored locally at `/var/lib/relay/.data/contact-requests.ndjson`. Set `RELAY_CONTACT_WEBHOOK_URL` to forward each request to Slack/Google Chat/Zapier; no direct transactional-email provider is connected yet.
 - **Self-service signup:** not implemented. Customers are provisioned by an operator.
 - **Real-account E2E:** requires a real customer account and platform app credentials.
