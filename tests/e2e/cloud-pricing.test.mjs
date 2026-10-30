@@ -27,7 +27,7 @@ test("public pricing page and price API work without a console session", async (
     assert.equal(api.json.freeAllowanceMilliUsd, 500);
     assert.equal(api.json.freeAllowanceUnits, 0);
     assert.match(html, /\$0\.50 free credit/);
-    assert.equal(api.json.prices.x.text, 3);
+    assert.equal(api.json.prices.x.text, 20);
 
     const protectedState = await httpJson(server.baseUrl, "/api/state");
     assert.equal(protectedState.status, 401);
@@ -56,5 +56,6 @@ test("public pricing page and price API work without a console session", async (
     await cleanupTempDir(dataDir);
   }
 });
+
 
 

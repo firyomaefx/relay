@@ -35,7 +35,7 @@ Relay is **ready for a controlled production deployment**, not yet a fully self-
 | Five platform adapters | ✅ Live, subject to each platform's app approval and quotas |
 | MCP over stdio and authenticated HTTP | ✅ Live |
 | Per-part billing and $0.50 starter credit | ✅ Implemented |
-| Unit, integration and end-to-end tests | ✅ **158 passing** |
+| Unit, integration and end-to-end tests | ✅ **159 passing** |
 | Health checks, readiness script and link audit | ✅ Passing |
 | Backups, uptime alerting and process supervision | ✅ Configured |
 | Live card checkout | ⛔ Not configured — manual/operator top-ups only |
@@ -70,7 +70,7 @@ npm run build
 npm test
 ```
 
-Expected: **158 tests passing**.
+Expected: **159 tests passing**.
 
 ### 3. Start the console
 
@@ -92,11 +92,7 @@ Copy the reference file:
 cp .env.example .env
 ```
 
-Edit the values you need. Relay reads credentials from the process environment; load `.env` with your shell or process manager, or use Node's env-file support:
-
-```bash
-node --env-file=.env apps/web/dist/index.js
-```
+Edit the values you need. Relay loads the repo-root `.env` automatically; explicitly exported environment variables always win.
 
 For production, use your service manager's environment file rather than a repo `.env`.
 
@@ -214,13 +210,13 @@ Relay prices **one post part on one platform** as one billable unit.
 
 | Draft | Billable units | Price |
 |---|---:|---:|
-| Text post on X | 1 | $0.003 |
-| Text post on X + Threads | 2 | $0.006 |
-| 3-part thread on X + Threads | 6 | $0.018 |
-| Video post on all five networks | 5 | $0.030 |
+| Text post on X | 1 | $0.020 |
+| Text post on X + Threads | 2 | $0.040 |
+| 3-part thread on X + Threads | 6 | $0.120 |
+| Video post on all five networks | 5 | $0.200 |
 
-- **Text:** $0.003 per part, per platform
-- **Video:** $0.006 per part, per platform
+- **Text:** $0.020 per part, per platform
+- **Video:** $0.040 per part, per platform
 - **Starter credit:** **$0.50**, spent at the real unit price
 - **X:** excluded from free starter credit
 - **Failed posts:** not charged
@@ -233,6 +229,16 @@ Billing is implemented in the **cloud MCP** mode. Self-hosted owner mode is not 
 ### Live payments
 
 Production currently has **no live payment provider configured**. The Billing screen truthfully states that live card checkout is not configured and directs top-ups through the operator. Adding a live provider is a separate integration step.
+
+### Automatic Threads replies
+
+Cloud auto-reply is gated:
+
+- **$10 minimum lifetime paid top-up** — free starter credit does not count
+- **Your own DeepSeek API key** — stored encrypted per tenant and never returned
+- **30-minute window** after a Threads post; spam and hostile comments are skipped
+
+Use the cloud-only `relay_cloud_autoreply` tool with `status`, `set_key`, `clear_key`, `enable` or `disable`. Explicit `relay_reply` / `relay_threads_reply` calls remain available without the unlock.
 
 ---
 
@@ -327,3 +333,6 @@ See [LICENSE](LICENSE).
 
 **Live product:** <https://relay.duitpoket.fun>
 **MCP endpoint:** `https://mcp.duitpoket.fun/mcp`
+
+
+

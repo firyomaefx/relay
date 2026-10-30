@@ -19,6 +19,7 @@ import { startHttpServer, type RunningHttpServer } from "./http.js";
 import { createOAuthProvider } from "./oauth.js";
 import { createCloudApi } from "./cloud-api.js";
 import { CloudFinance } from "./cloud-finance.js";
+import { AUTOREPLY_MIN_TOPUP_MILLI_USD, registerCloudAutoReplyTool } from "./cloud-autoreply.js";
 
 function log(message: string): void {
   process.stderr.write(`[relay-cloud-mcp] ${message}\n`);
@@ -94,6 +95,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       const relay = await tenants.get(customer);
       const server = new McpServer({ name: "relay-cloud", version: "0.1.0" });
       registerTools(server, { relay, ...finance.hooks(customer) });
+      registerCloudAutoReplyTool(server, { customer, relay, ledger });
       server.registerTool(
         "relay_cloud_whoami",
         {
@@ -176,6 +178,14 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
         try {
           const relay = await tenants.get(customer);
           await relay.runDueJobs();
+          const paidTopups = ledger.totalTopups(customer.id);
+          if (
+            paidTopups >= AUTOREPLY_MIN_TOPUP_MILLI_USD &&
+            relay.getDeepSeekApiKey() &&
+            relay.isThreadsAutoReplyEnabled()
+          ) {
+            await relay.runThreadsAutoReplyTick();
+          }
           await finance.reconcile(customer, relay);
         } catch (error) {
           log(`cloud scheduler error for ${customer.id}: ${error instanceof Error ? error.message : String(error)}`);

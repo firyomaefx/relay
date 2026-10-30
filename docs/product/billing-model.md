@@ -19,11 +19,11 @@ Examples at current prices:
 
 | Draft | Units | Total |
 |---|---:|---:|
-| 1 text post on X | 1 | $0.003 |
-| 1 text post on X + Threads | 2 | $0.006 |
-| 3-part text thread on X + Threads | 6 | $0.018 |
-| 1 video post on all five networks | 5 | $0.030 |
-| 3-part thread, each part a video, X + Threads | 6 | $0.036 |
+| 1 text post on X | 1 | $0.020 |
+| 1 text post on X + Threads | 2 | $0.040 |
+| 3-part text thread on X + Threads | 6 | $0.120 |
+| 1 video post on all five networks | 5 | $0.200 |
+| 3-part thread, each part a video, X + Threads | 6 | $0.240 |
 
 `price` is the starting rate. Actual settlement depends on which platforms accept the post and which parts succeed.
 
@@ -38,7 +38,7 @@ Free starter credit:
 
 - `$0.50`, spent at the real unit price.
 - X is excluded from free credit.
-- $0.50 is approximately 166 X-eligible text units, or 83 video units, or 33 five-platform text posts.
+- $0.50 is approximately 25 X-eligible text units, 12 video units, or 5 five-platform text posts.
 
 ## API / MCP output
 
@@ -49,12 +49,12 @@ Free starter credit:
   "quote": {
     "currency": "USD",
     "unit": "milliUSD",
-    "total": 18,
-    "freeCreditApplied": 9,
-    "paidTotal": 9,
+    "total": 120,
+    "freeCreditApplied": 60,
+    "paidTotal": 60,
     "lines": [
-      { "platform": "x", "parts": 3, "amount": 9, "paidAmount": 9 },
-      { "platform": "threads", "parts": 3, "amount": 9, "freeAmount": 9, "paidAmount": 0 }
+      { "platform": "x", "parts": 3, "amount": 60, "paidAmount": 60 },
+      { "platform": "threads", "parts": 3, "amount": 60, "freeAmount": 60, "paidAmount": 0 }
     ]
   }
 }
@@ -80,3 +80,5 @@ A “starting price” is therefore a floor, not a bill. The UI must show the qu
 - Never charge a part that did not publish.
 - Do not let a quote silently exceed the available balance; reservation fails with the exact required amount.
 - Do not advertise Plus or a flat monthly price until the live payment provider and monthly entitlements exist.
+
+

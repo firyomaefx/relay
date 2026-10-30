@@ -56,11 +56,16 @@ export class TenantManager {
     if (!stored) this.options.store.getOrCreateCustomerData(customer.id, dataDir);
     await mkdir(dataDir, { recursive: true });
     if (!customer.owner) await this.ensureTenantSecret(dataDir, customer.id);
+    const tenantEnv = { ...this.env };
+    // A platform-wide owner key must never satisfy a tenant's own API-key gate.
+    if (!customer.owner) delete tenantEnv.DEEPSEEK_API_KEY;
     const relay = await createRelay({
       dataDir,
       forceMock: this.forceMock,
       consoleUrl: this.consoleUrl,
-      env: this.env,
+      // Cloud tenants get the engine capability; the cloud scheduler and the
+      // autoreply tool enforce the paid-top-up and API-key gate per customer.
+      env: customer.owner ? this.env : { ...tenantEnv, THREADS_AUTOREPLY_ENABLED: "true" },
       logger: (message) => this.logger(`[tenant ${customer.id}] ${message}`),
     });
     await this.recordMappings(customer, relay);

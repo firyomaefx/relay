@@ -1446,7 +1446,7 @@ export class RelayService {
 
   /** Threads posts whose 30-minute built-in auto-reply window is still open (and active). */
   private threadsPostsHeldForAutoReply(): Set<string> {
-    if (!this.autoReply.isEnabled() || !this.env.DEEPSEEK_API_KEY?.trim()) return new Set();
+    if (!this.autoReply.isEnabled() || !this.getDeepSeekApiKey()) return new Set();
     return this.store.read(
       (db) => new Set(db.threadsAutoReply.windows.filter((window) => window.status === "open").map((window) => window.postId)),
     );
