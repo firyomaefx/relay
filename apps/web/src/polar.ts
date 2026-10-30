@@ -12,11 +12,13 @@ export interface PolarConfig {
 export function loadPolarConfig(env: NodeJS.ProcessEnv): PolarConfig | null {
   const accessToken = env.RELAY_POLAR_ACCESS_TOKEN?.trim();
   const productId = env.RELAY_POLAR_PRODUCT_ID?.trim();
-  if (!accessToken || !productId) return null;
+  const webhookSecret = env.RELAY_POLAR_WEBHOOK_SECRET?.trim() ?? "";
+  // Checkout without webhook verification could take money without crediting the ledger.
+  if (!accessToken || !productId || !webhookSecret) return null;
   return {
     accessToken,
     productId,
-    webhookSecret: env.RELAY_POLAR_WEBHOOK_SECRET?.trim() ?? "",
+    webhookSecret,
     apiBase: (env.RELAY_POLAR_API_BASE?.trim() || "https://api.polar.sh").replace(/\/+$/, ""),
     successUrl: env.RELAY_POLAR_SUCCESS_URL?.trim() || "https://relay.duitpoket.fun/billing/success",
     cancelUrl: env.RELAY_POLAR_CANCEL_URL?.trim() || "https://relay.duitpoket.fun/billing/cancel",
@@ -96,3 +98,4 @@ export function centsToMilliUSD(cents: number): number {
   if (!Number.isInteger(cents) || cents <= 0) throw new Error("Invalid Polar amount.");
   return cents * 10;
 }
+

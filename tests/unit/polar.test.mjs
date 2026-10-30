@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { centsToMilliUSD, verifyPolarWebhook } from "../../apps/web/dist/polar.js";
+import { centsToMilliUSD, loadPolarConfig, verifyPolarWebhook } from "../../apps/web/dist/polar.js";
 
 test("Polar amounts convert from cents to milliUSD", () => {
   assert.equal(centsToMilliUSD(1000), 10_000);
@@ -26,4 +26,13 @@ test("Polar Standard Webhooks signatures are verified and tampering is rejected"
   assert.equal(verifyPolarWebhook(Buffer.from(body), headers, key), true);
   assert.equal(verifyPolarWebhook(Buffer.from(`${body} `), headers, key), false);
   assert.equal(verifyPolarWebhook(Buffer.from(body), { ...headers, "webhook-signature": "v1,bad" }, key), false);
+});
+
+test("Polar checkout requires a complete access token, product and webhook secret", () => {
+  const base = {
+    RELAY_POLAR_ACCESS_TOKEN: "polar_oat_test",
+    RELAY_POLAR_PRODUCT_ID: "00000000-0000-4000-8000-000000000000",
+  };
+  assert.equal(loadPolarConfig(base), null);
+  assert.ok(loadPolarConfig({ ...base, RELAY_POLAR_WEBHOOK_SECRET: "whsec_test" }));
 });

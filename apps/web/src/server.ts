@@ -264,6 +264,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
         name: "relay-web",
         version: "0.1.0",
         mock: deps.relay().isMockForced,
+        payments: {
+          stripeConfigured: Boolean(deps.billing?.webhookSecret),
+          polarConfigured: Boolean(deps.polar?.accessToken && deps.polar?.productId),
+          polarSandbox: Boolean(deps.polar?.apiBase.includes("sandbox")),
+        },
         uptimeSeconds: Math.round(process.uptime()),
         timestamp: new Date().toISOString(),
       });

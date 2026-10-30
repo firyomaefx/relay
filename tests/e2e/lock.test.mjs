@@ -92,7 +92,7 @@ test(
           const db = await readDb(dbPath);
           if (!db) return null;
           const records = (db.posts ?? []).filter((record) => record.draft?.text === text);
-          return records.length > 0 ? records : null;
+          return records.length > 0 && records[0].results?.length > 0 ? records : null;
         },
         {
           timeoutMs: 45000,
