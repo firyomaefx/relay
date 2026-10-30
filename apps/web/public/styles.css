@@ -3998,6 +3998,36 @@ code {
 
 .sidebar-foot .text-btn:hover { color: var(--text); background: #f0f0f2; }
 
+.credit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.credit-card .mini-label {
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+.credit-card strong {
+  font-family: "Sora", sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -.03em;
+}
+
+.credit-card #creditFree { color: var(--text-mute); font-size: 10px; }
+
+/* The base design reset hides .mini-card; the balance card must remain visible. */
+.sidebar-foot .credit-card:not([hidden]) { display: flex !important; }
+
 .main {
   margin-left: var(--sidebar-w);
   padding: 0 52px 80px;

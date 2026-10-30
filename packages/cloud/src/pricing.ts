@@ -5,6 +5,8 @@ import { RelayError, type PlatformId, type PostDraft } from "@relay/core";
 export interface CloudPrices {
   currency: string;
   unit: string;
+  /** Free starter credit in milliUSD (500 = $0.50). Prefer this over legacy post units. */
+  free_allowance_milli_usd?: number;
   free_allowance_units?: number;
   free_allowance_posts?: number;
   free_excluded_platforms?: string[];
@@ -63,3 +65,4 @@ export class PriceTable {
 export function defaultPricePath(env: NodeJS.ProcessEnv = process.env): string {
   return path.resolve(env.RELAY_CLOUD_PRICES?.trim() || "config/cloud-prices.json");
 }
+

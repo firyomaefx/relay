@@ -281,6 +281,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       sendJson(res, 200, {
         currency: deps.pricing.currency,
         unit: deps.pricing.unit,
+        freeAllowanceMilliUsd: deps.pricing.free_allowance_milli_usd ?? 0,
         freeAllowancePosts: deps.pricing.free_allowance_posts ?? 0,
         freeAllowanceUnits: deps.pricing.free_allowance_units ?? deps.pricing.free_allowance_posts ?? 0,
         freeExcludedPlatforms: deps.pricing.free_excluded_platforms ?? [],

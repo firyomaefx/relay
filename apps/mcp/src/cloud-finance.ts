@@ -54,8 +54,17 @@ export class CloudFinance {
 
   private pricingConfig() {
     const config = this.options.prices.list();
+    const freeCredit = config.free_allowance_milli_usd;
+    if (Number.isInteger(freeCredit) && freeCredit! > 0) {
+      return {
+        freeLimit: freeCredit!,
+        creditMode: true,
+        excluded: new Set(config.free_excluded_platforms ?? []),
+      };
+    }
     return {
       freeLimit: config.free_allowance_units ?? config.free_allowance_posts ?? 0,
+      creditMode: false,
       excluded: new Set(config.free_excluded_platforms ?? []),
     };
   }
@@ -64,10 +73,11 @@ export class CloudFinance {
     this.options.limiter?.check(customer.id, "posts", this.options.rateConfig?.postsPerHour ?? 60, 60 * 60 * 1000);
     const platforms = draft.platforms ?? [];
     const quote = this.options.prices.quote(draft, platforms);
-    const { freeLimit, excluded } = this.pricingConfig();
+    const { freeLimit, creditMode, excluded } = this.pricingConfig();
     let freeRemaining = this.options.ledger.freeRemaining(customer.id, freeLimit);
     const quotes: QuoteHold[] = quote.quotes.map((entry) => {
-      const units = unitFor(entry.kind);
+      // $0.50 free credit is spent at the real post price; legacy configs count post units.
+      const units = creditMode ? entry.amount : unitFor(entry.kind);
       const free = !excluded.has(entry.platform) && freeRemaining >= units;
       if (free) freeRemaining -= units;
       return { ...entry, units, free };
