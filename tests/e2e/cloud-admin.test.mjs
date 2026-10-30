@@ -29,6 +29,12 @@ test("manual cloud top-up records one payment and is idempotent", async () => {
     assert.equal(customers.status, 200, requestSummary(customers));
     assert.equal(customers.json.customers.some((entry) => entry.id === customer.id), true);
 
+    const me = await httpJson(server.baseUrl, "/api/cloud/admin/me");
+    assert.equal(me.status, 200, requestSummary(me));
+    assert.equal(me.json.balance.available, 0);
+    assert.equal(me.json.freeCredit.limit, 500);
+    assert.equal(me.json.freeCredit.remaining, 500);
+
     const payload = { customerId: customer.id, amount: 500, reference: "BANK-2026-001", note: "invoice #1" };
     const first = await httpJson(server.baseUrl, "/api/cloud/admin/topup", { method: "POST", body: payload });
     assert.equal(first.status, 200, requestSummary(first));

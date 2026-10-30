@@ -6,7 +6,7 @@ Last audited: 2026-10-30 (Asia/Kuala_Lumpur)
 
 | URL | Purpose | Expected |
 |---|---|---|
-| `https://relay.duitpoket.fun/pricing` | Public prices, free units and $10 examples | 200 HTML |
+| `https://relay.duitpoket.fun/pricing` | Public prices, $0.50 starter credit and $10 examples | 200 HTML |
 | `https://relay.duitpoket.fun/connect` | MCP connection guide and one-click Cursor install | 200 HTML |
 | `https://relay.duitpoket.fun/contact` | Agency / access request form | 200 HTML |
 | `https://relay.duitpoket.fun/billing/success` | Stripe return page | 200 HTML |
@@ -31,7 +31,7 @@ The public link crawl is checked with `node tools/audit-live-links.mjs`. It exit
 - 25 lifetime units per customer.
 - Text = 1 unit; video = 2 units.
 - X is excluded from free allowance.
-- Free units are held on reservation and consumed only on a successful post.
+- Free credit is held on reservation and consumed only on a successful post.
 - Failed, cancelled and rejected posts release the hold.
 - Paid posts reserve and settle through the same ledger.
 
@@ -93,5 +93,6 @@ node tools/production-readiness.mjs
 - **Self-service signup:** not implemented. Customers are provisioned by an operator.
 - **Real-account E2E:** requires a real customer account and platform app credentials.
 - **OAuth client registrations:** now self-validating signed client IDs, so they survive process restarts. Access/refresh tokens are signed from `RELAY_CLOUD_TOKEN_KEY`.
+
 
 

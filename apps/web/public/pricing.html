@@ -225,7 +225,7 @@
       </div>
       <aside class="hero-side">
         <p>Every charge is written to an append-only ledger. No charge for a failed post.</p>
-        <div class="stat"><b id="freeStat">25</b><span>free units to start</span></div>
+        <div class="stat"><b id="freeStat">$0.50</b><span>free credit to start</span></div>
         <div class="stat"><b>5</b><span>networks in one API</span></div>
         <div class="stat"><b>0</b><span>monthly platform fee</span></div>
         <div class="stat"><b>24/7</b><span>cloud scheduler</span></div>
@@ -242,11 +242,11 @@
       <article class="bezel plan">
         <div class="core">
           <div class="plan-label"><span class="name">Free start</span><span class="tag">Try it</span></div>
-          <p class="plan-desc" id="freePlanDesc">Up to 25 free units. Text uses 1 unit, video uses 2 units. X is excluded from free.</p>
+          <p class="plan-desc" id="freePlanDesc">$0.50 free credit, spent at the real post price. X is excluded from free.</p>
           <div class="price">$0<small> to start</small></div>
-          <div class="plan-sub" id="freePlanSub">Free units · X excluded</div>
+          <div class="plan-sub" id="freePlanSub">$0.50 free credit · X excluded</div>
           <ul class="plan-list">
-            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>All networks except X on free</li>
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>All networks except X on free credit</li>
             <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>MCP + cloud API</li>
             <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>No failed-post charge</li>
           </ul>
@@ -326,7 +326,7 @@
         <div class="small" id="exMixSub">posts in a repeatable 3-post marketing set</div>
       </div></div>
     </div>
-    <div style="margin-top:14px" class="small muted" id="exNote">Rates are whole milliUSD units: 1,000 = $1.00. Video uses 2 free units; text uses 1.</div>
+    <div style="margin-top:14px" class="small muted" id="exNote">Rates are whole milliUSD units: 1,000 = $1.00. Free starter credit is $0.50 and is spent at the real post price.</div>
   </section>
 
   <section class="section wrap reveal" id="how">
@@ -413,13 +413,21 @@ const money=(amount,currency="USD",unit="milliUSD")=>{
 const seeded=(()=>{try{return JSON.parse($("priceData").textContent||"null")}catch{return null}})();
 
 function renderPricing(d){
-  const free=d.freeAllowanceUnits ?? d.free_allowance_units ?? d.freeAllowancePosts ?? d.free_allowance_posts ?? 0;
+  const freeCredit=d.freeAllowanceMilliUsd ?? d.free_allowance_milli_usd ?? 0;
+  const free=freeCredit?0:d.freeAllowanceUnits ?? d.free_allowance_units ?? d.freeAllowancePosts ?? d.free_allowance_posts ?? 0;
   const excluded=(d.freeExcludedPlatforms ?? d.free_excluded_platforms ?? []).map(p=>labels[p]||p);
-  $("freeStat").textContent=free?String(free):"0";
-  $("freePlanSub").textContent=free?`${free} free units · ${excluded.length?excluded.join(", ")+" excluded":"all platforms"}`:"Pay as you go from the first post";
-  $("freePlanDesc").textContent=free
-    ? `Up to ${free} free units. Text uses 1 unit, video uses 2. ${excluded.length?excluded.join(", ")+" is excluded from free.":""}`
-    : "Pay as you go from the first post.";
+  if(freeCredit){
+    const amount="$"+(Number(freeCredit)/1000).toFixed(2);
+    $("freeStat").textContent=amount;
+    $("freePlanSub").textContent=`${amount} free credit · ${excluded.length?excluded.join(", ")+" excluded":"all platforms"}`;
+    $("freePlanDesc").textContent=`${amount} free credit, spent at the real post price. ${excluded.length?excluded.join(", ")+" is excluded from free.":""}`;
+  }else{
+    $("freeStat").textContent=free?String(free):"0";
+    $("freePlanSub").textContent=free?`${free} free units · ${excluded.length?excluded.join(", ")+" excluded":"all platforms"}`:"Pay as you go from the first post";
+    $("freePlanDesc").textContent=free
+      ? `Up to ${free} free units. Text uses 1 unit, video uses 2. ${excluded.length?excluded.join(", ")+" is excluded from free.":""}`
+      : "Pay as you go from the first post.";
+  }
   const all=Object.values(d.prices).flatMap(p=>Object.values(p)).filter(n=>Number.isFinite(n));
   const min=all.length?Math.min(...all):0;
   if(min){$("fromPrice").innerHTML=money(min,d.currency,d.unit)+"<small> / post</small>";$("fromSub").textContent="From the lowest current platform rate";}
@@ -466,6 +474,8 @@ load();
 </script>
 </body>
 </html>
+
+
 
 
 

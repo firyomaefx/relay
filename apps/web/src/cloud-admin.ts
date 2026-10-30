@@ -1,12 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { RelayError, errorMessage } from "@relay/core";
-import { CloudLedger, CloudStore, loadCloudConfig } from "@relay/cloud";
+import { CloudLedger, CloudStore, PriceTable, defaultPricePath, loadCloudConfig } from "@relay/cloud";
 import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
 import { createPolarCheckout, loadPolarConfig, type PolarConfig } from "./polar.js";
 
 export interface CloudAdminDeps {
   store: CloudStore;
   ledger: CloudLedger;
+  pricing?: PriceTable;
   billing?: StripeBillingConfig;
   polar?: PolarConfig;
   close(): Promise<void>;
@@ -17,9 +18,16 @@ export function openCloudAdmin(env: NodeJS.ProcessEnv): CloudAdminDeps | null {
   if (!config.enabled) return null;
   const store = CloudStore.open(config.dbPath);
   const ledger = new CloudLedger(config.dbPath);
+  let pricing: PriceTable | undefined;
+  try {
+    pricing = PriceTable.load(defaultPricePath(env));
+  } catch {
+    pricing = undefined;
+  }
   return {
     store,
     ledger,
+    pricing,
     billing: loadStripeConfig(env) ?? undefined,
     polar: loadPolarConfig(env) ?? undefined,
     close: async () => {
@@ -69,6 +77,19 @@ export async function handleCloudAdmin(
   const method = (req.method ?? "GET").toUpperCase();
   const resource = segments[3] ?? "";
   try {
+    if (method === "GET" && resource === "me") {
+      const owner = deps.store.ensureOwnerCustomer("Owner");
+      const freeLimit = deps.pricing?.list().free_allowance_milli_usd ?? 0;
+      send(res, 200, {
+        customer: { id: owner.id, displayName: owner.displayName },
+        balance: deps.ledger.balanceWithHold(owner.id),
+        freeCredit: freeLimit > 0
+          ? { limit: freeLimit, remaining: deps.ledger.freeRemaining(owner.id, freeLimit), currency: "USD" }
+          : null,
+      });
+      return;
+    }
+
     if (method === "GET" && resource === "customers" && segments[4]) {
       const customer = deps.store.getCustomer(segments[4]);
       if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);

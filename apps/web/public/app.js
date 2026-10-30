@@ -498,6 +498,39 @@
   /* ------------------------------------------------------------------ *
    * Chrome (topbar, sidebar, banner)
    * ------------------------------------------------------------------ */
+  let creditFetchedAt = 0;
+  let creditLoading = false;
+
+  async function loadCreditBalance(force = false) {
+    if (!els.creditCard) return;
+    if (!state.session?.protected) {
+      els.creditCard.hidden = true;
+      return;
+    }
+    if (creditLoading || (!force && Date.now() - creditFetchedAt < 15_000)) return;
+    creditLoading = true;
+    try {
+      const response = await fetch("/api/cloud/admin/me", { credentials: "same-origin" });
+      if (!response.ok) {
+        els.creditCard.hidden = true;
+        return;
+      }
+      const data = await response.json();
+      const available = Number(data.balance?.available ?? 0);
+      const freeRemaining = data.freeCredit?.remaining;
+      els.creditBalance.textContent = `$${(Math.max(0, available) / 1000).toFixed(2)}`;
+      els.creditFree.textContent = Number.isFinite(freeRemaining)
+        ? `\u00a0·\u00a0$${(Math.max(0, freeRemaining) / 1000).toFixed(2)} free`
+        : "";
+      els.creditCard.hidden = false;
+      creditFetchedAt = Date.now();
+    } catch {
+      els.creditCard.hidden = true;
+    } finally {
+      creditLoading = false;
+    }
+  }
+
   function renderChrome() {
     const settings = state.settings;
     if (!settings) return;
@@ -541,6 +574,7 @@
     els.logoutBtn.hidden = !protectedMode;
     els.sessionRow.hidden = !protectedMode;
     els.settingsLogoutBtn.hidden = !protectedMode;
+    void loadCreditBalance();
 
     els.settingsModeBadge.dataset.mode = mock ? "mock" : "live";
     const settingsModeText = els.settingsModeBadge.querySelector("span:last-child");
@@ -1107,6 +1141,7 @@
     try {
       const result = await api("/api/posts", { method: "POST", body: { draft } });
       state.lastResult = result;
+      void loadCreditBalance(true);
       renderResults();
       if (result.report && !result.report.ok) {
         state.validation = result.report;
@@ -2044,6 +2079,9 @@
       tiktokWebSnippet: $("#tiktokWebSnippet"),
       copyTiktokWebBtn: $("#copyTiktokWebBtn"),
       logoutBtn: $("#logoutBtn"),
+      creditCard: $("#creditCard"),
+      creditBalance: $("#creditBalance"),
+      creditFree: $("#creditFree"),
       toasts: $("#toasts"),
       toastTemplate: $("#toastTemplate"),
       modalRoot: $("#modalRoot"),
@@ -2383,3 +2421,4 @@
     if (pollTimer) window.clearInterval(pollTimer);
   });
 })();
+

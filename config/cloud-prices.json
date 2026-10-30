@@ -1,9 +1,9 @@
 {
   "currency": "USD",
   "unit": "milliUSD",
-  "free_allowance_units": 25,
+  "free_allowance_milli_usd": 500,
   "free_excluded_platforms": ["x"],
-  "_note": "Whole integer milliUSD units: 1000 = $1.00. Text = 3 ($0.003), video = 6 ($0.006). Free allowance uses units: text 1, video 2; X is excluded from free.",
+  "_note": "Whole integer milliUSD units: 1000 = $1.00. Text = 3 ($0.003), video = 6 ($0.006). Free starter credit is $0.50 (500 milliUSD) spent at the real post price; X is excluded from free credit.",
   "prices": {
     "x": { "text": 3, "link": 3, "image": 3, "carousel": 3, "video": 6, "article": 3 },
     "threads": { "text": 3, "link": 3, "image": 3, "carousel": 3, "video": 6 },
