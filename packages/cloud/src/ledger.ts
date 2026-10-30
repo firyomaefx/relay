@@ -127,6 +127,14 @@ export class CloudLedger {
     return Math.max(0, limit - this.freeUsedInTransaction(customerId) - this.freeHeldInTransaction(customerId));
   }
 
+  /** Lifetime successful top-ups, excluding free starter credit and charges. */
+  totalTopups(customerId: string): number {
+    const row = this.db.prepare(
+      "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger WHERE customer_id = ? AND type = 'topup'",
+    ).get(customerId) as { total: number };
+    return Number(row.total);
+  }
+
   private balanceInTransaction(customerId: string): number {
     const sum = this.db.prepare("SELECT COALESCE(SUM(amount), 0) AS total FROM ledger WHERE customer_id = ?").get(customerId) as { total: number };
     const holds = this.db.prepare(

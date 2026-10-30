@@ -69,26 +69,26 @@ test("reserves, charges, refunds on failure and cancels scheduled holds", async 
     const first = await call(base, key.key, "relay_post", { platforms: ["x"], text: "paid post one" });
     assert.equal(first.isError, false, first.text);
     const balance = json((await call(base, key.key, "relay_balance")).text);
-    assert.equal(balance.available, 97);
+    assert.equal(balance.available, 80);
     assert.equal(balance.held, 0);
 
     // Duplicate publish fails after the hold; the hold must be released.
     const duplicate = await call(base, key.key, "relay_post", { platforms: ["x"], text: "paid post one" });
     assert.equal(duplicate.isError, true);
     const afterDuplicate = json((await call(base, key.key, "relay_balance")).text);
-    assert.equal(afterDuplicate.available, 97);
+    assert.equal(afterDuplicate.available, 80);
 
     const at = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const scheduled = await call(base, key.key, "relay_post", { platforms: ["x"], text: "paid scheduled", schedule_at: at });
     assert.equal(scheduled.isError, false, scheduled.text);
     const held = json((await call(base, key.key, "relay_balance")).text);
-    assert.equal(held.available, 94);
-    assert.equal(held.held, 3);
+    assert.equal(held.available, 60);
+    assert.equal(held.held, 20);
     const jobId = /job_[0-9a-f-]+/.exec(scheduled.text)?.[0];
     assert.ok(jobId);
     assert.equal((await call(base, key.key, "relay_cancel", { job_id: jobId })).isError, false);
     const cancelled = json((await call(base, key.key, "relay_balance")).text);
-    assert.equal(cancelled.available, 97);
+    assert.equal(cancelled.available, 80);
     assert.equal(cancelled.held, 0);
 
     const poor = await call(base, poorKey.key, "relay_post", { platforms: ["x"], text: "no money" });
@@ -105,4 +105,5 @@ test("reserves, charges, refunds on failure and cancels scheduled holds", async 
     await cleanupTempDir(dir);
   }
 });
+
 

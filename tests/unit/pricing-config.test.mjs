@@ -11,6 +11,7 @@ test("production price config grants $0.50 in free credit and excludes X", () =>
   assert.equal(config.free_allowance_milli_usd, 500);
   assert.deepEqual(config.free_excluded_platforms, ["x"]);
   assert.equal(config.free_allowance_units, undefined);
-  assert.equal(config.prices.threads.text, 3);
-  assert.equal(config.prices.threads.video, 6);
+  assert.equal(config.prices.threads.text, 20);
+  assert.equal(config.prices.threads.video, 40);
 });
+

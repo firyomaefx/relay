@@ -258,7 +258,7 @@
         <div class="core">
           <div class="plan-label"><span class="name">Pay as you go</span><span class="tag">Most popular</span></div>
           <p class="plan-desc">The default. Top up, publish, and only successful posts consume the balance.</p>
-          <div class="price" id="fromPrice">$0.003<small> / post</small></div>
+          <div class="price" id="fromPrice">$0.020<small> / post</small></div>
           <div class="plan-sub" id="fromSub">From the lowest current platform rate</div>
           <ul class="plan-list">
             <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Per-post pricing by platform</li>
@@ -311,12 +311,12 @@
     </div>
     <div class="example-grid example">
       <div class="bezel"><div class="core">
-        <div class="label">All text · $0.003</div>
+        <div class="label">All text · $0.020</div>
         <div class="big" id="exText">—</div>
         <div class="small">text posts from a $10 top-up</div>
       </div></div>
       <div class="bezel"><div class="core">
-        <div class="label">All video · $0.006</div>
+        <div class="label">All video · $0.040</div>
         <div class="big" id="exVideo">—</div>
         <div class="small">video posts from a $10 top-up</div>
       </div></div>
@@ -340,7 +340,7 @@
       <div class="bezel step"><div class="core"><div class="step-num">03</div><h3>Release</h3><p>Failed publishes and cancelled scheduled jobs release the unused hold. Your balance is available again.</p></div></div>
     </div>
     <div style="margin-top:14px" class="small muted">
-      A billable unit is one post part on one platform. A 3-part thread to 2 platforms is 6 text units ($0.018). A 5-platform single text post is 5 units ($0.015). Starting rates are per unit, not per draft.
+      A billable unit is one post part on one platform. A 3-part thread to 2 platforms is 6 text units ($0.120). A 5-platform single text post is 5 units ($0.100). Starting rates are per unit, not per draft.
     </div>
   </section>
 
@@ -384,6 +384,7 @@
       <div class="faq-list">
         <details open><summary>What exactly am I charged for?</summary><p>Only successful posts. Relay reserves the price when you publish or schedule, commits the charge when a platform accepts the post, and releases the hold on failure or cancellation.</p></details>
         <details><summary>Is there a monthly subscription?</summary><p>No. The default model is prepaid pay-as-you-go credits with a free-post allowance. Agency arrangements are separate.</p></details>
+        <details><summary>Does Relay Cloud include automatic replies?</summary><p>Threads auto-reply unlocks after at least <strong>$10 in lifetime paid top-ups</strong> and your own DeepSeek API key. The key is encrypted per customer; spam and hostile comments are skipped. Agent-called replies work without the unlock.</p></details>
         <details><summary>How do I access the cloud MCP?</summary><p>A customer-specific API key is required. Cloud access is currently operator-provisioned while Stripe card checkout is being completed. Use the console or contact Relay for access.</p></details>
         <details><summary>Why does the MCP URL show an error in my browser?</summary><p><span class="mono">/mcp</span> speaks Streamable HTTP MCP, not HTML. A browser request without an API key returns 401. It is working as intended; use an MCP client.</p></details>
         <details><summary>Can I cancel a scheduled post?</summary><p>Yes, while it is still pending. The reserved amount is released and the post is not published.</p></details>
@@ -440,8 +441,8 @@ function renderPricing(d){
       ${Object.entries(rows).map(([k,v])=>`<div class="rate-row"><span>${kindLabels[k]||k}</span><b>${money(v,d.currency,d.unit)}</b></div>`).join("")}
     </article>`).join("");
 
-  const text=Number(d.prices?.threads?.text ?? d.prices?.x?.text ?? 3);
-  const video=Number(d.prices?.threads?.video ?? d.prices?.x?.video ?? 6);
+  const text=Number(d.prices?.threads?.text ?? d.prices?.x?.text ?? 20);
+  const video=Number(d.prices?.threads?.video ?? d.prices?.x?.video ?? 40);
   const budget=10000;
   if(text>0&&video>0){
     const sets=Math.floor(budget/(2*text+video));
@@ -477,6 +478,8 @@ load();
 </script>
 </body>
 </html>
+
+
 
 
 

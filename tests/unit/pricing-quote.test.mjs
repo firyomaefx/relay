@@ -12,14 +12,14 @@ test("pricing counts billable parts and platforms, not just the draft", () => {
     ["x"],
   );
   assert.equal(single.quotes[0].parts, 1);
-  assert.equal(single.quotes[0].amount, 3);
-  assert.equal(single.total, 3);
+  assert.equal(single.quotes[0].amount, 20);
+  assert.equal(single.total, 20);
 
   const five = prices.quote(
     { platforms: ["x", "threads", "tiktok", "youtube", "instagram"], thread: [{ text: "", media: [{ kind: "video", path: "v.mp4" }] }] },
     ["x", "threads", "tiktok", "youtube", "instagram"],
   );
-  assert.equal(five.total, 30);
+  assert.equal(five.total, 200);
 
   const thread = prices.quote(
     {
@@ -29,9 +29,9 @@ test("pricing counts billable parts and platforms, not just the draft", () => {
     ["x", "threads"],
   );
   assert.equal(thread.quotes[0].parts, 3);
-  assert.equal(thread.quotes[0].amount, 9);
+  assert.equal(thread.quotes[0].amount, 60);
   assert.equal(thread.quotes[0].breakdown.length, 3);
-  assert.equal(thread.total, 18);
+  assert.equal(thread.total, 120);
 });
 
 test("multi-platform pricing sums each platform's own part prices", () => {
@@ -45,8 +45,9 @@ test("multi-platform pricing sums each platform's own part prices", () => {
     },
     ["threads", "instagram"],
   );
-  assert.deepEqual(quote.quotes.map((entry) => entry.amount), [9, 9]);
-  assert.equal(quote.total, 18);
+  assert.deepEqual(quote.quotes.map((entry) => entry.amount), [60, 60]);
+  assert.equal(quote.total, 120);
   assert.deepEqual(quote.quotes[0].breakdown.map((part) => part.kind), ["image", "video"]);
 });
+
 

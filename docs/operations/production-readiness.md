@@ -28,8 +28,8 @@ The public link crawl is checked with `node tools/audit-live-links.mjs`. It exit
 
 ## Free allowance
 
-- 25 lifetime units per customer.
-- Text = 1 unit; video = 2 units.
+- $0.50 free starter credit per customer (500 milliUSD).
+- Text = $0.020 per part; video = $0.040 per part. Free credit is spent at the real post price.
 - X is excluded from free allowance.
 - Free credit is held on reservation and consumed only on a successful post.
 - Failed, cancelled and rejected posts release the hold.
@@ -78,7 +78,7 @@ For live use, replace the sandbox access token, API base and product ID with liv
 
 ```bash
 npm run build
-npm test                 # 158 tests, recursive test discovery
+npm test                 # 159 tests, recursive test discovery
 node tools/audit-live-links.mjs
 node tools/production-readiness.mjs
 ```
@@ -93,6 +93,8 @@ node tools/production-readiness.mjs
 - **Self-service signup:** not implemented. Customers are provisioned by an operator.
 - **Real-account E2E:** requires a real customer account and platform app credentials.
 - **OAuth client registrations:** now self-validating signed client IDs, so they survive process restarts. Access/refresh tokens are signed from `RELAY_CLOUD_TOKEN_KEY`.
+
+
 
 
 
