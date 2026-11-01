@@ -1424,8 +1424,8 @@
       mcpServers: {
         relay: {
           command: "node",
-          args: ["apps/mcp/dist/index.js"],
-          cwd: ".",
+          args: ["<path-to-relay>/apps/mcp/dist/index.js"],
+          cwd: "<path-to-relay>",
           env: { RELAY_DATA_DIR: dataDir },
         },
       },
@@ -1435,7 +1435,7 @@
   function relayCodexConfig() {
     return {
       mcpServers: {
-        relay: { command: "node", args: ["apps/mcp/dist/index.js"], env: { RELAY_DATA_DIR: state.settings?.dataDir ?? ".data" } },
+        relay: { command: "node", args: ["<path-to-relay>/apps/mcp/dist/index.js"], env: { RELAY_DATA_DIR: state.settings?.dataDir ?? ".data" } },
       },
     };
   }
@@ -1458,10 +1458,106 @@
         <p>${escapeHtml(card.note)}</p>
       </div>
       <div class="integration-actions">
-        <a class="ghost-btn small" href="${escapeAttr(card.install)}" target="_blank" rel="noreferrer noopener">Install</a>
+        <button class="ghost-btn small" type="button" data-integration-setup="${escapeAttr(card.id)}">Install</button>
         <button class="ghost-btn small" type="button" data-dashboard-copy="${escapeAttr(card.copy)}">Copy config</button>
       </div>
     </article>`).join("");
+  }
+
+  const INTEGRATION_SETUP = {
+    claude: {
+      title: "Connect Claude Desktop",
+      desc: "Claude Desktop uses a local MCP server. Install Claude, paste this config, then restart the app.",
+      steps: ["Install Claude Desktop.", "Open Claude → Settings → Developer → Edit Config.", "Paste the MCP JSON below and save.", "Restart Claude and ask it to list Relay accounts."],
+      install: "https://claude.ai/download",
+      kind: "desktop",
+    },
+    "claude-code": {
+      title: "Connect Claude Code",
+      desc: "Register Relay as a local MCP server in your terminal.",
+      steps: ["Install Claude Code.", "Run the command below from the Relay repository.", "Start Claude Code and run /mcp to verify Relay."],
+      install: "https://docs.anthropic.com/en/docs/claude-code",
+      kind: "claude-code",
+    },
+    codex: {
+      title: "Connect Codex",
+      desc: "Add Relay to your Codex MCP configuration.",
+      steps: ["Install Codex.", "Open your MCP configuration.", "Paste the config below and restart Codex."],
+      install: "https://openai.com/codex/",
+      kind: "codex",
+    },
+    chatgpt: {
+      title: "Connect ChatGPT",
+      desc: "Use the Relay MCP endpoint where your ChatGPT client supports MCP connections.",
+      steps: ["Open ChatGPT desktop or MCP settings.", "Add Relay using the config below.", "Authorize and ask ChatGPT to list Relay accounts."],
+      install: "https://chatgpt.com/",
+      kind: "desktop",
+    },
+    cursor: {
+      title: "Connect Cursor",
+      desc: "Add Relay as an MCP server in Cursor.",
+      steps: ["Open Cursor → Settings → MCP.", "Add a new MCP server and paste the config below.", "Reload Cursor and ask it to list Relay accounts."],
+      install: "https://cursor.com/",
+      kind: "desktop",
+    },
+    grok: {
+      title: "Connect Grok Bot",
+      desc: "Add Relay to your Grok MCP configuration.",
+      steps: ["Open your Grok Bot MCP settings.", "Paste the config below.", "Restart Grok Bot and verify Relay is listed."],
+      install: "https://grok.com/",
+      kind: "desktop",
+    },
+    vscode: {
+      title: "Connect VS Code",
+      desc: "Use an MCP extension to add Relay to VS Code.",
+      steps: ["Install an MCP-capable VS Code extension.", "Add Relay using the config below.", "Reload the window and verify Relay."],
+      install: "https://code.visualstudio.com/",
+      kind: "desktop",
+    },
+    n8n: {
+      title: "Connect n8n",
+      desc: "Use an MCP client node in n8n and point it at Relay.",
+      steps: ["Add an MCP client node to your workflow.", "Configure it with the connection below.", "Run the workflow and verify a Relay tool call."],
+      install: "https://n8n.io/",
+      kind: "desktop",
+    },
+  };
+
+  function setupConfig(kind) {
+    if (kind === "claude-code") {
+      return `claude mcp add relay -- node ${state.settings?.dataDir ? `${state.settings.dataDir}/` : ""}apps/mcp/dist/index.js`;
+    }
+    return JSON.stringify(kind === "codex" ? relayCodexConfig() : relayMcpConfig(), null, 2);
+  }
+
+  function openIntegrationWizard(id) {
+    const setup = INTEGRATION_SETUP[id];
+    if (!setup || !els.integrationWizard) return;
+    els.integrationEyebrow.textContent = "Connect MCP client";
+    els.integrationTitle.textContent = setup.title;
+    els.integrationDesc.textContent = setup.desc;
+    els.integrationSteps.innerHTML = setup.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("");
+    els.integrationCode.textContent = setupConfig(setup.kind);
+    els.integrationDownload.href = setup.install;
+    els.integrationWizard.hidden = false;
+    window.requestAnimationFrame(() => els.integrationWizard.classList.add("is-open"));
+  }
+
+  function closeIntegrationWizard() {
+    if (!els.integrationWizard) return;
+    els.integrationWizard.classList.remove("is-open");
+    els.integrationWizard.hidden = true;
+  }
+
+  async function copyIntegrationCode() {
+    const text = els.integrationCode?.textContent ?? "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ tone: "success", title: "Configuration copied", text: "Paste it into the MCP client, then restart that app." });
+    } catch {
+      toast({ tone: "info", title: "Copy failed", text: "Select the configuration manually." });
+    }
   }
 
   function renderHome() {
@@ -1831,7 +1927,7 @@
         mcpServers: {
           relay: {
             command: "node",
-            args: ["apps/mcp/dist/index.js"],
+            args: ["<path-to-relay>/apps/mcp/dist/index.js"],
             cwd: "<repository root>",
             env: { RELAY_DATA_DIR: settings.dataDir },
           },
@@ -2302,6 +2398,13 @@
       dashAccounts: $("#dashAccounts"),
       dashHeatmap: $("#dashHeatmap"),
       dashIntegrations: $("#dashIntegrations"),
+      integrationWizard: $("#integrationWizard"),
+      integrationEyebrow: $("#integrationEyebrow"),
+      integrationTitle: $("#integrationTitle"),
+      integrationDesc: $("#integrationDesc"),
+      integrationSteps: $("#integrationSteps"),
+      integrationCode: $("#integrationCode"),
+      integrationDownload: $("#integrationDownload"),
       settingsEnv: $("#settingsEnv"),
       settingsModeBadge: $("#settingsModeBadge"),
       sessionRow: $("#sessionRow"),
@@ -2392,6 +2495,23 @@
       const dashboardCopy = event.target.closest("[data-dashboard-copy]");
       if (dashboardCopy) {
         void copyDashboardConfig(dashboardCopy.dataset.dashboardCopy);
+        return;
+      }
+
+      const integrationSetup = event.target.closest("[data-integration-setup]");
+      if (integrationSetup) {
+        openIntegrationWizard(integrationSetup.dataset.integrationSetup);
+        return;
+      }
+
+      const closeIntegration = event.target.closest("[data-close-integration]");
+      if (closeIntegration) {
+        closeIntegrationWizard();
+        return;
+      }
+
+      if (event.target.closest("#integrationCopy")) {
+        void copyIntegrationCode();
         return;
       }
 
@@ -2675,6 +2795,9 @@
     if (pollTimer) window.clearInterval(pollTimer);
   });
 })();
+
+
+
 
 
 

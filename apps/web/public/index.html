@@ -8,8 +8,8 @@
   <meta name="description" content="Relay publishing console." />
   <title>Relay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/styles.css?v=20261101home" />
-  <script src="/app.js?v=20261101home" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20261101home3" />
+  <script src="/app.js?v=20261101home3" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -722,6 +722,23 @@
     </div>
   </div>
 
+  <div class="integration-wizard" id="integrationWizard" hidden>
+    <div class="integration-wizard-scrim" data-close-integration></div>
+    <div class="integration-wizard-card" role="dialog" aria-modal="true" aria-labelledby="integrationTitle">
+      <button class="integration-wizard-close" type="button" data-close-integration aria-label="Close">×</button>
+      <p class="eyebrow" id="integrationEyebrow">Connect MCP client</p>
+      <h2 id="integrationTitle">Connect Claude Desktop</h2>
+      <p class="integration-wizard-desc" id="integrationDesc"></p>
+      <ol class="integration-wizard-steps" id="integrationSteps"></ol>
+      <pre class="integration-wizard-code" id="integrationCode"></pre>
+      <div class="integration-wizard-actions">
+        <button class="primary-btn" type="button" id="integrationCopy">Copy config</button>
+        <a class="ghost-btn" id="integrationDownload" href="#" target="_blank" rel="noreferrer noopener">Open install page</a>
+        <button class="ghost-btn" type="button" data-close-integration>Close</button>
+      </div>
+    </div>
+  </div>
+
   <template id="toastTemplate">
     <div class="toast">
       <span class="toast-icon" aria-hidden="true"></span>
@@ -736,6 +753,8 @@
   </template>
 </body>
 </html>
+
+
 
 
 

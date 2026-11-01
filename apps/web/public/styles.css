@@ -4967,3 +4967,17 @@ body { font-size: 17px; }
 .integration-actions .small { width: auto; min-width: 0; padding: 7px 10px; font-size: 11px; }
 @media (max-width: 980px) { .dash-grid { grid-template-columns: 1fr; } .dash-integrations { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .dash-head { flex-direction: column; } .dash-stats { grid-template-columns: 1fr 1fr; } .integration-card { align-items: flex-start; flex-wrap: wrap; } .integration-actions { width: 100%; justify-content: flex-start; } }
+/* Integration setup wizard */
+.integration-wizard { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 22px; }
+.integration-wizard[hidden] { display: none; }
+.integration-wizard-scrim { position: absolute; inset: 0; background: rgba(18, 24, 20, .42); backdrop-filter: blur(5px); }
+.integration-wizard-card { position: relative; width: min(680px, 100%); max-height: 90vh; overflow: auto; padding: 28px; border: 1px solid var(--hairline); border-radius: 24px; background: var(--paper); box-shadow: 0 28px 80px rgba(16, 25, 18, .22); transform: translateY(8px); opacity: 0; transition: .28s var(--ease); }
+.integration-wizard.is-open .integration-wizard-card { transform: none; opacity: 1; }
+.integration-wizard-close { position: absolute; top: 14px; right: 16px; width: 32px; height: 32px; border: 1px solid var(--hairline); border-radius: 50%; background: #fff; color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; }
+.integration-wizard-card h2 { margin: 6px 0 8px; font-family: var(--font-display); font-size: 26px; letter-spacing: -.04em; }
+.integration-wizard-desc { margin: 0 0 16px; color: var(--text-soft); font-size: 13px; line-height: 1.6; }
+.integration-wizard-steps { margin: 0 0 16px; padding-left: 19px; color: var(--text-soft); font-size: 12.5px; line-height: 1.7; }
+.integration-wizard-code { margin: 0 0 16px; padding: 14px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--shell); color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.integration-wizard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.integration-wizard-actions .primary-btn, .integration-wizard-actions .ghost-btn { width: auto; }
+@media (max-width: 620px) { .integration-wizard { padding: 10px; } .integration-wizard-card { padding: 22px 17px; border-radius: 18px; } }
