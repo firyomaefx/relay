@@ -1421,13 +1421,28 @@
     const meta = PLATFORM_META[platform];
     const status = platformStatus(platform);
     const credential = state.credentials.find((entry) => entry.platform === platform);
+    const needsSetup = platform === "linkedin" && !credential?.configured;
     const modeBadge = account
       ? statusBadge(account.mode === "live" ? "Live" : "Simulated", account.mode === "live" ? "live" : "mock")
       : status?.live
         ? statusBadge("Ready", "live")
         : statusBadge("Simulated", "mock");
 
-    const body = account
+    const body = account && needsSetup
+      ? `<div class="account-connected">
+          <span class="avatar" aria-hidden="true">${escapeHtml(initials(account.displayName || account.handle))}</span>
+          <div class="account-handle">
+            <strong>${escapeHtml(account.displayName || account.handle)}</strong>
+            <span>@${escapeHtml(account.handle)}${account.label ? ` · ${escapeHtml(account.label)}` : ""}</span>
+          </div>
+          ${modeBadge}
+        </div>
+        <div class="account-empty">${ICONS.lock}<span>LinkedIn app credentials are missing. This account is local only and cannot sign in live yet.</span></div>
+        <div class="account-actions">
+          <button class="ghost-btn connect-btn" type="button" data-goto="settings">Set up LinkedIn app</button>
+          <button class="ghost-btn" type="button" data-disconnect="${platform}" data-account-id="${escapeAttr(account.id)}">Disconnect</button>
+        </div>`
+      : account
       ? `<div class="account-connected">
           <span class="avatar" aria-hidden="true">${escapeHtml(initials(account.displayName || account.handle))}</span>
           <div class="account-handle">
@@ -1442,10 +1457,10 @@
           <button class="ghost-btn add-account-btn" type="button" data-add-account="${platform}">Add account</button>
           <button class="ghost-btn" type="button" data-disconnect="${platform}" data-account-id="${escapeAttr(account.id)}">Disconnect</button>
         </div>`
-      : `<div class="account-empty">${ICONS.lock}<span>${escapeHtml(meta.emptyNote)}</span></div>
+      : `<div class="account-empty">${ICONS.lock}<span>${escapeHtml(needsSetup ? "LinkedIn app credentials are missing. Add them in Settings to sign in live." : meta.emptyNote)}</span></div>
         <div class="account-connect">
-          <button class="ghost-btn connect-btn" type="button" data-connect="${platform}">
-            <span>${escapeHtml(meta.connectLabel)}</span>
+          <button class="ghost-btn connect-btn" type="button" ${needsSetup ? 'data-goto="settings"' : `data-connect="${platform}"`}>
+            <span>${escapeHtml(needsSetup ? "Set up LinkedIn app" : meta.connectLabel)}</span>
             ${ICONS.arrow}
           </button>
         </div>`;
@@ -1502,6 +1517,12 @@
   }
 
   async function connectPlatform(platform, options = {}) {
+    const credential = state.credentials.find((entry) => entry.platform === platform);
+    if (platform === "linkedin" && !credential?.configured) {
+      toast({ tone: "info", title: "LinkedIn app setup needed", text: "Add LinkedIn client ID and secret in Settings before signing in." });
+      setScreen("settings");
+      return;
+    }
     try {
       const result = await api(`/api/connect/${platform}`, { method: "POST", body: options });
       if (result.mode === "redirect") {
