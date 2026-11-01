@@ -102,6 +102,10 @@ const postInputSchema = z.object({
   platforms: z
     .array(z.string())
     .describe('Target platforms: one or more of "x", "threads", "tiktok", "youtube", "instagram".'),
+  account_ids: z
+    .record(platformEnum, z.string())
+    .optional()
+    .describe("Optional account id per platform. Omit to use the primary account for that platform."),
   text: z.string().optional().describe("Post text for a single-part post."),
   media: z.array(mediaSchema).optional().describe("Media for a single-part post."),
   thread: z
@@ -145,10 +149,13 @@ const postInputSchema = z.object({
 
 const connectInputSchema = z.object({
   platform: platformEnum.describe('Platform to connect: "x", "threads", "tiktok", "youtube" or "instagram".'),
+  account_id: z.string().min(1).optional().describe("Optional account id from a claimed cloud slot. Omit for a normal new account."),
+  label: z.string().min(1).max(60).optional().describe("Optional visible label, e.g. Agency X."),
 });
 
 const disconnectInputSchema = z.object({
   platform: platformEnum.describe('Platform to disconnect: "x", "threads", "tiktok", "youtube" or "instagram".'),
+  account_id: z.string().min(1).optional().describe("Optional account id; omit to disconnect all accounts on the platform."),
 });
 
 const cancelInputSchema = z.object({
@@ -272,6 +279,8 @@ export interface ToolContext {
   afterCancel?: (jobId: string) => Promise<void>;
   /** Cloud-only: price a draft without reserving or publishing. */
   quotePost?: (draft: PostDraft) => unknown;
+  /** Cloud-only: enforce account tier/limit before OAuth. */
+  beforeConnect?: (platform: PlatformId, options: { accountId?: string; label?: string }) => Promise<{ accountId?: string } | void>;
 }
 
 function safeQuote(context: ToolContext, draft: PostDraft): unknown {
@@ -318,6 +327,7 @@ function toDraft(input: z.infer<typeof postInputSchema>): PostDraft {
   return {
     // Unknown platform names are rejected by platformArgsProblem() before publishing.
     platforms: input.platforms as PlatformId[],
+    ...(input.account_ids ? { accountIds: input.account_ids as PostDraft["accountIds"] } : {}),
     text: input.text,
     media: input.media,
     thread: input.thread,
@@ -424,6 +434,12 @@ export function registerTools(server: McpServer, context: ToolContext): void {
           lines.push("Mode: simulated; add platform credentials and restart for live publishing.");
         }
         if (accounts.length === 0) lines.push("No accounts are connected yet.");
+        for (const account of accounts) {
+          lines.push(
+            `- ${platformLabel(account.platform)} · ${account.label || account.handle} · @${account.handle}` +
+              `${account.primaryForPlatform ? " · primary" : ""} · ${account.mode} · id ${account.id}`,
+          );
+        }
         lines.push("");
         for (const platform of platforms) {
           lines.push(`- ${formatStatus(platform)}`);
@@ -457,7 +473,12 @@ export function registerTools(server: McpServer, context: ToolContext): void {
     },
     async (args) =>
       safely(async () => {
-        const result = await relay.beginConnect(args.platform);
+        const gate = await context.beforeConnect?.(args.platform, { accountId: args.account_id, label: args.label });
+        const accountId = args.account_id ?? gate?.accountId;
+        const result = await relay.beginConnect(args.platform, {
+          ...(accountId ? { accountId } : {}),
+          ...(args.label ? { label: args.label } : {}),
+        });
         if (result.mode === "connected") {
           const account = result.account;
           return textResult(
@@ -504,13 +525,13 @@ export function registerTools(server: McpServer, context: ToolContext): void {
     },
     async (args) =>
       safely(async () => {
-        const existed = await relay.disconnect(args.platform);
+        const existed = await relay.disconnect(args.platform, args.account_id);
         const label = platformLabel(args.platform);
         return textResult(
           existed
             ? `Disconnected the ${label} account.`
             : `No ${label} account was connected; nothing changed.`,
-          { platform: args.platform, disconnected: existed },
+          { platform: args.platform, accountId: args.account_id, disconnected: existed },
         );
       }, HINTS.disconnect),
   );
@@ -1184,5 +1205,9 @@ function buildClientConfig(entryPath: string, dataDir: string, consoleUrl: strin
     },
   };
 }
+
+
+
+
 
 

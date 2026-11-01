@@ -35,7 +35,7 @@ Relay is **ready for a controlled production deployment**, not yet a fully self-
 | Five platform adapters | ✅ Live, subject to each platform's app approval and quotas |
 | MCP over stdio and authenticated HTTP | ✅ Live |
 | Per-part billing and $0.50 starter credit | ✅ Implemented |
-| Unit, integration and end-to-end tests | ✅ **159 passing** |
+| Unit, integration and end-to-end tests | ✅ **161 passing** |
 | Health checks, readiness script and link audit | ✅ Passing |
 | Backups, uptime alerting and process supervision | ✅ Configured |
 | Live card checkout | ⛔ Not configured — manual/operator top-ups only |
@@ -70,7 +70,7 @@ npm run build
 npm test
 ```
 
-Expected: **159 tests passing**.
+Expected: **161 tests passing**.
 
 ### 3. Start the console
 
@@ -230,6 +230,17 @@ Billing is implemented in the **cloud MCP** mode. Self-hosted owner mode is not 
 
 Production currently has **no live payment provider configured**. The Billing screen truthfully states that live card checkout is not configured and directs top-ups through the operator. Adding a live provider is a separate integration step.
 
+### Cloud account slots
+
+- **$10 lifetime paid top-up** unlocks **3 accounts per platform**
+- **$50 lifetime paid top-up** unlocks **10 accounts per platform**
+- Free starter credit does not count
+- The first account per platform is the baseline
+- `relay_cloud_accounts` shows the tier, used slots and remaining slots
+- `relay_connect` accepts `account_id` and `label` for additional accounts
+- `relay_post` accepts `account_ids` to choose the publishing account per platform
+- Auto-reply currently runs on the primary Threads account only; extra Threads accounts do not auto-reply
+
 ### Automatic Threads replies
 
 Cloud auto-reply is gated:
@@ -334,6 +345,9 @@ See [LICENSE](LICENSE).
 
 **Live product:** <https://relay.duitpoket.fun>
 **MCP endpoint:** `https://mcp.duitpoket.fun/mcp`
+
+
+
 
 
 

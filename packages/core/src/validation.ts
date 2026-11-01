@@ -84,7 +84,8 @@ export function normalizeFor(platform: PlatformId, draft: PostDraft): ResolvedPo
   const options = { ...(draft.options?.[platform] ?? {}) };
   const topReplyTo = (draft.replyToId ?? draft.parentPostId)?.toString().trim();
   if ((platform === "threads" || platform === "x") && topReplyTo && !options.replyToId) options.replyToId = topReplyTo;
-  return { platform, parts, options };
+  const accountId = draft.accountIds?.[platform];
+  return { platform, ...(accountId ? { accountId } : {}), parts, options };
 }
 
 function textLength(value: string): number {

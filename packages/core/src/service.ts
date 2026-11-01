@@ -10,7 +10,7 @@ import {
 } from "./autoreply.js";
 import { CredentialStore, credentialsFilePath } from "./credentials.js";
 import { AuthError, RelayError, errorMessage } from "./errors.js";
-import { JsonStore, type DbData } from "./json-store.js";
+import { JsonStore, type DbData, type StoredAccount } from "./json-store.js";
 import { acquireSchedulerLock, releaseSchedulerLock, schedulerLockOwner } from "./lock.js";
 import { mediaPublicUrl, readMediaBlob } from "./media.js";
 import { extractVideoCarousel } from "./video-carousel.js";
@@ -277,11 +277,38 @@ export class RelayService {
     return !this.forceMock && adapter.isLive(this.adapterContext());
   }
 
+  private storedAccount(db: DbData, platform: PlatformId, accountId?: string) {
+    if (accountId) {
+      const primary = db.accounts[platform];
+      if (primary?.account.id === accountId) return primary;
+      return db.extraAccounts[accountId];
+    }
+    return db.accounts[platform];
+  }
+
+  private setStoredSecret(db: DbData, platform: PlatformId, accountId: string, secret: StoredAccount["secret"]): void {
+    const current = this.storedAccount(db, platform, accountId);
+    if (!current) return;
+    if (db.accounts[platform]?.account.id === accountId) {
+      db.accounts[platform] = { account: current.account, secret };
+    } else {
+      db.extraAccounts[accountId] = { account: current.account, secret };
+    }
+  }
+
   async accounts(): Promise<Account[]> {
     await this.store.refresh();
-    return this.store.read((db) =>
-      PLATFORM_IDS.map((platform) => db.accounts[platform]?.account).filter((account): account is Account => Boolean(account)),
-    );
+    return this.store.read((db) => {
+      const primary = PLATFORM_IDS.map((platform) => db.accounts[platform]?.account)
+        .filter((account): account is Account => Boolean(account))
+        .map((account) => ({ ...account, primaryForPlatform: true, label: account.label || `${account.platform} account` }));
+      const extras = Object.values(db.extraAccounts ?? {}).map((entry) => ({
+        ...entry.account,
+        primaryForPlatform: false,
+        label: entry.account.label || `${entry.account.platform} account`,
+      }));
+      return [...primary, ...extras.filter((account) => !primary.some((entry) => entry.id === account.id))];
+    });
   }
 
   async platformStatuses(): Promise<PlatformStatus[]> {
@@ -387,7 +414,7 @@ export class RelayService {
     return buildDraftPreview(draft, this.platformLimits(), report);
   }
 
-  async beginConnect(platform: PlatformId, options: { redirectBase?: string } = {}): Promise<BeginConnectResult> {
+  async beginConnect(platform: PlatformId, options: { redirectBase?: string; accountId?: string; label?: string } = {}): Promise<BeginConnectResult> {
     const adapter = this.getAdapter(platform);
     const ctx = this.adapterContext();
     // Google OAuth web clients require a registered redirect URI. localhost is
@@ -403,14 +430,14 @@ export class RelayService {
       if (result.kind !== "mock") {
         throw new RelayError(`${platform} adapter unexpectedly requested a redirect in simulated mode`, "adapter_state");
       }
-      const account = await this.saveAccount(platform, result.profile, null, "mock", result.scopes);
+      const account = await this.saveAccount(platform, result.profile, null, "mock", result.scopes, { accountId: options.accountId, label: options.label });
       return { mode: "connected", account };
     }
 
     const state = randomToken(24);
     const codeVerifier = randomToken(48);
     await this.store.mutate((db) => {
-      db.oauth[state] = { platform, codeVerifier, redirectUri, createdAt: this.now().toISOString() };
+      db.oauth[state] = { platform, ...(options.accountId ? { accountId: options.accountId } : {}), ...(options.label ? { label: options.label } : {}), codeVerifier, redirectUri, createdAt: this.now().toISOString() };
     });
     const result = await adapter.authorize(ctx, { state, codeVerifier, redirectUri });
     if (result.kind !== "redirect") {
@@ -439,7 +466,7 @@ export class RelayService {
       codeVerifier: pending.codeVerifier,
       redirectUri: pending.redirectUri,
     });
-    const account = await this.saveAccount(platform, result.profile, result.tokens, "live", result.scopes);
+    const account = await this.saveAccount(platform, result.profile, result.tokens, "live", result.scopes, { accountId: pending.accountId, label: pending.label });
     await this.store.mutate((db) => {
       delete db.oauth[params.state];
     });
@@ -452,9 +479,11 @@ export class RelayService {
     tokens: OAuthTokens | null,
     mode: "live" | "mock",
     scopes: string[],
+    options: { accountId?: string; label?: string } = {},
   ): Promise<Account> {
+    const id = options.accountId || `${platform}:${profile.externalId || profile.handle}`;
     const account: Account = {
-      id: `${platform}:${profile.externalId || profile.handle}`,
+      id,
       platform,
       handle: profile.handle,
       displayName: profile.displayName,
@@ -462,21 +491,53 @@ export class RelayService {
       mode,
       connectedAt: this.now().toISOString(),
       scopes,
+      label: options.label?.trim() || `${platform} account`,
     };
     const secret = tokens ? this.box.encrypt(tokens) : null;
     await this.store.mutate((db) => {
-      db.accounts[platform] = { account, secret };
+      const primary = db.accounts[platform];
+      if (!primary) {
+        account.primaryForPlatform = true;
+        db.accounts[platform] = { account, secret };
+        return;
+      }
+      if (primary.account.id === id) {
+        account.primaryForPlatform = true;
+        db.accounts[platform] = { account, secret };
+        return;
+      }
+      account.primaryForPlatform = false;
+      db.extraAccounts[id] = { account, secret };
     });
     return account;
   }
 
-  async disconnect(platform: PlatformId): Promise<boolean> {
+  async disconnect(platform: PlatformId, accountId?: string): Promise<boolean> {
     await this.store.refresh();
-    const existed = this.store.read((db) => Boolean(db.accounts[platform]));
+    const existed = this.store.read((db) => Boolean(this.storedAccount(db, platform, accountId)));
     await this.store.mutate((db) => {
-      delete db.accounts[platform];
+      if (!accountId) {
+        delete db.accounts[platform];
+        for (const [id, stored] of Object.entries(db.extraAccounts)) {
+          if (stored.account.platform === platform) delete db.extraAccounts[id];
+        }
+      } else {
+        const primary = db.accounts[platform];
+        if (primary?.account.id === accountId) delete db.accounts[platform];
+        else delete db.extraAccounts[accountId];
+        // Keep a platform default when other accounts remain.
+        if (!db.accounts[platform]) {
+          const next = Object.entries(db.extraAccounts).find(([, stored]) => stored.account.platform === platform);
+          if (next) {
+            const [id, stored] = next;
+            stored.account.primaryForPlatform = true;
+            db.accounts[platform] = stored;
+            delete db.extraAccounts[id];
+          }
+        }
+      }
       for (const [state, pending] of Object.entries(db.oauth)) {
-        if (pending.platform === platform) delete db.oauth[state];
+        if (pending.platform === platform && (!accountId || pending.accountId === accountId)) delete db.oauth[state];
       }
     });
     return existed;
@@ -724,7 +785,7 @@ export class RelayService {
   }
 
   private async publishOne(post: ResolvedPost, recordId?: string): Promise<PostResult> {
-    const stored = this.store.read((db) => db.accounts[post.platform]);
+    const stored = this.store.read((db) => this.storedAccount(db, post.platform, post.accountId));
     const publishedAt = this.now().toISOString();
     const contentHash = contentHashFor(post);
     if (!stored) {
@@ -780,8 +841,7 @@ export class RelayService {
           const refreshed = await adapter.refresh(ctx, tokens);
           tokens = refreshed;
           await this.store.mutate((db) => {
-            const current = db.accounts[post.platform];
-            if (current) db.accounts[post.platform] = { account: current.account, secret: this.box.encrypt(refreshed) };
+            this.setStoredSecret(db, post.platform, stored.account.id, this.box.encrypt(refreshed));
           });
           result = await adapter.publish(ctx, { account: stored.account, tokens, post: publishPost });
         } else {
@@ -791,6 +851,8 @@ export class RelayService {
       const first = publishedParts[0];
       const publishedResult: PostResult = {
         platform: post.platform,
+        accountId: stored.account.id,
+        accountLabel: stored.account.label,
         ok: true,
         status: "published",
         mode: result.mock ? "mock" : "live",
@@ -809,6 +871,8 @@ export class RelayService {
         const first = publishedParts[0]!;
         const partialResult: PostResult = {
           platform: post.platform,
+          accountId: stored.account.id,
+          accountLabel: stored.account.label,
           ok: true,
           status: "partial",
           mode: stored.account.mode,
@@ -825,6 +889,8 @@ export class RelayService {
       }
       return {
         platform: post.platform,
+        accountId: stored.account.id,
+        accountLabel: stored.account.label,
         ok: false,
         status: "failed",
         mode: stored.account.mode,
@@ -838,6 +904,13 @@ export class RelayService {
   /** Publishing a Threads post starts its local 30-minute auto-reply window. */
   private async maybeOpenAutoReplyWindow(post: ResolvedPost, result: PostResult): Promise<void> {
     if (post.platform !== "threads" || !result.ok || !result.postId) return;
+    // Auto-reply is currently scoped to the platform's primary Threads account.
+    // Connecting extra Threads accounts must never make replies come from the
+    // wrong account. Per-account auto-reply is a later upgrade.
+    if (post.accountId) {
+      const primary = this.store.read((db) => db.accounts.threads?.account.id);
+      if (primary && primary !== post.accountId) return;
+    }
     try {
       await this.autoReply.openWindow(result.postId, result.publishedAt, post.parts[0]?.text);
     } catch (error) {
@@ -1870,3 +1943,7 @@ export class RelayService {
     await this.stopScheduler();
   }
 }
+
+
+
+
