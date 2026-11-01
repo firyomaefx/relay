@@ -36,7 +36,7 @@ import { openInBrowser } from "./open.js";
 
 const DEFAULT_HISTORY_LIMIT = 50;
 
-const platformEnum = z.enum(["x", "threads", "tiktok", "youtube", "instagram"]);
+const platformEnum = z.enum(["x", "threads", "tiktok", "youtube", "instagram", "linkedin"]);
 
 const mediaSchema = z.object({
   path: z
@@ -148,13 +148,13 @@ const postInputSchema = z.object({
 });
 
 const connectInputSchema = z.object({
-  platform: platformEnum.describe('Platform to connect: "x", "threads", "tiktok", "youtube" or "instagram".'),
+  platform: platformEnum.describe('Platform to connect: "x", "threads", "tiktok", "youtube", "instagram" or "linkedin".'),
   account_id: z.string().min(1).optional().describe("Optional account id from a claimed cloud slot. Omit for a normal new account."),
   label: z.string().min(1).max(60).optional().describe("Optional visible label, e.g. Agency X."),
 });
 
 const disconnectInputSchema = z.object({
-  platform: platformEnum.describe('Platform to disconnect: "x", "threads", "tiktok", "youtube" or "instagram".'),
+  platform: platformEnum.describe('Platform to disconnect: "x", "threads", "tiktok", "youtube", "instagram" or "linkedin".'),
   account_id: z.string().min(1).optional().describe("Optional account id; omit to disconnect all accounts on the platform."),
 });
 
@@ -415,7 +415,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
     {
       title: "List Relay accounts",
       description:
-        "List connected social accounts and per-platform readiness for X, Threads and TikTok. Shows whether credentials are configured, whether publishing is live or simulated, and the exact next step for each platform. Call this before posting.",
+        "List connected social accounts and per-platform readiness for X, Threads, TikTok, YouTube, Instagram and LinkedIn. Shows whether credentials are configured, whether publishing is live or simulated, and the exact next step for each platform. Call this before posting.",
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
@@ -1095,7 +1095,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
     {
       title: "Per-platform limits",
       description:
-        "Show the publishing limits and requirements for X, Threads and TikTok: text length, thread parts, media counts and sizes, upload style and platform notes. Check this before composing long posts or media posts.",
+        "Show the publishing limits and requirements for X, Threads, TikTok, YouTube, Instagram and LinkedIn: text length, thread parts, media counts and sizes, upload style and platform notes. Check this before composing long posts or media posts.",
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
@@ -1205,6 +1205,7 @@ function buildClientConfig(entryPath: string, dataDir: string, consoleUrl: strin
     },
   };
 }
+
 
 
 

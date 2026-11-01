@@ -3,9 +3,9 @@
  * This file is the integration surface between core, platforms, MCP and the web app.
  */
 
-export type PlatformId = "x" | "threads" | "tiktok" | "youtube" | "instagram";
+export type PlatformId = "x" | "threads" | "tiktok" | "youtube" | "instagram" | "linkedin";
 
-export const PLATFORM_IDS = ["x", "threads", "tiktok", "youtube", "instagram"] as const satisfies readonly PlatformId[];
+export const PLATFORM_IDS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin"] as const satisfies readonly PlatformId[];
 
 export function isPlatformId(value: unknown): value is PlatformId {
   return typeof value === "string" && (PLATFORM_IDS as readonly string[]).includes(value);
@@ -284,6 +284,7 @@ export interface Account {
   mode: AccountMode;
   connectedAt: string;
   scopes?: string[];
+  externalId?: string;
   label?: string;
   primaryForPlatform?: boolean;
 }
@@ -707,5 +708,6 @@ export interface SchedulerStatus {
   ownedByThisProcess: boolean;
   intervalMs: number;
 }
+
 
 

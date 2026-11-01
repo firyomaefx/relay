@@ -91,7 +91,7 @@ export function registerCloudAccountsTool(
         "Show or claim per-platform account slots. A one-time $10 lifetime paid top-up unlocks 3 accounts per platform; $50 unlocks 10 per platform. Free starter credit and free promotional credit do not count. Actions: status, claim.",
       inputSchema: z.object({
         action: z.enum(["status", "claim"]),
-        platform: z.enum(["x", "threads", "tiktok", "youtube", "instagram"]).optional(),
+        platform: z.enum(["x", "threads", "tiktok", "youtube", "instagram", "linkedin"]).optional(),
         label: z.string().min(1).max(60).optional(),
       }),
       annotations: { destructiveHint: false, openWorldHint: false },
@@ -111,4 +111,5 @@ export function registerCloudAccountsTool(
     },
   );
 }
+
 

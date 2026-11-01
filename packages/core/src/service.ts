@@ -86,6 +86,7 @@ const UNSUPPORTED_DELETE_REASON: Record<PlatformId, string> = {
   instagram: "Unsupported: the Instagram API has no endpoint to delete posts. Delete it in the Instagram app.",
   youtube:
     "Unsupported: Relay's YouTube login only has upload and read access, which cannot delete videos. Delete it in YouTube Studio.",
+  linkedin: "LinkedIn delete is not available in this build. Delete the post in LinkedIn.",
 };
 
 /**
@@ -491,6 +492,7 @@ export class RelayService {
       mode,
       connectedAt: this.now().toISOString(),
       scopes,
+      externalId: profile.externalId,
       label: options.label?.trim() || `${platform} account`,
     };
     const secret = tokens ? this.box.encrypt(tokens) : null;
@@ -1943,6 +1945,7 @@ export class RelayService {
     await this.stopScheduler();
   }
 }
+
 
 
 

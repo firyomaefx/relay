@@ -13,6 +13,8 @@ export function mockProfile(platform: PlatformId): { externalId: string; handle:
       return { externalId: "mock-youtube-1", handle: "relaydemo", displayName: "Relay Demo (YouTube)" };
     case "instagram":
       return { externalId: "mock-instagram-1", handle: "relay.demo", displayName: "Relay Demo (Instagram)" };
+    case "linkedin":
+      return { externalId: "mock-linkedin-1", handle: "relay-demo", displayName: "Relay Demo (LinkedIn)" };
   }
 }
 
@@ -32,6 +34,8 @@ export function mockScopes(platform: PlatformId): string[] {
       ];
     case "instagram":
       return ["instagram_business_basic", "instagram_business_content_publish", "instagram_business_manage_comments"];
+    case "linkedin":
+      return ["openid", "profile", "w_member_social"];
   }
 }
 
@@ -66,3 +70,4 @@ export function requireMediaUrl(item: MediaItem, url: string | null, platform: s
   }
   return url;
 }
+
