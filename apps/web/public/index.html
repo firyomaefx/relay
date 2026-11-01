@@ -8,8 +8,8 @@
   <meta name="description" content="Relay publishing console." />
   <title>Relay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/styles.css?v=20261101home3" />
-  <script src="/app.js?v=20261101home3" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20261101home4" />
+  <script src="/app.js?v=20261101home4" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -212,10 +212,10 @@
               <h2>Claude Desktop</h2>
               <p class="dash-copy">The fastest path. Add Relay as an MCP server once, then ask Claude to post, schedule and read your accounts.</p>
               <div class="dash-actions">
-                <button class="primary-btn" type="button" data-dashboard-copy="claude">Copy MCP config</button>
-                <a class="ghost-btn" href="https://claude.ai/download" target="_blank" rel="noreferrer noopener">Install Claude</a>
+                <button class="primary-btn" type="button" data-integration-setup="claude">Connect Claude</button>
+                <a class="ghost-btn" href="https://claude.ai/download" target="_blank" rel="noreferrer noopener">Download Claude</a>
               </div>
-              <p class="dash-note">After installing, open Claude → Settings → Developer → Edit Config and paste the copied JSON.</p>
+              <p class="dash-note">After connecting, open Claude → Settings → Developer → Edit Config and paste the copied JSON.</p>
             </aside>
           </div>
           <section class="panel dash-card dash-integrations-panel" aria-labelledby="integrationsTitle">
@@ -733,7 +733,7 @@
       <pre class="integration-wizard-code" id="integrationCode"></pre>
       <div class="integration-wizard-actions">
         <button class="primary-btn" type="button" id="integrationCopy">Copy config</button>
-        <a class="ghost-btn" id="integrationDownload" href="#" target="_blank" rel="noreferrer noopener">Open install page</a>
+        <a class="ghost-btn" id="integrationDownload" href="#" target="_blank" rel="noreferrer noopener">Open app</a>
         <button class="ghost-btn" type="button" data-close-integration>Close</button>
       </div>
     </div>
@@ -753,6 +753,7 @@
   </template>
 </body>
 </html>
+
 
 
 

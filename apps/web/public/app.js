@@ -1458,7 +1458,7 @@
         <p>${escapeHtml(card.note)}</p>
       </div>
       <div class="integration-actions">
-        <button class="ghost-btn small" type="button" data-integration-setup="${escapeAttr(card.id)}">Install</button>
+        <button class="ghost-btn small" type="button" data-integration-setup="${escapeAttr(card.id)}">Connect</button>
         <button class="ghost-btn small" type="button" data-dashboard-copy="${escapeAttr(card.copy)}">Copy config</button>
       </div>
     </article>`).join("");
@@ -1467,22 +1467,22 @@
   const INTEGRATION_SETUP = {
     claude: {
       title: "Connect Claude Desktop",
-      desc: "Claude Desktop uses a local MCP server. Install Claude, paste this config, then restart the app.",
-      steps: ["Install Claude Desktop.", "Open Claude → Settings → Developer → Edit Config.", "Paste the MCP JSON below and save.", "Restart Claude and ask it to list Relay accounts."],
+      desc: "Connect Claude Desktop to Relay as a local MCP server, then ask it to post, schedule and read your accounts.",
+      steps: ["Open Claude Desktop (download it first if needed).", "Open Claude → Settings → Developer → Edit Config.", "Paste the MCP JSON below and save.", "Restart Claude and ask it to list Relay accounts."],
       install: "https://claude.ai/download",
       kind: "desktop",
     },
     "claude-code": {
       title: "Connect Claude Code",
       desc: "Register Relay as a local MCP server in your terminal.",
-      steps: ["Install Claude Code.", "Run the command below from the Relay repository.", "Start Claude Code and run /mcp to verify Relay."],
+      steps: ["Open Claude Code (install it first if needed).", "Run the command below from the Relay repository.", "Start Claude Code and run /mcp to verify Relay."],
       install: "https://docs.anthropic.com/en/docs/claude-code",
       kind: "claude-code",
     },
     codex: {
       title: "Connect Codex",
       desc: "Add Relay to your Codex MCP configuration.",
-      steps: ["Install Codex.", "Open your MCP configuration.", "Paste the config below and restart Codex."],
+      steps: ["Open Codex (install it first if needed).", "Open your MCP configuration.", "Paste the config below and restart Codex."],
       install: "https://openai.com/codex/",
       kind: "codex",
     },
@@ -1510,7 +1510,7 @@
     vscode: {
       title: "Connect VS Code",
       desc: "Use an MCP extension to add Relay to VS Code.",
-      steps: ["Install an MCP-capable VS Code extension.", "Add Relay using the config below.", "Reload the window and verify Relay."],
+      steps: ["Open VS Code with an MCP-capable extension.", "Add Relay using the config below.", "Reload the window and verify Relay."],
       install: "https://code.visualstudio.com/",
       kind: "desktop",
     },
@@ -2795,6 +2795,7 @@
     if (pollTimer) window.clearInterval(pollTimer);
   });
 })();
+
 
 
 
