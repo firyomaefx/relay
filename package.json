@@ -1,0 +1,37 @@
+{
+  "name": "relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted publishing for X, Threads and TikTok. MCP server + local console.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "start": "npm run build && npm run start -w @relay/web",
+    "dev": "npm run build && npm run start -w @relay/web",
+    "web": "npm run start -w @relay/web",
+    "mcp": "npm run build && npm run start -w @relay/mcp",
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "smoke": "node tests/smoke.mjs",
+    "batch": "node tools/relay-batch.mjs",
+    "youtube-max": "node tools/youtube-max-upload.mjs",
+    "mcp:http": "node apps/mcp/dist/index.js --http --port 4320",
+    "cloud:admin": "node packages/cloud/dist/cli.js",
+    "cloud:mcp": "node apps/mcp/dist/cloud-entry.js",
+    "tiktok-web": "npm run build -w @relay/tiktok-web && node apps/tiktok-web/dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.0",
+    "typescript": "^5.9.3"
+  }
+}
+
+
+

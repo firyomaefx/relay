@@ -1,0 +1,14 @@
+[Unit]
+Description=Relay HTTP MCP (port 4320, /mcp, bearer token)
+After=network-online.target relay-console.service
+
+[Service]
+User=relay
+WorkingDirectory=/opt/relay
+EnvironmentFile=/etc/relay/relay.env
+ExecStart=/bin/sh -c 'exec /usr/bin/node apps/mcp/dist/index.js --http --port 4320 --data-dir "${RELAY_DATA_DIR}" --console-url "${RELAY_CONSOLE_URL}"'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

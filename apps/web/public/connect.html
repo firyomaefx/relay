@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect Relay Cloud — MCP</title>
+<style>
+  :root{--bg:#050706;--panel:#0b100d;--line:rgba(255,255,255,.10);--ink:#f2f5f1;--muted:#98a69d;--dim:#68766d;--mint:#b8f5d0;--gold:#dfbd7a;--ease:cubic-bezier(.32,.72,0,1)}
+  *{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 500px at 8% -10%,rgba(58,130,92,.22),transparent 65%),var(--bg);color:var(--ink);font:15px/1.6 "Manrope",ui-sans-serif,system-ui,sans-serif}
+  a{color:inherit}.wrap{width:min(1080px,calc(100% - 36px));margin:0 auto;padding:44px 0 80px}
+  .nav{display:flex;justify-content:space-between;align-items:center;padding:14px 0 46px}
+  .brand{font-family:"Sora",sans-serif;font-weight:600;letter-spacing:-.03em;text-decoration:none;display:flex;align-items:center;gap:9px}.mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(145deg,#c8ffdd,#5fcf90);color:#05100a;display:grid;place-items:center;font-weight:700}
+  .links{display:flex;gap:18px;font-size:12px;color:var(--muted)}.links a{text-decoration:none}.links a:hover{color:#fff}
+  .eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--mint);font-weight:700}
+  h1{font-family:"Sora",sans-serif;font-weight:400;font-size:clamp(40px,6vw,68px);line-height:1;letter-spacing:-.06em;margin:16px 0 18px;max-width:760px}
+  .lede{color:var(--muted);max-width:650px;font-size:16px;line-height:1.7;margin:0}
+  .badges{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 0}.badge{border:1px solid var(--line);border-radius:999px;padding:7px 11px;font-size:11px;color:var(--muted);background:rgba(255,255,255,.025)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:44px}@media(max-width:760px){.grid{grid-template-columns:1fr}.nav{padding-bottom:28px}.links{display:none}}
+  .bezel{padding:1px;border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.025),rgba(255,255,255,.08))}.core{background:linear-gradient(160deg,#101a14,#080d0a);border-radius:21px;padding:24px;height:100%;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+  .core h2{font-family:"Sora",sans-serif;font-size:17px;font-weight:500;letter-spacing:-.025em;margin:0 0 3px}.sub{color:var(--dim);font-size:11px;margin:0 0 16px}
+  .code{position:relative;background:#060a07;border:1px solid rgba(255,255,255,.055);border-radius:12px;padding:12px 40px 12px 12px;margin-top:12px}.code code{font:11px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c7d7cc;white-space:pre-wrap;word-break:break-word;display:block}.copy{position:absolute;top:7px;right:7px;background:rgba(255,255,255,.06);border:0;color:var(--muted);font:11px system-ui;border-radius:7px;padding:5px 8px;cursor:pointer}.copy:hover{color:#fff;background:rgba(255,255,255,.11)}
+  .personal{display:none;margin-top:26px;border:1px solid rgba(184,245,208,.3);border-radius:18px;padding:18px;background:rgba(184,245,208,.055)}
+  .personal h2{font-family:"Sora",sans-serif;font-size:15px;font-weight:500;margin:0 0 4px}
+  .personal p{font-size:11px;color:var(--dim);margin:0 0 12px}
+  .personal code{display:block;background:#050806;border:1px solid var(--line);border-radius:9px;padding:10px;font:11px/1.6 ui-monospace,monospace;color:var(--mint);word-break:break-all}
+  .personal .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .keybar{display:flex;justify-content:space-between;align-items:end;gap:18px;flex-wrap:wrap;margin-top:26px;padding:18px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.025)}
+  .keybar label{display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mint);font-weight:700;margin-bottom:7px}
+  .keybar input{width:min(440px,calc(100vw - 80px));box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:#050806;color:#fff;padding:10px 12px;font:12px ui-monospace,monospace;outline:none}
+  .keybar input:focus{border-color:rgba(184,245,208,.5)}
+  .keybar p{font-size:10px;color:var(--dim);margin:7px 0 0}
+  .install{display:inline-flex;align-items:center;gap:8px;padding:11px 14px;border-radius:999px;background:var(--mint);color:#06110a;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap}
+  .install.disabled{opacity:.45;pointer-events:none}
+  .note{border:1px solid rgba(223,189,122,.22);background:rgba(223,189,122,.05);color:#d9c69e;border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.65;margin-top:18px}
+  .key{color:var(--gold)}.url{color:var(--mint)}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:32px 0 0}@media(max-width:720px){.steps{grid-template-columns:1fr}}
+  .step{border-top:1px solid var(--line);padding:14px 0;color:var(--muted);font-size:12px}.step b{display:block;color:var(--ink);font-size:12px;margin-bottom:4px}
+  footer{border-top:1px solid var(--line);margin-top:54px;padding-top:18px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;color:var(--dim);font-size:11px}
+  footer a{text-decoration:none;color:var(--muted)}
+</style>
+</head>
+<body><div class="wrap">
+  <nav class="nav">
+    <a class="brand" href="/pricing"><span class="mark">R</span> Relay Cloud</a>
+    <div class="links"><a href="/pricing">Pricing</a><a href="/cloud-admin.html">Admin</a><a href="/login">Console</a><a href="https://cloud-mcp.duitpoket.fun/health">Status</a></div>
+  </nav>
+  <span class="eyebrow">MCP connection guide</span>
+  <h1>Connect your agent to Relay Cloud.</h1>
+  <p class="lede">One remote MCP endpoint for Claude, ChatGPT, Codex, Cursor, Grok, DeepSeek and any MCP-capable client. Authentication is a customer API key or OAuth when the client requires it.</p>
+  <div class="badges"><span class="badge">Streamable HTTP</span><span class="badge">OAuth discovery</span><span class="badge">API-key bearer</span><span class="badge">No local install</span></div>
+
+  <div class="personal" id="personal">
+    <h2>Your private connection URL</h2>
+    <p>One URL, no header and no key entry in the client. Anyone with this link can act as this customer, so share it like a password.</p>
+    <code id="personalUrl"></code>
+    <div class="row"><button class="copy" id="personalCopy" type="button">Copy URL</button><a class="install" id="personalCursor" href="/connect">Install in Cursor <span>↗</span></a></div>
+  </div>
+  <div class="keybar" id="keybar">
+    <div><label for="apiKey">Your Relay Cloud API key</label><input id="apiKey" type="password" autocomplete="off" placeholder="relay_sk_..." spellcheck="false"><p>Stays in this browser. Fills every snippet below; never sent to this page.</p></div>
+    <a id="cursorInstall" class="install disabled" href="/connect" aria-disabled="true">Install in Cursor <span>↗</span></a>
+  </div>
+
+  <div class="grid">
+    <article class="bezel"><div class="core">
+      <h2>Claude Code</h2><p class="sub">CLI — HTTP transport</p>
+      <div class="code"><button class="copy">Copy</button><code>claude mcp add --transport http relay-cloud \
+  <span class="url">https://cloud-mcp.duitpoket.fun/mcp</span> \
+  --header "Authorization: Bearer <span class="key">&lt;customer-api-key&gt;</span>"</code></div>
+    </div></article>
+
+    <article class="bezel"><div class="core">
+      <h2>Claude Desktop &amp; Web</h2><p class="sub">Settings → Connectors → Add custom connector</p>
+      <div class="code"><button class="copy">Copy</button><code><span class="url">https://cloud-mcp.duitpoket.fun/mcp</span></code></div>
+      <p class="sub" style="margin:10px 0 0">Choose OAuth if prompted. The authorization page asks for your Relay Cloud API key.</p>
+    </div></article>
+
+    <article class="bezel"><div class="core">
+      <h2>ChatGPT</h2><p class="sub">Developer mode → Add MCP connector</p>
+      <div class="code"><button class="copy">Copy</button><code><span class="url">https://cloud-mcp.duitpoket.fun/mcp</span></code></div>
+      <p class="sub" style="margin:10px 0 0">Use OAuth. Enter the customer API key on the Relay authorization page.</p>
+    </div></article>
+
+    <article class="bezel"><div class="core">
+      <h2>Cursor</h2><p class="sub">mcp.json — HTTP with headers</p>
+      <div class="code"><button class="copy">Copy</button><code>{ "mcpServers": { "relay-cloud": {
+  "url": "<span class="url">https://cloud-mcp.duitpoket.fun/mcp</span>",
+  "headers": { "Authorization": "Bearer <span class="key">&lt;customer-api-key&gt;</span>" }
+} } }</code></div>
+    </div></article>
+
+    <article class="bezel"><div class="core">
+      <h2>Codex</h2><p class="sub">config.toml — HTTP MCP server</p>
+      <div class="code"><button class="copy">Copy</button><code>[mcp_servers.relay_cloud]
+url = "<span class="url">https://cloud-mcp.duitpoket.fun/mcp</span>"
+http_headers = { Authorization = "Bearer <span class="key">&lt;customer-api-key&gt;</span>" }</code></div>
+    </div></article>
+
+    <article class="bezel"><div class="core">
+      <h2>Grok Bot</h2><p class="sub">Remote MCP connector</p>
+      <div class="code"><button class="copy">Copy</button><code>URL: <span class="url">https://cloud-mcp.duitpoket.fun/mcp</span>
+Header: Authorization: Bearer <span class="key">&lt;customer-api-key&gt;</span></code></div>
+      <p class="sub" style="margin:10px 0 0">Use OAuth if the Grok connector UI does not expose request headers.</p>
+    </div></article>
+
+    <article class="bezel"><div class="core">
+      <h2>Hermes, OpenClaw, DeepSeek, Muse</h2><p class="sub">Any MCP client with HTTP transport</p>
+      <div class="code"><button class="copy">Copy</button><code>Transport: Streamable HTTP
+URL: <span class="url">https://cloud-mcp.duitpoket.fun/mcp</span>
+Auth: Bearer <span class="key">&lt;customer-api-key&gt;</span></code></div>
+    </div></article>
+
+    <article class="bezel"><div class="core">
+      <h2>Any stdio-only client</h2><p class="sub">Use mcp-remote as a bridge</p>
+      <div class="code"><button class="copy">Copy</button><code>npx -y mcp-remote \
+  <span class="url">https://cloud-mcp.duitpoket.fun/mcp</span> \
+  --header "Authorization: Bearer <span class="key">&lt;customer-api-key&gt;</span>"</code></div>
+    </div></article>
+  </div>
+
+  <div class="note"><b>Your API key is the password.</b> It is shown once when your Relay customer is provisioned. Do not put it in a public URL or commit it. The <span class="url">/mcp</span> URL is an API endpoint; opening it in a browser returns 401 by design. Use <a href="https://cloud-mcp.duitpoket.fun/health"><span class="url">/health</span></a> for a browser check.</div>
+
+  <div class="steps">
+    <div class="step"><b>1. Get provisioned</b>A Relay operator creates your customer account and API key. No public self-signup yet.</div>
+    <div class="step"><b>2. Connect</b>Add the endpoint in your MCP client using the API key or OAuth.</div>
+    <div class="step"><b>3. Verify</b>Call <code>relay_balance</code> or <code>relay_accounts</code> to confirm the connection and see your state.</div>
+  </div>
+
+  <footer><span>Relay Cloud · <a href="/pricing">pricing</a></span><span><a href="https://cloud-mcp.duitpoket.fun/health">cloud status</a> · <a href="/login">console</a></span></footer>
+</div>
+<script>
+document.querySelectorAll(".copy").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const text = button.parentElement.querySelector("code").innerText;
+    try { await navigator.clipboard.writeText(text); button.textContent = "Copied"; }
+    catch { button.textContent = "Select"; }
+    setTimeout(() => { button.textContent = "Copy"; }, 1600);
+  });
+});
+const params = new URLSearchParams(location.search);
+const personalToken = params.get("token");
+const mcpBase = "https://cloud-mcp.duitpoket.fun/mcp";
+if (personalToken) {
+  const personalUrl = `${mcpBase}?token=${encodeURIComponent(personalToken)}`;
+  document.getElementById("personal").style.display = "block";
+  document.getElementById("keybar").style.display = "none";
+  document.getElementById("personalUrl").textContent = personalUrl;
+  const cursor = document.getElementById("personalCursor");
+  cursor.href = `cursor://anysphere.cursor-deeplink/mcp/install?name=relay-cloud&config=${encodeURIComponent(btoa(JSON.stringify({ url: personalUrl })))}`;
+  document.getElementById("personalCopy").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(personalUrl).catch(() => undefined);
+    document.getElementById("personalCopy").textContent = "Copied";
+  });
+}
+const keyInput = document.getElementById("apiKey");
+const install = document.getElementById("cursorInstall");
+function setKey() {
+  const key = keyInput.value.trim();
+  document.querySelectorAll("code .key").forEach((node) => { node.textContent = key || "<customer-api-key>"; });
+  install.classList.toggle("disabled", !key);
+  install.setAttribute("aria-disabled", key ? "false" : "true");
+  if (key) {
+    const config = { url: "https://cloud-mcp.duitpoket.fun/mcp", headers: { Authorization: `Bearer ${key}` } };
+    install.href = `cursor://anysphere.cursor-deeplink/mcp/install?name=relay-cloud&config=${encodeURIComponent(btoa(JSON.stringify(config)))}`;
+  } else {
+    install.href = "/connect";
+  }
+}
+keyInput?.addEventListener("input", setKey);
+setKey();
+</script>
+</body>
+</html>
+
+
+
+

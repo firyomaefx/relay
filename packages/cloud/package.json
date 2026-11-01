@@ -1,0 +1,11 @@
+{
+  "name": "@relay/cloud",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "admin": "node dist/cli.js" },
+  "bin": { "relay-cloud-admin": "./dist/cli.js" }
+}
+

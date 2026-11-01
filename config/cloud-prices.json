@@ -1,0 +1,17 @@
+{
+  "currency": "USD",
+  "unit": "milliUSD",
+  "free_allowance_milli_usd": 500,
+  "free_excluded_platforms": ["x"],
+  "_note": "Whole integer milliUSD units: 1000 = $1.00. Text = 20 ($0.02), video = 40 ($0.04). Free starter credit is $0.50 (500 milliUSD) spent at the real post price; X is excluded from free credit. LinkedIn is included.",
+  "prices": {
+    "x": { "text": 20, "link": 20, "image": 20, "carousel": 20, "video": 40, "article": 20 },
+    "threads": { "text": 20, "link": 20, "image": 20, "carousel": 20, "video": 40 },
+    "tiktok": { "video": 40, "image": 20, "carousel": 20 },
+    "youtube": { "video": 40 },
+    "instagram": { "image": 20, "carousel": 20, "video": 40 },
+    "linkedin": { "text": 20, "image": 20, "video": 40 }
+  }
+}
+
+

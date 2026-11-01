@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f5f5f7" />
+  <meta name="description" content="Relay publishing console." />
+  <title>Relay</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css?v=20261101linkedin" />
+  <script src="/app.js?v=20261101linkedin" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar" aria-label="Console navigation">
+      <div class="sidebar-core">
+        <a class="brand" href="#compose" aria-label="Relay home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 23.5 16 7l9.5 16.5" />
+              <circle cx="16" cy="7" r="2.3" />
+              <circle cx="6.5" cy="23.5" r="2.3" />
+              <circle cx="25.5" cy="23.5" r="2.3" />
+            </svg>
+          </span>
+          <span class="brand-text">
+            <span class="brand-word">Relay</span>
+          </span>
+        </a>
+
+        <nav class="nav" aria-label="Screens">
+          <button class="nav-item is-active" type="button" data-nav="compose" aria-current="page">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5V20h.5L15.2 9.3a2.2 2.2 0 0 0-3.1-3.1L1.4 16.9" />
+                <path d="M13.4 7.8l3.1 3.1" />
+                <path d="M4 19.5 3 21l4-1" />
+              </svg>
+            </span>
+            <span class="nav-label">Compose</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="queue">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.2 20 7.6l-8 4.4-8-4.4z" />
+                <path d="M4 12.1l8 4.4 8-4.4" />
+                <path d="M4 16.5l8 4.4 8-4.4" />
+              </svg>
+            </span>
+            <span class="nav-label">Queue</span>
+            <span class="nav-badge" id="navQueueBadge" hidden>0</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="history">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="8.4" />
+                <path d="M12 7.6V12l3.1 1.9" />
+              </svg>
+            </span>
+            <span class="nav-label">History</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="accounts">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="8.2" r="3.4" />
+                <path d="M5.2 20c.7-3.7 3.4-5.6 6.8-5.6s6.1 1.9 6.8 5.6" />
+              </svg>
+            </span>
+            <span class="nav-label">Accounts</span>
+            <span class="nav-badge" id="navAccountsBadge" hidden>0</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="billing">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5.5" width="18" height="13" rx="2.4" />
+                <path d="M3 9.5h18M7 14.2h3" />
+              </svg>
+            </span>
+            <span class="nav-label">Billing</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="settings">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 8.2h9.2M17.6 8.2H20M4 15.8h3.2M11.6 15.8H20" />
+                <circle cx="15" cy="8.2" r="2.2" />
+                <circle cx="9" cy="15.8" r="2.2" />
+              </svg>
+            </span>
+            <span class="nav-label">Settings</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <div class="mini-card" id="sidebarStatus">
+            <span class="mini-dot" id="sidebarDot"></span>
+            <div class="mini-copy">
+              <span class="mini-label" id="sidebarMode">Simulated</span>
+              <span class="mini-sub" id="sidebarScheduler">Scheduler checking…</span>
+            </div>
+          </div>
+          <div class="mini-card credit-card" id="creditCard" hidden>
+            <div class="mini-copy">
+              <span class="mini-label">Credit balance</span>
+              <span class="mini-sub"><strong id="creditBalance">$0.00</strong> <span id="creditFree"></span></span>
+            </div>
+          </div>
+          <button class="text-btn" id="logoutBtn" type="button" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M13.5 5H6.8A1.8 1.8 0 0 0 5 6.8v10.4A1.8 1.8 0 0 0 6.8 19h6.7" />
+              <path d="M11.5 12h9" />
+              <path d="M17.4 8.6 20.8 12l-3.4 3.4" />
+            </svg>
+            <span>Sign out</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="scrim" id="scrim" hidden></div>
+
+    <main class="main" id="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
+            <span class="hamburger" aria-hidden="true"><span></span><span></span><span></span></span>
+          </button>
+          <div class="topbar-heading">
+            <p class="topbar-eyebrow" id="screenEyebrow">Studio</p>
+            <p class="topbar-title" id="screenTitle">Compose</p>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <div class="status-pill" id="schedulerPill" title="Scheduler status">
+            <span class="status-dot" id="schedulerDot"></span>
+            <span id="schedulerText">Scheduler</span>
+          </div>
+          <div class="mode-badge" id="modeBadge" data-mode="mock">
+            <span class="mode-dot"></span>
+            <span id="modeBadgeText">Simulated</span>
+          </div>
+          <button class="icon-btn" id="refreshBtn" type="button" aria-label="Refresh data" title="Refresh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19.4 5.6v4.2h-4.2" />
+              <path d="M18.9 9.8a7.4 7.4 0 1 0 .5 4.6" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="sim-banner bezel" id="simBanner" hidden>
+        <div class="sim-banner-core">
+          <span class="sim-banner-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3.4 21 20H3z" />
+              <path d="M12 9.4v4.4" />
+              <circle cx="12" cy="16.7" r=".5" />
+            </svg>
+          </span>
+          <div class="sim-banner-copy">
+            <p class="sim-banner-title">Simulated mode is on</p>
+            <p class="sim-banner-text">Every post, thread and sign-in runs locally with fake accounts. Add client credentials in Settings, set <code>RELAY_CONSOLE_URL</code> and restart without <code>RELAY_MOCK=1</code> to go live.</p>
+          </div>
+          <button class="ghost-btn small" id="simBannerCta" type="button">Set up credentials</button>
+          <button class="icon-btn small" id="simBannerDismiss" type="button" aria-label="Dismiss simulated mode banner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <section class="screens" aria-label="Relay console">
+
+        <section class="screen is-active" id="screen-compose" data-screen="compose" aria-labelledby="composeTitle">
+          <div class="screen-intro">
+            <p class="eyebrow">New post</p>
+            <h2 class="display" id="composeTitle">Compose<span class="display-dot">.</span></h2>
+            <p class="lede">One draft, three networks. Add a thread part, attach media, or schedule it for later — Relay keeps every target in sync.</p>
+          </div>
+
+          <div class="compose-layout">
+            <div class="compose-main">
+              <div class="bezel reveal" style="--i:0">
+                <section class="panel targets-panel" aria-labelledby="targetsTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Destinations</p>
+                      <h3 id="targetsTitle">Where should this go?</h3>
+                    </div>
+                    <span class="panel-hint" id="targetsHint">Choose at least one</span>
+                  </header>
+                  <div class="targets" id="targets" role="group" aria-label="Target platforms"></div>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:1">
+                <section class="panel editor-panel" aria-labelledby="editorTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Content</p>
+                      <h3 id="editorTitle">The draft</h3>
+                    </div>
+                    <span class="panel-hint" id="editorHint">Single post</span>
+                  </header>
+
+                  <div class="parts" id="parts"></div>
+
+                  <div class="editor-actions">
+                    <button class="ghost-btn" id="addPartBtn" type="button">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                      <span>Add thread part</span>
+                    </button>
+                    <span class="hint" id="partHint"></span>
+                  </div>
+
+                  <div class="divider" role="separator"></div>
+
+                  <div class="options-grid" id="optionsGrid">
+                    <label class="field" for="replySetting">
+                      <span class="field-label">Replies</span>
+                      <select class="select" id="replySetting">
+                        <option value="everyone">Everyone</option>
+                        <option value="followers">Followers only</option>
+                        <option value="mentioned">Mentioned only</option>
+                      </select>
+                      <span class="field-hint">Applied to X and Threads.</span>
+                    </label>
+                    <label class="field" for="tiktokPrivacy">
+                      <span class="field-label">TikTok privacy</span>
+                      <select class="select" id="tiktokPrivacy">
+                        <option value="PUBLIC_TO_EVERYONE">Public</option>
+                        <option value="MUTUAL_FOLLOW_FRIENDS">Mutual friends</option>
+                        <option value="SELF_ONLY">Only me</option>
+                      </select>
+                      <span class="field-hint">Unaudited apps should use “Only me”.</span>
+                    </label>
+                    <label class="field" for="youtubePrivacy">
+                      <span class="field-label">YouTube privacy</span>
+                      <select class="select" id="youtubePrivacy">
+                        <option value="public">Public</option>
+                        <option value="unlisted">Unlisted</option>
+                        <option value="private">Private</option>
+                      </select>
+                      <span class="field-hint">One video per post; first line becomes the title.</span>
+                    </label>
+                    <label class="field" for="quotePostId">
+                      <span class="field-label">X quote post id</span>
+                      <input class="input mono-input" id="quotePostId" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 1793918…" />
+                      <span class="field-hint">Optional. Quoting an existing X post.</span>
+                    </label>
+                    <div class="field">
+                      <span class="field-label">Comments</span>
+                      <label class="switch-row" for="disableComment">
+                        <input class="switch-input" type="checkbox" id="disableComment" />
+                        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                        <span class="switch-copy">Disable comments where supported</span>
+                      </label>
+                    </div>
+                    <div class="field">
+                      <span class="field-label">TikTok music</span>
+                      <label class="switch-row" for="tiktokAutoAddMusic">
+                        <input class="switch-input" type="checkbox" id="tiktokAutoAddMusic" />
+                        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                        <span class="switch-copy">Let TikTok add music to photo posts</span>
+                      </label>
+                    </div>
+                    <div class="field">
+                      <span class="field-label">Video → carousel</span>
+                      <label class="switch-row" for="carouselFromVideo">
+                        <input class="switch-input" type="checkbox" id="carouselFromVideo" />
+                        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                        <span class="switch-copy">Publish video as 6 image slides on TikTok &amp; Instagram</span>
+                      </label>
+                    </div>
+                    <label class="field field-wide" for="scheduleAt">
+                      <span class="field-label">Schedule <span class="field-label-dim">(local time)</span></span>
+                      <input class="input" id="scheduleAt" type="datetime-local" />
+                      <span class="field-hint" id="scheduleHint">Leave empty to publish now. Past times publish immediately.</span>
+                    </label>
+                    <label class="field" for="recurrence">
+                      <span class="field-label">Repeat</span>
+                      <select class="select" id="recurrence">
+                        <option value="none">Does not repeat</option>
+                        <option value="daily:4">Every day · 4 posts</option>
+                        <option value="weekly:4">Every week · 4 posts</option>
+                        <option value="daily">Every day · until canceled</option>
+                        <option value="weekly">Every week · until canceled</option>
+                      </select>
+                      <span class="field-hint" id="recurrenceHint">Evergreen posts need a future schedule.</span>
+                    </label>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <aside class="compose-rail" aria-label="Publishing">
+              <div class="bezel reveal" style="--i:2">
+                <section class="panel publish-panel">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Publish</p>
+                      <h3>Ready when you are</h3>
+                    </div>
+                  </header>
+                  <div class="publish-summary" id="publishSummary"></div>
+                  <button class="primary-btn" id="publishBtn" type="button">
+                    <span id="publishLabel">Publish now</span>
+                    <span class="btn-orb" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9.5 7H17v7.5" /></svg>
+                    </span>
+                  </button>
+                  <button class="ghost-btn" id="clearBtn" type="button">Clear draft</button>
+                  <p class="fine-print">Drafts are never stored. Scheduled posts live in the local queue until they run.</p>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:3">
+                <section class="panel preview-panel" aria-labelledby="previewsTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Variants</p>
+                      <h3 id="previewsTitle">Per-network preview</h3>
+                    </div>
+                  </header>
+                  <div class="previews" id="previews" aria-live="polite"></div>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:4">
+                <section class="panel preflight-panel" aria-labelledby="preflightTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Preflight</p>
+                      <h3 id="preflightTitle">Live validation</h3>
+                    </div>
+                    <span class="spinner" id="preflightSpinner" hidden aria-hidden="true"></span>
+                  </header>
+                  <div class="preflight" id="preflight" aria-live="polite"></div>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:5" id="resultCard" hidden>
+                <section class="panel" aria-labelledby="resultsTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Result</p>
+                      <h3 id="resultsTitle">Last attempt</h3>
+                    </div>
+                  </header>
+                  <div class="result-list" id="results"></div>
+                </section>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-queue" data-screen="queue" aria-labelledby="queueTitle" hidden>
+          <div class="screen-intro">
+            <p class="eyebrow">Scheduler</p>
+            <h2 class="display" id="queueTitle">Queue<span class="display-dot">.</span></h2>
+            <p class="lede">Everything waiting for its moment, and a transparent log of what already ran. Cancel anything still pending.</p>
+          </div>
+          <div class="queue-viewbar">
+            <div class="segmented" role="group" aria-label="Queue layout">
+              <button class="segmented-btn is-active" id="queueListView" type="button">List</button>
+              <button class="segmented-btn" id="queueCalendarView" type="button">Calendar</button>
+            </div>
+          </div>
+          <div class="bezel reveal" id="calendarPanel" hidden>
+            <section class="panel calendar-panel" aria-labelledby="calendarTitle">
+              <header class="panel-head">
+                <div>
+                  <p class="panel-eyebrow">Planning</p>
+                  <h3 id="calendarTitle">Content calendar</h3>
+                </div>
+                <div class="calendar-nav">
+                  <button class="ghost-btn icon-btn" id="calendarPrev" type="button" aria-label="Previous month">‹</button>
+                  <span class="calendar-month" id="calendarMonth"></span>
+                  <button class="ghost-btn icon-btn" id="calendarNext" type="button" aria-label="Next month">›</button>
+                  <button class="ghost-btn" id="calendarToday" type="button">Today</button>
+                </div>
+              </header>
+              <div class="calendar-grid" id="calendarGrid"></div>
+              <div class="calendar-legend">
+                <span><i class="legend-dot" data-tone="pending"></i> Scheduled</span>
+                <span><i class="legend-dot" data-tone="recurring"></i> Recurring</span>
+                <span><i class="legend-dot" data-tone="done"></i> Published</span>
+              </div>
+            </section>
+          </div>
+          <div class="queue-layout" id="queueListPanels">
+            <div class="bezel reveal" style="--i:0">
+              <section class="panel" aria-labelledby="upcomingTitle">
+                <header class="panel-head">
+                  <div>
+                    <p class="panel-eyebrow">Upcoming</p>
+                    <h3 id="upcomingTitle">Scheduled posts</h3>
+                  </div>
+                  <span class="count-badge" id="queueUpcomingCount">0</span>
+                </header>
+                <div class="list" id="queueUpcoming"></div>
+              </section>
+            </div>
+            <div class="bezel reveal" style="--i:1">
+              <section class="panel" aria-labelledby="pastTitle">
+                <header class="panel-head">
+                  <div>
+                    <p class="panel-eyebrow">Past runs</p>
+                    <h3 id="pastTitle">Completed &amp; canceled</h3>
+                  </div>
+                  <span class="count-badge" id="queuePastCount">0</span>
+                </header>
+                <div class="list" id="queuePast"></div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-history" data-screen="history" aria-labelledby="historyTitle" hidden>
+          <div class="screen-intro">
+            <p class="eyebrow">Archive</p>
+            <h2 class="display" id="historyTitle">History<span class="display-dot">.</span></h2>
+            <p class="lede">A local record of every publish attempt, with per-platform outcomes and direct links to what went live.</p>
+          </div>
+          <div class="bezel reveal" style="--i:0">
+            <section class="panel" aria-labelledby="historyListTitle">
+              <header class="panel-head">
+                <div>
+                  <p class="panel-eyebrow">Published</p>
+                  <h3 id="historyListTitle">Recent posts</h3>
+                </div>
+                <span class="count-badge" id="historyCount">0</span>
+              </header>
+              <div class="list" id="historyList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-accounts" data-screen="accounts" aria-labelledby="accountsTitle" hidden>
+          <div class="screen-intro">
+            <p class="eyebrow">Accounts</p>
+            <h2 class="display" id="accountsTitle">Sign in once<span class="display-dot">.</span></h2>
+            <p class="lede">Connect X, Threads and TikTok. In simulated mode each button connects a demo profile instantly — no app review, no network calls.</p>
+          </div>
+          <div class="accounts-grid" id="accountsGrid"></div>
+          <div class="bezel reveal" style="--i:3">
+            <section class="panel note-panel" aria-labelledby="accountsNoteTitle">
+              <header class="panel-head">
+                <div>
+                  <p class="panel-eyebrow">How sign-in works</p>
+                  <h3 id="accountsNoteTitle">One gateway, three providers</h3>
+                </div>
+              </header>
+              <div class="note-grid" id="accountsNote"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-billing" data-screen="billing" aria-labelledby="billingTitle" hidden>
+          <div class="screen-intro">
+            <p class="eyebrow">Wallet</p>
+            <h2 class="display" id="billingTitle">Billing<span class="display-dot">.</span></h2>
+            <p class="lede">Your spendable credit, starter allowance and payment history. Posts are charged only after a platform accepts them.</p>
+          </div>
+          <div class="settings-layout">
+            <div class="settings-col">
+              <div class="bezel reveal" style="--i:0">
+                <section class="panel" aria-labelledby="billingSummaryTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Available now</p>
+                      <h3 id="billingSummaryTitle">Credit balance</h3>
+                    </div>
+                  </header>
+                  <div class="kv-list" id="billingSummary"><p class="list-excerpt">Loading wallet…</p></div>
+                  <div class="session-row" style="margin-top:16px">
+                    <a class="ghost-btn small" href="/contact">Request a top-up</a>
+                    <a class="ghost-btn small" href="/pricing">View pricing</a>
+                  </div>
+                  <p class="list-excerpt" id="billingProviderStatus" style="margin-top:12px"></p>
+                </section>
+              </div>
+              <div class="bezel reveal" style="--i:1">
+                <section class="panel" aria-labelledby="billingPaymentsTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Ledger</p>
+                      <h3 id="billingPaymentsTitle">Payment history</h3>
+                    </div>
+                    <span class="count-badge" id="billingPaymentsCount">0</span>
+                  </header>
+                  <div class="list" id="billingPayments"><p class="list-excerpt">Loading payments…</p></div>
+                </section>
+              </div>
+            </div>
+            <div class="settings-col">
+              <div class="bezel reveal" style="--i:2">
+                <section class="panel" aria-labelledby="billingHowTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">How it works</p>
+                      <h3 id="billingHowTitle">Pay for successful parts</h3>
+                    </div>
+                  </header>
+                  <div class="note-grid">
+                    <div class="note-item"><p class="note-num">01</p><h4>Quote</h4><p>Each thread part on each platform is a billable unit. Validate a draft to see the estimate before publishing.</p></div>
+                    <div class="note-item"><p class="note-num">02</p><h4>Reserve</h4><p>Relay holds the paid amount. The $0.50 starter credit is applied first on eligible platforms.</p></div>
+                    <div class="note-item"><p class="note-num">03</p><h4>Settle</h4><p>Only successful platforms and parts are charged. Failed publishes release their hold.</p></div>
+                  </div>
+                </section>
+              </div>
+              <div class="bezel reveal" style="--i:3">
+                <section class="panel" aria-labelledby="billingPlusTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Plans</p>
+                      <h3 id="billingPlusTitle">Relay Plus</h3>
+                    </div>
+                  </header>
+                  <p class="panel-text">Monthly credit and team seats are planned, not live yet. Current accounts stay pay-as-you-go.</p>
+                  <a class="ghost-btn small" href="/pricing" style="margin-top:12px;display:inline-flex">See pricing</a>
+                </section>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-settings" data-screen="settings" aria-labelledby="settingsTitle" hidden>
+          <div class="screen-intro">
+            <p class="eyebrow">Configuration</p>
+            <h2 class="display" id="settingsTitle">Settings<span class="display-dot">.</span></h2>
+            <p class="lede">Everything lives on this machine: the data directory, encrypted credentials, the media folder and the scheduler that wakes up for scheduled posts.</p>
+          </div>
+          <div class="settings-layout">
+            <div class="settings-col">
+              <div class="bezel reveal" style="--i:0">
+                <section class="panel" aria-labelledby="envTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Runtime</p>
+                      <h3 id="envTitle">Environment</h3>
+                    </div>
+                    <span class="mode-badge small" id="settingsModeBadge" data-mode="mock"><span class="mode-dot"></span><span>Simulated</span></span>
+                  </header>
+                  <div class="kv-list" id="settingsEnv"></div>
+                  <div class="session-row" id="sessionRow" hidden>
+                    <div>
+                      <p class="kv-key">Session</p>
+                      <p class="kv-value">This console is protected by Relay Cloud.</p>
+                    </div>
+                    <button class="ghost-btn small" id="settingsLogoutBtn" type="button">Sign out</button>
+                  </div>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:1">
+                <section class="panel" aria-labelledby="credsTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Client credentials</p>
+                      <h3 id="credsTitle">Developer apps</h3>
+                    </div>
+                    <span class="panel-hint">Stored encrypted</span>
+                  </header>
+                  <div class="cred-forms" id="credentialForms"></div>
+                </section>
+              </div>
+            </div>
+
+            <div class="settings-col">
+              <div class="bezel reveal" style="--i:2">
+                <section class="panel" aria-labelledby="goLiveTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Checklist</p>
+                      <h3 id="goLiveTitle">Going live</h3>
+                    </div>
+                  </header>
+                  <ol class="steps" id="goLiveSteps"></ol>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:3">
+                <section class="panel" aria-labelledby="mediaTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Media</p>
+                      <h3 id="mediaTitle">Public hosting</h3>
+                    </div>
+                  </header>
+                  <div class="kv-list" id="mediaInfo"></div>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:4">
+                <section class="panel" aria-labelledby="mcpTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Agents</p>
+                      <h3 id="mcpTitle">MCP client</h3>
+                    </div>
+                    <button class="ghost-btn small" id="showMcpAuthBtn" type="button">
+                      <span>Connect</span>
+                    </button>
+                    <button class="ghost-btn small" id="copyMcpBtn" type="button">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5" /><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h1" /></svg>
+                      <span>Copy</span>
+                    </button>
+                  </header>
+                  <p class="panel-text">Point any MCP client at the Relay MCP server to let agents draft and schedule posts through the same local data.</p>
+                  <pre class="code-block" id="mcpSnippet"></pre>
+                  <div class="mcp-auth" id="mcpAuth" hidden>
+                    <p class="field-hint">Authenticated remote MCP connection. Never share this token.</p>
+                    <pre class="code-block" id="mcpAuthSnippet"></pre>
+                    <button class="ghost-btn small" id="copyMcpAuthBtn" type="button"><span>Copy authenticated config</span></button>
+                  </div>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:5">
+                <section class="panel" aria-labelledby="tiktokWebTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">TikTok Web</p>
+                      <h3 id="tiktokWebTitle">TikTok Web worker</h3>
+                    </div>
+                    <button class="ghost-btn small" id="copyTiktokWebBtn" type="button">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5" /><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h1" /></svg>
+                      <span>Copy</span>
+                    </button>
+                  </header>
+                  <p class="panel-text">Public TikTok photo carousels through the logged-in TikTok Studio browser, without waiting for TikTok API audit. Keep this laptop awake and Chrome open.</p>
+                  <div class="kv-list">
+                    <div class="kv-row"><span class="kv-key">Status</span><span class="kv-value"><strong>TikTok Web bridge</strong> · local Chrome session</span></div>
+                    <div class="kv-row"><span class="kv-key">Tools</span><span class="kv-value mono">tiktok_web_status · tiktok_web_post_carousel</span></div>
+                    <div class="kv-row"><span class="kv-key">Records</span><span class="kv-value mono">.data/tiktok-web/jobs</span></div>
+                  </div>
+                  <pre class="code-block" id="tiktokWebSnippet"></pre>
+                </section>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-region" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
+
+  <div class="modal-root" id="modalRoot" hidden>
+    <div class="modal-scrim" data-close-modal></div>
+    <div class="bezel modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalBody">
+      <div class="modal-core">
+        <p class="panel-eyebrow" id="modalEyebrow">Confirm</p>
+        <h2 class="modal-title" id="modalTitle">Are you sure?</h2>
+        <p class="modal-body" id="modalBody"></p>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="modalCancel" type="button">Cancel</button>
+          <button class="danger-btn" id="modalConfirm" type="button">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <template id="toastTemplate">
+    <div class="toast">
+      <span class="toast-icon" aria-hidden="true"></span>
+      <div class="toast-copy">
+        <p class="toast-title"></p>
+        <p class="toast-text"></p>
+      </div>
+      <button class="toast-close" type="button" aria-label="Dismiss notification">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+      </button>
+    </div>
+  </template>
+</body>
+</html>
+
+
+
+
+

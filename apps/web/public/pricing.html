@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay Cloud — pricing</title>
+<meta name="description" content="Prepaid Relay Cloud pricing. One API for X, Threads, TikTok, YouTube, Instagram and LinkedIn. Pay only for successful posts.">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#f2f5f1;--muted:#9ca8a0;--dim:#6c7870;
+    --bg:#050706;--panel:#0b100d;--panel2:#0e1511;
+    --line:rgba(255,255,255,.10);--line-soft:rgba(255,255,255,.055);
+    --mint:#b8f5d0;--mint2:#69d99a;--gold:#dfbd7a;--danger:#ff9d8a;
+    --ease:cubic-bezier(.32,.72,0,1);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Manrope",ui-sans-serif,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.035;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+  }
+  body::after{
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(900px 520px at 8% -12%,rgba(58,130,92,.22),transparent 65%),
+      radial-gradient(800px 480px at 96% 8%,rgba(128,92,38,.13),transparent 66%),
+      radial-gradient(700px 500px at 50% 48%,rgba(21,48,34,.25),transparent 72%);
+  }
+  a{color:inherit}
+  .wrap{width:min(1180px,calc(100% - 40px));margin:0 auto}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:9px;padding:8px 12px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(255,255,255,.025);color:var(--mint);
+    font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase
+  }
+  .dot{width:5px;height:5px;border-radius:50%;background:var(--mint2);box-shadow:0 0 14px var(--mint2)}
+  .nav-shell{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;justify-content:center;padding:18px 16px;pointer-events:none}
+  .nav{
+    pointer-events:auto;width:min(1120px,100%);display:flex;align-items:center;justify-content:space-between;
+    gap:18px;padding:9px 10px 9px 18px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(8,12,9,.72);backdrop-filter:blur(22px) saturate(140%);
+    box-shadow:0 22px 60px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.07)
+  }
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:"Sora",sans-serif;font-weight:600;letter-spacing:-.03em;font-size:16px}
+  .mark{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:linear-gradient(145deg,#c8ffdd,#5fcf90);color:#05100a;font-weight:700;font-size:14px}
+  .links{display:flex;align-items:center;gap:26px}
+  .links a{font-size:12px;color:var(--muted);text-decoration:none;transition:color .5s var(--ease)}
+  .links a:hover{color:var(--ink)}
+  .nav-cta{display:flex;align-items:center;gap:8px;text-decoration:none;padding:9px 9px 9px 16px;border-radius:999px;background:var(--ink);color:#071009;font-size:12px;font-weight:700;transition:transform .55s var(--ease),background .55s var(--ease)}
+  .nav-cta:hover{transform:translateY(-1px);background:#fff}
+  .nav-cta .arrow{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:rgba(5,16,9,.10);transition:transform .55s var(--ease)}
+  .nav-cta:hover .arrow{transform:translate(1px,-1px)}
+  .menu-btn{display:none;background:none;border:0;color:var(--ink);font:inherit;padding:8px;cursor:pointer}
+  .menu-btn span{display:block;width:20px;height:1px;background:var(--ink);margin:4px 0;transition:transform .4s var(--ease),opacity .4s var(--ease)}
+  .mobile-menu{display:none}
+  @media(max-width:820px){
+    .links,.nav-cta{display:none}.menu-btn{display:block}
+    .mobile-menu{display:grid;position:fixed;inset:0;z-index:49;background:rgba(5,7,6,.96);backdrop-filter:blur(30px);padding:110px 28px 40px;gap:4px;opacity:0;pointer-events:none;transition:opacity .5s var(--ease)}
+    .mobile-menu.open{opacity:1;pointer-events:auto}
+    .mobile-menu a{text-decoration:none;font-family:"Sora",sans-serif;font-size:30px;letter-spacing:-.04em;padding:14px 0;border-bottom:1px solid var(--line-soft);opacity:0;transform:translateY(18px);transition:all .7s var(--ease)}
+    .mobile-menu.open a{opacity:1;transform:none}
+    .mobile-menu.open a:nth-child(2){transition-delay:.05s}.mobile-menu.open a:nth-child(3){transition-delay:.1s}.mobile-menu.open a:nth-child(4){transition-delay:.15s}.mobile-menu.open a:nth-child(5){transition-delay:.2s}
+  }
+  .hero{padding:152px 0 54px}
+  .hero-grid{display:grid;grid-template-columns:1.15fr .85fr;align-items:end;gap:48px}
+  @media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:24px}}
+  h1{font-family:"Sora",sans-serif;font-weight:400;font-size:clamp(46px,7.2vw,92px);line-height:.97;letter-spacing:-.065em;margin:22px 0 0;max-width:850px}
+  h1 em{font-style:normal;color:var(--mint)}
+  .lede{color:var(--muted);font-size:clamp(15px,1.6vw,18px);line-height:1.7;max-width:550px;margin:24px 0 0}
+  .hero-side{padding:0 0 10px}
+  .hero-side p{margin:0 0 16px;color:var(--dim);font-size:12px;line-height:1.7;max-width:260px}
+  .hero-side .stat{border-top:1px solid var(--line);padding:14px 0;display:flex;justify-content:space-between;gap:16px}
+  .hero-side .stat b{font-family:"Sora",sans-serif;font-weight:500;font-size:19px;letter-spacing:-.03em}
+  .hero-side .stat span{font-size:11px;color:var(--dim);text-align:right;max-width:140px}
+  .actions{display:flex;gap:11px;flex-wrap:wrap;margin-top:32px}
+  .btn{display:inline-flex;align-items:center;gap:10px;padding:9px 10px 9px 20px;border-radius:999px;text-decoration:none;font-size:13px;font-weight:700;border:1px solid transparent;transition:transform .55s var(--ease),background .55s var(--ease),border-color .55s var(--ease)}
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:linear-gradient(135deg,#d8ffe6,#8fe3ae);color:#06110a}
+  .btn-primary:hover{transform:translateY(-2px);background:#e6ffef}
+  .btn-secondary{border-color:var(--line);color:var(--ink);background:rgba(255,255,255,.025)}
+  .btn-secondary:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.05)}
+  .btn .arrow{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:rgba(4,18,10,.12);transition:transform .55s var(--ease)}
+  .btn:hover .arrow{transform:translate(2px,-1px) scale(1.03)}
+  .btn-secondary .arrow{background:rgba(255,255,255,.07)}
+  .trust{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:30px;color:var(--dim);font-size:11px}
+  .trust .avatars{display:flex}
+  .trust .avatars i{width:22px;height:22px;border-radius:50%;border:2px solid var(--bg);margin-left:-6px;background:linear-gradient(145deg,#365b45,#15251b);display:block}
+  .trust .avatars i:first-child{margin-left:0}
+  .section{padding:110px 0}
+  @media(max-width:700px){.section{padding:76px 0}}
+  .section-head{display:flex;justify-content:space-between;align-items:end;gap:30px;margin-bottom:38px}
+  .section-head h2{font-family:"Sora",sans-serif;font-weight:400;font-size:clamp(32px,4.4vw,52px);line-height:1.02;letter-spacing:-.05em;margin:14px 0 0}
+  .section-head p{max-width:390px;margin:0;color:var(--muted);font-size:13px;line-height:1.75}
+  @media(max-width:700px){.section-head{display:block}.section-head p{margin-top:16px}}
+  .bezel{padding:1px;border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.025) 42%,rgba(255,255,255,.08));box-shadow:0 26px 70px rgba(0,0,0,.28)}
+  .core{height:100%;border-radius:27px;background:linear-gradient(160deg,rgba(20,31,25,.98),rgba(8,13,10,.98));box-shadow:inset 0 1px 0 rgba(255,255,255,.07);padding:26px}
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:900px){.plans{grid-template-columns:1fr 1fr}}
+  @media(max-width:620px){.plans{grid-template-columns:1fr}}
+  .plan{position:relative;transition:transform .7s var(--ease)}
+  .plan:hover{transform:translateY(-4px)}
+  .plan-featured .core{background:linear-gradient(160deg,#d9ffe8,#9fe7b9 68%,#7bdda3);color:#06110a}
+  .plan-featured .core .muted,.plan-featured .core .plan-desc,.plan-featured .core .plan-sub{color:rgba(6,17,10,.62)}
+  .plan-featured .core .line{border-color:rgba(6,17,10,.14)}
+  .plan-label{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .plan-label .name{font-family:"Sora",sans-serif;font-size:17px;font-weight:500;letter-spacing:-.03em}
+  .plan-label .tag{font-size:9px;text-transform:uppercase;letter-spacing:.16em;color:var(--mint);border:1px solid rgba(184,245,208,.25);padding:5px 8px;border-radius:999px}
+  .plan-featured .plan-label .tag{color:#06110a;border-color:rgba(6,17,10,.25)}
+  .plan-desc{color:var(--muted);font-size:12px;line-height:1.7;margin:18px 0 24px;min-height:40px}
+  .price{font-family:"Sora",sans-serif;font-weight:400;font-size:46px;letter-spacing:-.06em;line-height:1}
+  .price small{font-family:"Manrope",sans-serif;font-size:12px;letter-spacing:0;color:var(--muted);font-weight:500;margin-left:4px}
+  .plan-featured .price small{color:rgba(6,17,10,.55)}
+  .plan-sub{font-size:11px;color:var(--dim);margin-top:8px}
+  .plan-list{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:10px}
+  .plan-list li{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--muted);line-height:1.55}
+  .plan-list svg{flex:0 0 auto;margin-top:2px;opacity:.7}
+  .plan-featured .plan-list li{color:rgba(6,17,10,.72)}
+  .plan .btn{width:100%;justify-content:space-between;margin-top:24px;box-sizing:border-box}
+  .plan-featured .btn-primary{background:#07110b;color:#e8fff0}
+  .plan-featured .btn-primary:hover{background:#0b1a10}
+  .line{border-top:1px solid var(--line-soft)}
+  .rates{display:grid;grid-template-columns:1.1fr 1.9fr;gap:12px}
+  @media(max-width:900px){.rates{grid-template-columns:1fr}}
+  .rate-intro{display:flex;flex-direction:column;justify-content:space-between}
+  .rate-intro h3{font-family:"Sora",sans-serif;font-weight:400;font-size:clamp(25px,3vw,35px);letter-spacing:-.04em;line-height:1.06;margin:0}
+  .rate-intro p{color:var(--muted);font-size:12px;line-height:1.75;margin:18px 0 0;max-width:310px}
+  .platform-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:540px){.platform-grid{grid-template-columns:1fr}}
+  .platform{padding:18px;border:1px solid var(--line-soft);border-radius:18px;background:rgba(255,255,255,.018);transition:border-color .5s var(--ease),background .5s var(--ease)}
+  .platform:hover{border-color:rgba(184,245,208,.24);background:rgba(184,245,208,.035)}
+  .platform-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .platform-head .pname{font-family:"Sora",sans-serif;font-size:14px;font-weight:500;letter-spacing:-.02em}
+  .platform-head .pdot{width:6px;height:6px;border-radius:50%;background:var(--mint2);box-shadow:0 0 10px rgba(105,217,154,.5)}
+  .rate-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid rgba(255,255,255,.045);font-size:11px}
+  .rate-row:first-of-type{border-top:0}
+  .rate-row span:first-child{color:var(--dim)}
+  .rate-row b{font-family:var(--mono);font-weight:500;color:#dfe9e2}
+  .loading{color:var(--dim);font-size:12px;padding:22px 0}
+  .flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:720px){.flow{grid-template-columns:1fr}}
+  .example-grid{display:grid;grid-template-columns:1.2fr .9fr .9fr;gap:12px}
+  @media(max-width:760px){.example-grid{grid-template-columns:1fr}}
+  .example .core{padding:24px}
+  .example .label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .example .big{font-family:"Sora",sans-serif;font-size:clamp(34px,5vw,54px);letter-spacing:-.06em;line-height:1;margin:16px 0 6px;color:var(--mint)}
+  .example .small{font-size:11px;color:var(--muted);line-height:1.6}
+  .example .rate-line{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line-soft);padding:9px 0;font-size:11px;color:var(--muted)}
+  .example .rate-line b{color:#dfe9e2;font-family:var(--mono);font-weight:500}
+  .step .core{padding:24px}
+  .step-num{font-family:"Sora",sans-serif;font-size:11px;color:var(--mint);letter-spacing:.12em}
+  .step h3{font-family:"Sora",sans-serif;font-size:18px;font-weight:500;letter-spacing:-.03em;margin:22px 0 8px}
+  .step p{font-size:12px;color:var(--muted);line-height:1.7;margin:0}
+  .api-shell{overflow:hidden}
+  .api-grid{display:grid;grid-template-columns:1fr 1.15fr;gap:0}
+  @media(max-width:820px){.api-grid{grid-template-columns:1fr}}
+  .api-copy{padding:34px}
+  .api-copy h3{font-family:"Sora",sans-serif;font-weight:400;font-size:31px;letter-spacing:-.04em;line-height:1.06;margin:0}
+  .api-copy p{font-size:12px;line-height:1.75;color:var(--muted);margin:16px 0 0}
+  .api-links{display:grid;gap:8px;margin-top:24px}
+  .api-link{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:11px 0;border-top:1px solid var(--line-soft);font-size:11px;text-decoration:none;color:var(--muted);transition:color .4s var(--ease)}
+  .api-link:hover{color:var(--ink)}
+  .api-link code{font-family:ui-monospace,monospace;color:var(--mint);font-size:10px;overflow:hidden;text-overflow:ellipsis}
+  .code{padding:26px;background:#070b08;border-left:1px solid var(--line-soft);min-height:260px}
+  @media(max-width:820px){.code{border-left:0;border-top:1px solid var(--line-soft)}}
+  .code-top{display:flex;justify-content:space-between;color:var(--dim);font-size:9px;letter-spacing:.15em;text-transform:uppercase}
+  .code pre{margin:22px 0 0;white-space:pre-wrap;font:11px/1.8 ui-monospace,monospace;color:#b9c8be}
+  .code pre .k{color:var(--mint)}.code pre .m{color:var(--gold)}
+  .faq{display:grid;grid-template-columns:.8fr 1.2fr;gap:60px}
+  @media(max-width:760px){.faq{grid-template-columns:1fr;gap:26px}}
+  .faq h2{font-family:"Sora",sans-serif;font-weight:400;font-size:clamp(30px,4vw,42px);letter-spacing:-.05em;line-height:1.05;margin:14px 0 0}
+  .faq-list{border-top:1px solid var(--line)}
+  details{border-bottom:1px solid var(--line);padding:19px 0}
+  summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:20px;font-size:13px;font-weight:600}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";color:var(--mint);font-weight:400;font-size:16px;line-height:1}
+  details[open] summary::after{content:"−"}
+  details p{color:var(--muted);font-size:12px;line-height:1.75;margin:12px 0 0;max-width:560px}
+  .cta{margin:80px 0 40px;position:relative;overflow:hidden;padding:1px;border-radius:30px;background:linear-gradient(120deg,rgba(184,245,208,.45),rgba(255,255,255,.06),rgba(223,189,122,.2))}
+  .cta-inner{position:relative;border-radius:29px;background:linear-gradient(145deg,#0a130e,#050806);padding:58px 44px;display:flex;align-items:center;justify-content:space-between;gap:30px}
+  .cta-inner::after{content:"";position:absolute;right:-150px;top:-200px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(105,217,154,.20),transparent 65%);pointer-events:none}
+  @media(max-width:760px){.cta-inner{padding:38px 24px;display:block}}
+  .cta h2{font-family:"Sora",sans-serif;font-weight:400;font-size:clamp(28px,4vw,43px);letter-spacing:-.05em;line-height:1.04;margin:0;max-width:550px}
+  .cta p{color:var(--muted);font-size:12px;margin:12px 0 0;max-width:440px;line-height:1.7}
+  footer{border-top:1px solid var(--line);padding:28px 0 38px;color:var(--dim);font-size:11px;display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  footer a{text-decoration:none;color:var(--muted)}footer a:hover{color:var(--ink)}
+  .reveal{opacity:1;transform:none}
+  .error-box{border:1px solid rgba(255,157,138,.25);background:rgba(255,157,138,.06);color:var(--danger);padding:14px 16px;border-radius:12px;font-size:12px;line-height:1.6}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="nav-shell">
+  <nav class="nav" aria-label="Main">
+    <a class="brand" href="/pricing"><span class="mark">R</span> Relay Cloud</a>
+    <div class="links">
+      <a href="#plans">Plans</a><a href="#rates">Rates</a><a href="#how">How it works</a><a href="#developers">Developers</a>
+    </div>
+    <a class="nav-cta" href="/login">Get access <span class="arrow">↗</span></a>
+    <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+  </nav>
+</div>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#plans">Plans</a><a href="#rates">Rates</a><a href="#how">How it works</a><a href="#developers">Developers</a><a href="/login">Get access ↗</a>
+</div>
+
+<main>
+  <header class="hero wrap">
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow"><span class="dot"></span> Prepaid · per successful post</span>
+        <h1>Pay for posts.<br><em>Not promises.</em></h1>
+        <p class="lede">One API for X, Threads, TikTok, YouTube, Instagram and LinkedIn. Relay reserves the price when you publish, charges only when it ships, and releases the hold when it fails or is cancelled.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="#plans">Find your plan <span class="arrow">↗</span></a>
+          <a class="btn btn-secondary" href="#rates">View live rates</a>
+        </div>
+        <div class="trust"><span class="avatars" aria-hidden="true"><i></i><i></i><i></i></span><span>Built for operators, agencies and AI agents.</span></div>
+      </div>
+      <aside class="hero-side">
+        <p>Every charge is written to an append-only ledger. No charge for a failed post.</p>
+        <div class="stat"><b id="freeStat">$0.50</b><span>free credit to start</span></div>
+        <div class="stat"><b>5</b><span>networks in one API</span></div>
+        <div class="stat"><b>0</b><span>monthly platform fee</span></div>
+        <div class="stat"><b>24/7</b><span>cloud scheduler</span></div>
+      </aside>
+    </div>
+  </header>
+
+  <section class="section wrap reveal" id="plans">
+    <div class="section-head">
+      <div><span class="eyebrow">Plans</span><h2>Start small. Scale when it ships.</h2></div>
+      <p>Relay is prepaid, not subscription-first. Pick a starting balance and use it across every platform.</p>
+    </div>
+    <div class="plans">
+      <article class="bezel plan">
+        <div class="core">
+          <div class="plan-label"><span class="name">Free start</span><span class="tag">Try it</span></div>
+          <p class="plan-desc" id="freePlanDesc">$0.50 free credit, spent at the real post price. X is excluded from free.</p>
+          <div class="price">$0<small> to start</small></div>
+          <div class="plan-sub" id="freePlanSub">$0.50 free credit · X excluded</div>
+          <ul class="plan-list">
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>All networks except X on free credit</li>
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>MCP + cloud API</li>
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>No failed-post charge</li>
+          </ul>
+          <a class="btn btn-secondary" href="/login">Open console <span class="arrow">↗</span></a>
+        </div>
+      </article>
+
+      <article class="bezel plan plan-featured">
+        <div class="core">
+          <div class="plan-label"><span class="name">Pay as you go</span><span class="tag">Most popular</span></div>
+          <p class="plan-desc">The default. Top up, publish, and only successful posts consume the balance.</p>
+          <div class="price" id="fromPrice">$0.02<small> / post</small></div>
+          <div class="plan-sub" id="fromSub">From the lowest current platform rate</div>
+          <ul class="plan-list">
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Per-post pricing by platform</li>
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Reserve on schedule, charge on publish</li>
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Cancel releases the hold</li>
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Usage ledger + caps</li>
+          </ul>
+          <a class="btn btn-primary" href="/login">Request access <span class="arrow">↗</span></a>
+        </div>
+      </article>
+
+      <article class="bezel plan">
+        <div class="core">
+          <div class="plan-label"><span class="name">Agency</span><span class="tag">Custom</span></div>
+          <p class="plan-desc">For teams running multiple brands, higher volumes or their own client workflows.</p>
+          <div class="price">Let's talk<small></small></div>
+          <div class="plan-sub">Volume, caps and onboarding by arrangement</div>
+          <ul class="plan-list">
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Multiple customer accounts</li>
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Per-customer isolation</li>
+            <li><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.3l2.4 2.3 5.2-5.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Admin-led onboarding</li>
+          </ul>
+          <a class="btn btn-secondary" href="/contact">Talk to us <span class="arrow">↗</span></a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section wrap reveal" id="rates">
+    <div class="section-head">
+      <div><span class="eyebrow">Live rates</span><h2>Prices by platform.</h2></div>
+      <p>Loaded live from the Relay Cloud price table. Whole-unit pricing, charged only after a successful post.</p>
+    </div>
+    <div class="rates">
+      <div class="bezel"><div class="core rate-intro">
+        <h3>Same balance.<br>Every network.</h3>
+        <p>One top-up covers X, Threads, TikTok, YouTube, Instagram and LinkedIn. Rates vary by format so a text post does not pay a video price.</p>
+        <div style="margin-top:28px"><a class="btn btn-secondary" href="#developers">API access <span class="arrow">↗</span></a></div>
+      </div></div>
+      <div class="platform-grid" id="platformGrid">
+        <div class="loading">Loading live rates…</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap reveal" id="example">
+    <div class="section-head">
+      <div><span class="eyebrow">Budget math</span><h2>What $10 actually buys.</h2></div>
+      <p>Calculated from the live text and video rates. The free allowance is separate and excludes X.</p>
+    </div>
+    <div class="example-grid example">
+      <div class="bezel"><div class="core">
+        <div class="label">All text · $0.02</div>
+        <div class="big" id="exText">—</div>
+        <div class="small">text posts from a $10 top-up</div>
+      </div></div>
+      <div class="bezel"><div class="core">
+        <div class="label">All video · $0.04</div>
+        <div class="big" id="exVideo">—</div>
+        <div class="small">video posts from a $10 top-up</div>
+      </div></div>
+      <div class="bezel"><div class="core">
+        <div class="label">2 text + 1 video</div>
+        <div class="big" id="exMix">—</div>
+        <div class="small" id="exMixSub">posts in a repeatable 3-post marketing set</div>
+      </div></div>
+    </div>
+    <div style="margin-top:14px" class="small muted" id="exNote">Rates are whole milliUSD units: 1,000 = $1.00. Free starter credit is $0.50 and is spent at the real post price.</div>
+  </section>
+
+  <section class="section wrap reveal" id="how">
+    <div class="section-head">
+      <div><span class="eyebrow">Billing behaviour</span><h2>Money moves only when a post does.</h2></div>
+      <p>This is the part most schedulers get wrong. Relay treats every publish as a reservation, then settles it.</p>
+    </div>
+    <div class="flow">
+      <div class="bezel step"><div class="core"><div class="step-num">01</div><h3>Reserve</h3><p>Before a post is attempted, Relay holds the price from your available balance. Scheduled posts hold the price while they wait.</p></div></div>
+      <div class="bezel step"><div class="core"><div class="step-num">02</div><h3>Settle</h3><p>When a platform accepts the post, the hold becomes a ledger charge for each successful part on that platform. No success, no charge.</p></div></div>
+      <div class="bezel step"><div class="core"><div class="step-num">03</div><h3>Release</h3><p>Failed publishes and cancelled scheduled jobs release the unused hold. Your balance is available again.</p></div></div>
+    </div>
+    <div style="margin-top:14px" class="small muted">
+      A billable unit is one post part on one platform. A 3-part thread to 2 platforms is 6 text units ($0.12). A 5-platform single text post is 5 units ($0.10). Starting rates are per unit, not per draft.
+    </div>
+  </section>
+
+  <section class="section wrap reveal" id="developers">
+    <div class="section-head">
+      <div><span class="eyebrow">Developers</span><h2>MCP endpoint, not a homepage.</h2></div>
+      <p>The cloud MCP URL is an API endpoint. Opening it in a browser correctly returns an authentication error, not a web page.</p>
+    </div>
+    <div class="bezel api-shell"><div class="core" style="padding:0"><div class="api-grid">
+      <div class="api-copy">
+        <h3>Plug Relay into your agent.</h3>
+        <p>Use the cloud MCP endpoint with a customer API key. Health and pricing are safe to open in a browser; the MCP route needs a client.</p>
+        <div class="api-links">
+          <a class="api-link" href="https://cloud-mcp.duitpoket.fun/health" target="_blank" rel="noreferrer"><span>Cloud MCP health</span><code>cloud-mcp…/health ↗</code></a>
+          <a class="api-link" href="https://relay.duitpoket.fun/pricing" target="_blank" rel="noreferrer"><span>Pricing API</span><code>/api/pricing ↗</code></a>
+          <a class="api-link" href="https://relay.duitpoket.fun/login"><span>Console</span><code>/login ↗</code></a>
+        </div>
+      </div>
+      <div class="code">
+        <div class="code-top"><span>MCP client config</span><span>streamable HTTP</span></div>
+        <pre><span class="m">// Cursor / compatible client</span>
+{
+  <span class="k">"mcpServers"</span>: {
+    <span class="k">"relay-cloud"</span>: {
+      <span class="k">"url"</span>: <span class="m">"https://cloud-mcp.duitpoket.fun/mcp"</span>,
+      <span class="k">"headers"</span>: {
+        <span class="k">"Authorization"</span>: <span class="m">"Bearer &lt;customer-api-key&gt;"</span>
+      }
+    }
+  }
+}
+
+<span class="m"># Opening /mcp in a browser returns 401 by design.</span></pre>
+      </div>
+    </div></div></div>
+  </section>
+
+  <section class="section wrap reveal">
+    <div class="faq">
+      <div><span class="eyebrow">FAQ</span><h2>Questions,<br>answered plainly.</h2></div>
+      <div class="faq-list">
+        <details open><summary>What exactly am I charged for?</summary><p>Only successful posts. Relay reserves the price when you publish or schedule, commits the charge when a platform accepts the post, and releases the hold on failure or cancellation.</p></details>
+        <details><summary>Is there a monthly subscription?</summary><p>No. The default model is prepaid pay-as-you-go credits with a free-post allowance. Agency arrangements are separate.</p></details>
+        <details><summary>How many social accounts can I connect?</summary><p>Each platform gets <strong>3 account slots after $10 in lifetime paid top-ups</strong>, and <strong>10 account slots after $50</strong>. The first account on a platform is the baseline; additional slots are cumulative and one-time. Free starter credit does not count.</p></details>
+        <details><summary>Does Relay Cloud include automatic replies?</summary><p>Threads auto-reply unlocks after at least <strong>$10 in lifetime paid top-ups</strong>, your own DeepSeek API key, and a connected Threads account with read and reply permissions. The key is encrypted per customer; spam and hostile comments are skipped. Agent-called replies work without the unlock.</p></details>
+        <details><summary>How do I access the cloud MCP?</summary><p>A customer-specific API key is required. Cloud access is currently operator-provisioned while Stripe card checkout is being completed. Use the console or contact Relay for access.</p></details>
+        <details><summary>Why does the MCP URL show an error in my browser?</summary><p><span class="mono">/mcp</span> speaks Streamable HTTP MCP, not HTML. A browser request without an API key returns 401. It is working as intended; use an MCP client.</p></details>
+        <details><summary>Can I cancel a scheduled post?</summary><p>Yes, while it is still pending. The reserved amount is released and the post is not published.</p></details>
+      </div>
+    </div>
+    <div class="cta">
+      <div class="cta-inner">
+        <div><h2>One API. Five networks. Pay for what ships.</h2><p>Open the console to request access, or read the rates above. No monthly platform fee.</p></div>
+        <div class="actions" style="margin-top:0"><a class="btn btn-primary" href="/login">Open console <span class="arrow">↗</span></a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span>Relay Cloud · prepaid publishing infrastructure</span>
+  <span><a href="/pricing">Pricing</a> · <a href="/login">Console</a> · <a href="https://cloud-mcp.duitpoket.fun/health">Status</a></span>
+</footer>
+
+<script id="priceData" type="application/json">__PRICE_DATA__</script>
+<script>
+const labels={x:"X",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",instagram:"Instagram"};
+const kindLabels={text:"Text",link:"Link",image:"Image",carousel:"Carousel",video:"Video",article:"Article"};
+const $=(id)=>document.getElementById(id);
+const money=(amount,currency="USD",unit="milliUSD")=>{
+  if(unit==="milliUSD"){const value=Number(amount)/1000;return "$"+(Math.round(value*100)===value*100?value.toFixed(2):value.toFixed(3));}
+  if(unit==="microUSD") return "$"+(Number(amount)/1_000_000).toFixed(3);
+  return currency==="MYR"?"RM"+(Number(amount)/100).toFixed(2):(Number(amount)/100).toFixed(2)+" "+currency;
+};
+const seeded=(()=>{try{return JSON.parse($("priceData").textContent||"null")}catch{return null}})();
+
+function renderPricing(d){
+  const freeCredit=d.freeAllowanceMilliUsd ?? d.free_allowance_milli_usd ?? 0;
+  const free=freeCredit?0:d.freeAllowanceUnits ?? d.free_allowance_units ?? d.freeAllowancePosts ?? d.free_allowance_posts ?? 0;
+  const excluded=(d.freeExcludedPlatforms ?? d.free_excluded_platforms ?? []).map(p=>labels[p]||p);
+  if(freeCredit){
+    const amount="$"+(Number(freeCredit)/1000).toFixed(2);
+    $("freeStat").textContent=amount;
+    $("freePlanSub").textContent=`${amount} free credit · ${excluded.length?excluded.join(", ")+" excluded":"all platforms"}`;
+    $("freePlanDesc").textContent=`${amount} free credit, spent at the real post price. ${excluded.length?excluded.join(", ")+" is excluded from free.":""}`;
+  }else{
+    $("freeStat").textContent=free?String(free):"0";
+    $("freePlanSub").textContent=free?`${free} free units · ${excluded.length?excluded.join(", ")+" excluded":"all platforms"}`:"Pay as you go from the first post";
+    $("freePlanDesc").textContent=free
+      ? `Up to ${free} free units. Text uses 1 unit, video uses 2. ${excluded.length?excluded.join(", ")+" is excluded from free.":""}`
+      : "Pay as you go from the first post.";
+  }
+  const all=Object.values(d.prices).flatMap(p=>Object.values(p)).filter(n=>Number.isFinite(n));
+  const min=all.length?Math.min(...all):0;
+  if(min){$("fromPrice").innerHTML=money(min,d.currency,d.unit)+"<small> / post</small>";$("fromSub").textContent="From the lowest current platform rate";}
+  $("platformGrid").innerHTML=Object.entries(d.prices).map(([p,rows])=>`
+    <article class="platform">
+      <div class="platform-head"><span class="pname">${labels[p]||p}</span><span class="pdot"></span></div>
+      ${Object.entries(rows).map(([k,v])=>`<div class="rate-row"><span>${kindLabels[k]||k}</span><b>${money(v,d.currency,d.unit)}</b></div>`).join("")}
+    </article>`).join("");
+
+  const text=Number(d.prices?.threads?.text ?? d.prices?.x?.text ?? 20);
+  const video=Number(d.prices?.threads?.video ?? d.prices?.x?.video ?? 40);
+  const budget=10000;
+  if(text>0&&video>0){
+    const sets=Math.floor(budget/(2*text+video));
+    $("exText").textContent=Math.floor(budget/text).toLocaleString();
+    $("exVideo").textContent=Math.floor(budget/video).toLocaleString();
+    $("exMix").textContent=(sets*3).toLocaleString();
+    $("exMixSub").textContent=`${(sets*2).toLocaleString()} text + ${sets.toLocaleString()} video = ${(sets*3).toLocaleString()} posts`;
+    $("exNote").textContent=`${money(text,d.currency,d.unit)} per text post · ${money(video,d.currency,d.unit)} per video · $10 = 10,000 units. Free allowance is separate and excludes X.`;
+  }
+}
+
+async function load(){
+  try{
+    const r=await fetch("/api/pricing",{headers:{accept:"application/json"}});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||"Pricing unavailable");
+    renderPricing(d);
+  }catch(e){
+    if(seeded){renderPricing(seeded);}
+    else{$("platformGrid").innerHTML=`<div class="error-box" style="grid-column:1/-1">${e.message}</div>`;$("freeStat").textContent="—";}
+  }
+}
+
+const io=new IntersectionObserver((entries)=>{for(const entry of entries){if(entry.isIntersecting){entry.target.classList.add("in");io.unobserve(entry.target);}}},{threshold:.12});
+document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
+
+const menuBtn=$("menuBtn"),mobile=$("mobileMenu");
+menuBtn?.addEventListener("click",()=>{const open=mobile.classList.toggle("open");menuBtn.setAttribute("aria-expanded",String(open));menuBtn.querySelectorAll("span").forEach((s,i)=>{if(open){s.style.transform=i===0?"translateY(5px) rotate(45deg)":i===1?"scaleX(0)":i===2?"translateY(-5px) rotate(-45deg)":"";s.style.opacity=i===1?"0":"1";}else{s.style.transform="";s.style.opacity="";}});});
+mobile?.querySelectorAll("a").forEach(a=>a.addEventListener("click",()=>{mobile.classList.remove("open");menuBtn.setAttribute("aria-expanded","false");}));
+
+if(seeded) renderPricing(seeded);
+load();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+

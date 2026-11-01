@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay Cloud admin — top-ups</title>
+<style>
+  :root{--bg:#f6f4ef;--card:#fff;--ink:#18211c;--muted:#68736c;--line:#d8ded7;--accent:#1e6b4f;--danger:#9a3b32}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  main{max-width:980px;margin:0 auto;padding:32px 20px 64px}
+  h1{font-size:28px;letter-spacing:-.02em;margin:0 0 6px}
+  p.sub{color:var(--muted);margin:0 0 24px}
+  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  h2{font-size:17px;margin:0 0 14px}
+  label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
+  select,input,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff}
+  textarea{min-height:64px;resize:vertical}
+  button{margin-top:14px;padding:11px 15px;border:0;border-radius:9px;background:var(--accent);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  button:disabled{opacity:.55;cursor:wait}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border:0}
+  .muted{color:var(--muted);font-size:14px}
+  .balance{font-size:26px;font-weight:700;letter-spacing:-.02em}
+  .error{color:var(--danger);white-space:pre-wrap;font-size:14px}
+  .ok{color:var(--accent);font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#e8f1ec;color:var(--accent);font-size:12px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Cloud admin</h1>
+  <p class="sub">Manual top-ups plus Stripe or Polar checkout. Every payment writes a payment event and an append-only ledger entry.</p>
+  <div class="grid">
+    <section class="card">
+      <h2>Record a top-up</h2>
+      <label for="customer">Customer</label>
+      <select id="customer"></select>
+      <label for="amount">Amount (milliUSD; 1000 = $1.00)</label>
+      <input id="amount" type="number" min="1" step="1" placeholder="e.g. 10000 = $10">
+      <label for="reference">Payment reference</label>
+      <input id="reference" placeholder="bank transfer / invoice number">
+      <label for="note">Note</label>
+      <input id="note" placeholder="optional">
+      <button id="topup">Record top-up</button>
+      <button id="checkout" class="secondary" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--line)">Create Stripe checkout</button>
+      <button id="polarCheckout" class="secondary" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--line)">Create Polar checkout</button>
+      <p id="message" class="muted"></p>
+    </section>
+    <section class="card">
+      <h2>Selected customer</h2>
+      <div id="summary" class="muted">Choose a customer.</div>
+      <button id="connect" style="margin-top:14px;background:transparent;color:var(--accent);border:1px solid var(--line)">Create MCP connect link</button>
+      <div id="connectLink" class="muted" style="margin-top:8px"></div>
+      <h2 style="margin-top:22px">Accounts</h2>
+      <div id="details" class="muted">No accounts loaded.</div>
+      <h2 style="margin-top:22px">Recent payments</h2>
+      <div id="payments" class="muted">No payments loaded.</div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let customers = [];
+const money = (n) => "$" + (Number(n) / 1000).toFixed(3);
+
+async function loadCustomers() {
+  const r = await fetch('/api/cloud/admin/customers', { credentials: 'same-origin' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Unable to load customers');
+  customers = data.customers || [];
+  $('customer').innerHTML = customers.map(c =>
+    `<option value="${c.id}">${c.displayName} — available ${money(c.available)}</option>`
+  ).join('');
+  renderSummary();
+  if (customers[0]) { loadDetails(customers[0].id); loadPayments(customers[0].id); }
+}
+
+function renderSummary() {
+  const c = customers.find(x => x.id === $('customer').value) || customers[0];
+  if (!c) { $('summary').textContent = 'No customers.'; return; }
+  $('summary').innerHTML = `<div class="balance">${money(c.available)}</div>
+    <div class="muted">available · held ${money(c.held)} · balance ${money(c.balance)}</div>
+    <div style="margin-top:8px" class="pill">${c.status}</div>`;
+}
+
+async function loadDetails(id) {
+  const r = await fetch('/api/cloud/admin/customers/' + encodeURIComponent(id), { credentials: 'same-origin' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { $('details').textContent = data.error || 'Unable to load customer details'; return; }
+  $('details').innerHTML = data.accounts.length
+    ? `<table><thead><tr><th>Platform</th><th>Status</th><th>Account</th></tr></thead><tbody>${data.accounts.map(a =>
+        `<tr><td>${a.platform}</td><td>${a.status}</td><td>${a.accountRef || '—'}</td></tr>`
+      ).join('')}</tbody></table>`
+    : 'No customer accounts yet.';
+}
+
+async function loadPayments(id) {
+  const r = await fetch('/api/cloud/admin/payments?customer=' + encodeURIComponent(id), { credentials: 'same-origin' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { $('payments').textContent = data.error || 'Unable to load payments'; return; }
+  $('payments').innerHTML = data.payments.length
+    ? `<table><thead><tr><th>When</th><th>Amount</th><th>Reference</th></tr></thead><tbody>${data.payments.map(p =>
+        `<tr><td>${new Date(p.createdAt).toLocaleString()}</td><td>${money(p.amount)}</td><td>${p.providerPaymentId}</td></tr>`
+      ).join('')}</tbody></table>`
+    : 'No payments yet.';
+}
+
+$('customer').addEventListener('change', () => { renderSummary(); loadDetails($('customer').value); loadPayments($('customer').value); });
+
+$('topup').addEventListener('click', async () => {
+  const button = $('topup');
+  $('message').textContent = '';
+  $('message').className = 'muted';
+  const body = {
+    customerId: $('customer').value,
+    amount: Number($('amount').value),
+    reference: $('reference').value.trim(),
+    note: $('note').value.trim(),
+  };
+  if (!body.customerId || !Number.isInteger(body.amount) || body.amount <= 0 || !body.reference) {
+    $('message').textContent = 'Customer, a positive whole amount and a reference are required.';
+    $('message').className = 'error';
+    return;
+  }
+  button.disabled = true;
+  try {
+    const r = await fetch('/api/cloud/admin/topup', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Top-up failed');
+    $('message').textContent = data.paymentReplayed
+      ? 'This reference was already recorded; no duplicate credit was added.'
+      : `Recorded ${money(data.event.amount)}. New available balance: ${money(data.balance.available)}.`;
+    $('message').className = 'ok';
+    await loadCustomers();
+    await loadPayments($('customer').value);
+  } catch (error) {
+    $('message').textContent = error.message;
+    $('message').className = 'error';
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$('polarCheckout').addEventListener('click', async () => {
+  const customerId = $('customer').value;
+  try {
+    const r = await fetch('/api/cloud/admin/polar-checkout', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ customerId })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Polar checkout is not available');
+    window.open(data.url, '_blank', 'noopener');
+    $('message').textContent = 'Polar checkout opened in a new tab.';
+    $('message').className = 'ok';
+  } catch (error) { $('message').textContent = error.message; $('message').className = 'error'; }
+});
+$('checkout').addEventListener('click', async () => {
+  const customerId = $('customer').value;
+  const amount = Number($('amount').value);
+  $('message').textContent = '';
+  if (!customerId || !Number.isInteger(amount) || amount <= 0) { $('message').textContent = 'Choose a customer and enter an amount.'; $('message').className = 'error'; return; }
+  try {
+    const r = await fetch('/api/cloud/admin/checkout', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ customerId, amount }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Stripe checkout is not available');
+    window.open(data.url, '_blank', 'noopener');
+    $('message').textContent = 'Stripe checkout opened in a new tab.';
+    $('message').className = 'ok';
+  } catch (error) { $('message').textContent = error.message; $('message').className = 'error'; }
+});
+
+$('connect').addEventListener('click', async () => {
+  const customerId = $('customer').value;
+  if (!customerId) return;
+  $('connectLink').textContent = 'Creating…';
+  try {
+    const r = await fetch('/api/cloud/admin/connect-token', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ customerId }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Could not create a connect link');
+    $('connectLink').innerHTML = `<div class="muted">Share this connect page with the customer. It contains a private URL that acts as this customer.</div><input readonly style="width:100%;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:12px monospace" value="${data.connectUrl.replace(/"/g, '&quot;')}">`;
+  } catch (error) { $('connectLink').textContent = error.message; }
+});
+
+loadCustomers().catch(error => {
+  $('summary').textContent = error.message;
+  $('summary').className = 'error';
+});
+</script>
+</body>
+</html>
+
+
+
+
+
+
+

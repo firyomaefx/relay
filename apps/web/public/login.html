@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f5f5f7" />
+  <meta name="description" content="Relay console sign in." />
+  <meta name="robots" content="noindex" />
+  <title>Relay · Sign in</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/login.js" defer></script>
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <div class="auth-brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6.5 23.5 16 7l9.5 16.5" />
+          <circle cx="16" cy="7" r="2.3" />
+          <circle cx="6.5" cy="23.5" r="2.3" />
+          <circle cx="25.5" cy="23.5" r="2.3" />
+        </svg>
+      </span>
+      <span class="brand-text">
+        <span class="brand-word">Relay</span>
+      </span>
+    </div>
+
+    <div class="bezel auth-card">
+      <section class="panel">
+        <h1 class="auth-title">Sign in</h1>
+        <p class="auth-lede">Enter the console password.</p>
+
+        <form class="auth-form" id="loginForm" novalidate>
+          <div>
+            <label class="auth-label" for="password">Password</label>
+            <input class="input" id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required autofocus />
+          </div>
+          <p class="auth-error" id="loginError" role="alert" hidden></p>
+          <button class="primary-btn" id="loginBtn" type="submit">
+            <span id="loginLabel">Continue</span>
+          </button>
+        </form>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
