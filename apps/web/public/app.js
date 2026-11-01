@@ -6,7 +6,7 @@
    * Constants
    * ------------------------------------------------------------------ */
   const PLATFORMS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin"];
-  const SCREENS = ["compose", "queue", "history", "accounts", "billing", "settings"];
+  const SCREENS = ["home", "compose", "queue", "history", "accounts", "billing", "settings"];
   const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
   const MAX_MEDIA_PER_PART = 35;
 
@@ -98,6 +98,7 @@
   };
 
   const NAV_META = {
+    home: { eyebrow: "Workspace", title: "Home" },
     compose: { eyebrow: "Studio", title: "Compose" },
     queue: { eyebrow: "Scheduler", title: "Queue" },
     history: { eyebrow: "Archive", title: "History" },
@@ -1415,6 +1416,132 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Home dashboard
+   * ------------------------------------------------------------------ */
+  function relayMcpConfig() {
+    const dataDir = state.settings?.dataDir ?? ".data";
+    return {
+      mcpServers: {
+        relay: {
+          command: "node",
+          args: ["apps/mcp/dist/index.js"],
+          cwd: ".",
+          env: { RELAY_DATA_DIR: dataDir },
+        },
+      },
+    };
+  }
+
+  function relayCodexConfig() {
+    return {
+      mcpServers: {
+        relay: { command: "node", args: ["apps/mcp/dist/index.js"], env: { RELAY_DATA_DIR: state.settings?.dataDir ?? ".data" } },
+      },
+    };
+  }
+
+  function integrationCards() {
+    const cards = [
+      { id: "claude", name: "Claude Desktop", note: "Recommended · local MCP", install: "https://claude.ai/download", copy: "claude", badge: "Recommended" },
+      { id: "claude-code", name: "Claude Code", note: "CLI agent", install: "https://docs.anthropic.com/en/docs/claude-code", copy: "claude-code" },
+      { id: "codex", name: "Codex", note: "OpenAI coding agent", install: "https://openai.com/codex/", copy: "codex" },
+      { id: "chatgpt", name: "ChatGPT", note: "Desktop MCP", install: "https://chatgpt.com/", copy: "chatgpt" },
+      { id: "cursor", name: "Cursor", note: "AI editor", install: "https://cursor.com/", copy: "cursor" },
+      { id: "grok", name: "Grok Bot", note: "xAI agent", install: "https://grok.com/", copy: "grok" },
+      { id: "vscode", name: "VS Code", note: "MCP extension", install: "https://code.visualstudio.com/", copy: "vscode" },
+      { id: "n8n", name: "n8n", note: "Workflow automation", install: "https://n8n.io/", copy: "n8n" },
+    ];
+    return cards.map((card) => `<article class="integration-card${card.badge ? " is-recommended" : ""}">
+      <div class="integration-mark" aria-hidden="true">${escapeHtml(card.name.slice(0, 1))}</div>
+      <div class="integration-copy">
+        <div class="integration-title"><strong>${escapeHtml(card.name)}</strong>${card.badge ? `<span class="status-badge" data-tone="live">${escapeHtml(card.badge)}</span>` : ""}</div>
+        <p>${escapeHtml(card.note)}</p>
+      </div>
+      <div class="integration-actions">
+        <a class="ghost-btn small" href="${escapeAttr(card.install)}" target="_blank" rel="noreferrer noopener">Install</a>
+        <button class="ghost-btn small" type="button" data-dashboard-copy="${escapeAttr(card.copy)}">Copy config</button>
+      </div>
+    </article>`).join("");
+  }
+
+  function renderHome() {
+    if (!els.dashHeatmap) return;
+    const history = Array.isArray(state.history) ? state.history : [];
+    const queue = Array.isArray(state.queue) ? state.queue : [];
+    const actionRecords = [
+      ...history,
+      ...queue.filter((job) => job.status === "pending"),
+    ];
+    const counts = new Map();
+    const addDate = (value) => {
+      if (!value) return;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return;
+      const key = date.toISOString().slice(0, 10);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    };
+    for (const record of history) {
+      addDate(record.createdAt);
+      for (const result of record.results ?? []) addDate(result.publishedAt);
+    }
+    for (const job of queue) if (job.status === "pending") addDate(job.createdAt);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = 84;
+    const cells = [];
+    for (let offset = days - 1; offset >= 0; offset -= 1) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - offset);
+      const key = date.toISOString().slice(0, 10);
+      const count = counts.get(key) ?? 0;
+      const level = count === 0 ? 0 : count < 2 ? 1 : count < 4 ? 2 : count < 8 ? 3 : 4;
+      cells.push(`<span class="heat-cell" data-level="${level}" title="${escapeAttr(`${key}: ${count} action${count === 1 ? "" : "s"}`)}"></span>`);
+    }
+    els.dashHeatmap.innerHTML = cells.join("");
+
+    let streak = 0;
+    for (let offset = 0; offset < 365; offset += 1) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - offset);
+      const key = date.toISOString().slice(0, 10);
+      if ((counts.get(key) ?? 0) > 0) streak += 1;
+      else if (offset > 0) break;
+    }
+
+    const platformCounts = new Map();
+    for (const record of history) {
+      for (const result of record.results ?? []) {
+        if (!result?.platform) continue;
+        platformCounts.set(result.platform, (platformCounts.get(result.platform) ?? 0) + 1);
+      }
+    }
+    const topPlatform = [...platformCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+    els.dashActions.textContent = String(actionRecords.length);
+    els.dashStreak.textContent = `${streak} day${streak === 1 ? "" : "s"}`;
+    els.dashTop.textContent = topPlatform ? PLATFORM_META[topPlatform]?.name ?? topPlatform : "—";
+    els.dashAccounts.textContent = String(state.accounts.length);
+    els.dashIntegrations.innerHTML = integrationCards();
+  }
+
+  async function copyDashboardConfig(kind) {
+    const config = kind === "claude-code"
+      ? `claude mcp add relay -- node ${state.settings?.dataDir ? `${state.settings.dataDir}/` : ""}apps/mcp/dist/index.js`
+      : kind === "codex"
+        ? JSON.stringify(relayCodexConfig(), null, 2)
+        : kind === "url"
+          ? `${state.settings?.consoleUrl ?? window.location.origin}/mcp`
+          : JSON.stringify(relayMcpConfig(), null, 2);
+    try {
+      await navigator.clipboard.writeText(config);
+      toast({ tone: "success", title: "Copied", text: "Paste this into your MCP client configuration." });
+    } catch {
+      toast({ tone: "info", title: "Copy failed", text: "Select and copy the configuration manually." });
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
    * Accounts
    * ------------------------------------------------------------------ */
   function accountCardHtml(platform, index, account) {
@@ -1935,7 +2062,9 @@
   }
 
   function renderActiveScreen() {
-    if (state.screen === "compose") {
+    if (state.screen === "home") {
+      renderHome();
+    } else if (state.screen === "compose") {
       renderTargets();
       updateSummary();
       updatePublishAvailability();
@@ -1954,7 +2083,7 @@
   }
 
   function setScreen(name, { updateHash = true } = {}) {
-    if (!SCREENS.includes(name)) name = "compose";
+    if (!SCREENS.includes(name)) name = "home";
     state.screen = name;
     for (const screen of els.screens) {
       const active = screen.dataset.screen === name;
@@ -1970,7 +2099,8 @@
     els.topbarEyebrow.textContent = NAV_META[name].eyebrow;
     els.topbarTitle.textContent = NAV_META[name].title;
     document.title = `Relay · ${NAV_META[name].title}`;
-    if (name === "compose") renderCompose();
+    if (name === "home") renderHome();
+    else if (name === "compose") renderCompose();
     else if (name === "queue") renderQueue();
     else if (name === "history") renderHistory();
     else if (name === "accounts") renderAccounts();
@@ -2166,6 +2296,12 @@
       historyCount: $("#historyCount"),
       accountsGrid: $("#accountsGrid"),
       accountsNote: $("#accountsNote"),
+      dashActions: $("#dashActions"),
+      dashStreak: $("#dashStreak"),
+      dashTop: $("#dashTop"),
+      dashAccounts: $("#dashAccounts"),
+      dashHeatmap: $("#dashHeatmap"),
+      dashIntegrations: $("#dashIntegrations"),
       settingsEnv: $("#settingsEnv"),
       settingsModeBadge: $("#settingsModeBadge"),
       sessionRow: $("#sessionRow"),
@@ -2250,6 +2386,12 @@
           .finally(() => {
             saveDeepseek.disabled = false;
           });
+        return;
+      }
+
+      const dashboardCopy = event.target.closest("[data-dashboard-copy]");
+      if (dashboardCopy) {
+        void copyDashboardConfig(dashboardCopy.dataset.dashboardCopy);
         return;
       }
 
@@ -2511,7 +2653,7 @@
       renderAccounts();
       renderSettings();
       renderCompose();
-      const initial = SCREENS.includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : "compose";
+      const initial = SCREENS.includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : "home";
       setScreen(initial, { updateHash: false });
       handleAuthQuery();
       observeReveals();
@@ -2533,6 +2675,9 @@
     if (pollTimer) window.clearInterval(pollTimer);
   });
 })();
+
+
+
 
 
 
