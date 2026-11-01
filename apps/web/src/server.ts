@@ -4,7 +4,7 @@
  * Serves the single-page console from ../public and a JSON API over the same
  * RelayService used by the MCP server. No framework, no external dependencies.
  */
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
@@ -577,15 +577,23 @@ async function handleApi(
     const platform = requirePlatform(segments[2]);
     const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
     const redirectBase = typeof body.redirectBase === "string" && body.redirectBase.trim() ? body.redirectBase.trim() : undefined;
-    const result = await relay.beginConnect(platform, redirectBase ? { redirectBase } : {});
+    const label = typeof body.label === "string" && body.label.trim() ? body.label.trim() : undefined;
+    const requestedId = typeof body.accountId === "string" && body.accountId.trim() ? body.accountId.trim() : undefined;
+    const accountId = requestedId ?? (body.addAccount === true ? `acct_${randomUUID()}` : undefined);
+    const result = await relay.beginConnect(platform, {
+      ...(redirectBase ? { redirectBase } : {}),
+      ...(label ? { label } : {}),
+      ...(accountId ? { accountId } : {}),
+    });
     sendJson(res, 200, result);
     return;
   }
 
   if (segments.length === 3 && resource === "disconnect" && method === "POST") {
     const platform = requirePlatform(segments[2]);
-    await readJsonBody(req, MAX_JSON_BYTES).catch(() => undefined);
-    const removed = await relay.disconnect(platform);
+    const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES).catch(() => ({})));
+    const accountId = typeof body.accountId === "string" && body.accountId.trim() ? body.accountId.trim() : undefined;
+    const removed = await relay.disconnect(platform, accountId);
     sendJson(res, 200, { ok: true, removed });
     return;
   }
@@ -941,6 +949,7 @@ export async function runMain(): Promise<void> {
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
+
 
 
 

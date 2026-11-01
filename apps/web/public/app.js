@@ -1402,10 +1402,9 @@
   /* ------------------------------------------------------------------ *
    * Accounts
    * ------------------------------------------------------------------ */
-  function accountCardHtml(platform, index) {
+  function accountCardHtml(platform, index, account) {
     const meta = PLATFORM_META[platform];
     const status = platformStatus(platform);
-    const account = accountFor(platform);
     const credential = state.credentials.find((entry) => entry.platform === platform);
     const modeBadge = account
       ? statusBadge(account.mode === "live" ? "Live" : "Simulated", account.mode === "live" ? "live" : "mock")
@@ -1418,14 +1417,15 @@
           <span class="avatar" aria-hidden="true">${escapeHtml(initials(account.displayName || account.handle))}</span>
           <div class="account-handle">
             <strong>${escapeHtml(account.displayName || account.handle)}</strong>
-            <span>@${escapeHtml(account.handle)}</span>
+            <span>@${escapeHtml(account.handle)}${account.label ? ` · ${escapeHtml(account.label)}` : ""}${account.primaryForPlatform ? " · primary" : ""}</span>
           </div>
           ${modeBadge}
         </div>
         <div class="account-scopes">${(account.scopes ?? []).slice(0, 4).map((scope) => `<span class="scope-tag">${escapeHtml(scope)}</span>`).join("")}</div>
         <div class="account-actions">
-          <button class="ghost-btn" type="button" data-connect="${platform}">Reconnect</button>
-          <button class="ghost-btn" type="button" data-disconnect="${platform}">Disconnect</button>
+          <button class="ghost-btn" type="button" data-connect="${platform}" data-account-id="${escapeAttr(account.id)}">Reconnect</button>
+          <button class="ghost-btn add-account-btn" type="button" data-add-account="${platform}">Add account</button>
+          <button class="ghost-btn" type="button" data-disconnect="${platform}" data-account-id="${escapeAttr(account.id)}">Disconnect</button>
         </div>`
       : `<div class="account-empty">${ICONS.lock}<span>${escapeHtml(meta.emptyNote)}</span></div>
         <div class="account-connect">
@@ -1455,7 +1455,17 @@
   }
 
   function renderAccounts() {
-    els.accountsGrid.innerHTML = PLATFORMS.map(accountCardHtml).join("");
+    const cards = [];
+    let index = 0;
+    for (const platform of PLATFORMS) {
+      const accounts = state.accounts.filter((account) => account.platform === platform);
+      if (accounts.length === 0) {
+        cards.push(accountCardHtml(platform, index++, null));
+      } else {
+        for (const account of accounts) cards.push(accountCardHtml(platform, index++, account));
+      }
+    }
+    els.accountsGrid.innerHTML = cards.join("");
     els.accountsNote.innerHTML = [
       {
         num: "01",
@@ -1476,9 +1486,9 @@
     observeReveals(els.accountsGrid);
   }
 
-  async function connectPlatform(platform) {
+  async function connectPlatform(platform, options = {}) {
     try {
-      const result = await api(`/api/connect/${platform}`, { method: "POST", body: {} });
+      const result = await api(`/api/connect/${platform}`, { method: "POST", body: options });
       if (result.mode === "redirect") {
         toast({ tone: "info", title: `Redirecting to ${PLATFORM_META[platform].name}`, text: "Complete the sign-in in the provider window." });
         window.location.assign(result.url);
@@ -1487,7 +1497,7 @@
       const account = result.account;
       toast({
         tone: "success",
-        title: `Connected ${PLATFORM_META[platform].name}`,
+        title: options.addAccount ? `Added ${PLATFORM_META[platform].name} account` : `Connected ${PLATFORM_META[platform].name}`,
         text: account?.mode === "live" ? `Signed in as @${account.handle}.` : `Simulated profile @${account?.handle ?? "demo"}.`,
       });
       await refreshAll();
@@ -1496,21 +1506,28 @@
     }
   }
 
-  async function disconnectPlatform(platform) {
-    const account = accountFor(platform);
+  async function addPlatformAccount(platform) {
+    const suggested = `${PLATFORM_META[platform].name} secondary`;
+    const label = window.prompt(`Label for the new ${PLATFORM_META[platform].name} account`, suggested);
+    if (label === null) return;
+    await connectPlatform(platform, { addAccount: true, label: label.trim() || suggested });
+  }
+
+  async function disconnectPlatform(platform, accountId) {
+    const account = state.accounts.find((entry) => entry.id === accountId) ?? accountFor(platform);
     const confirmed = await openModal({
       eyebrow: "Disconnect",
       title: `Disconnect ${PLATFORM_META[platform].name}?`,
       body: account
-        ? `@${account.handle} will be removed from this console. Scheduled posts to ${PLATFORM_META[platform].name} will fail until you sign in again.`
+        ? `@${account.handle}${account.label ? ` (${account.label})` : ""} will be removed from this console. Scheduled posts using it will fail until you sign in again.`
         : `The ${PLATFORM_META[platform].name} account link will be removed.`,
       confirmLabel: "Disconnect",
       tone: "danger",
     });
     if (!confirmed) return;
     try {
-      await api(`/api/disconnect/${platform}`, { method: "POST", body: {} });
-      toast({ tone: "success", title: "Disconnected", text: `${PLATFORM_META[platform].name} has been signed out.` });
+      await api(`/api/disconnect/${platform}`, { method: "POST", body: accountId ? { accountId } : {} });
+      toast({ tone: "success", title: "Disconnected", text: `${PLATFORM_META[platform].name} account has been signed out.` });
       await refreshAll();
     } catch (error) {
       toast({ tone: "error", title: "Could not disconnect", text: error.message });
@@ -2210,14 +2227,19 @@
         togglePlatform(target.dataset.target);
         return;
       }
+      const addAccount = event.target.closest("[data-add-account]");
+      if (addAccount) {
+        void addPlatformAccount(addAccount.dataset.addAccount);
+        return;
+      }
       const connect = event.target.closest("[data-connect]");
       if (connect) {
-        void connectPlatform(connect.dataset.connect);
+        void connectPlatform(connect.dataset.connect, connect.dataset.accountId ? { accountId: connect.dataset.accountId } : {});
         return;
       }
       const disconnect = event.target.closest("[data-disconnect]");
       if (disconnect) {
-        void disconnectPlatform(disconnect.dataset.disconnect);
+        void disconnectPlatform(disconnect.dataset.disconnect, disconnect.dataset.accountId);
       }
     });
 
