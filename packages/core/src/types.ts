@@ -84,6 +84,8 @@ export interface PlatformOptions {
 
 export interface PostDraft {
   platforms: PlatformId[];
+  /** Optional account id per platform. Omit to use the platform primary account. */
+  accountIds?: Partial<Record<PlatformId, string>>;
   text?: string;
   media?: MediaItem[];
   /** Multi-part post: X thread, Threads chain. Takes precedence over `text`/`media`. */
@@ -241,6 +243,8 @@ export interface ResolvedPart {
 
 export interface ResolvedPost {
   platform: PlatformId;
+  /** Selected account id, resolved from PostDraft.accountIds. */
+  accountId?: string;
   parts: ResolvedPart[];
   options: PlatformOptions;
 }
@@ -280,6 +284,8 @@ export interface Account {
   mode: AccountMode;
   connectedAt: string;
   scopes?: string[];
+  label?: string;
+  primaryForPlatform?: boolean;
 }
 
 export interface OAuthTokens {
@@ -403,6 +409,7 @@ export interface ThreadsCommentsResult {
 
 /** One of the connected account's own recent Threads posts (for new-post polling). */
 export interface ThreadsOwnPost {
+  accountId?: string;
   id: string;
   text?: string;
   permalink?: string;
@@ -419,6 +426,7 @@ export type ThreadsAutoReplyClassification = "spam" | "hostile" | "genuine";
 
 /** A 30-minute auto-reply window opened for one published Threads post. */
 export interface ThreadsAutoReplyWindow {
+  accountId?: string;
   postId: string;
   postText?: string;
   publishedAt: string;
@@ -432,6 +440,7 @@ export interface ThreadsAutoReplyWindow {
 
 /** One auto-reply that was actually posted. */
 export interface ThreadsAutoReplyReply {
+  accountId?: string;
   postId: string;
   commentId: string;
   commenter?: string;
@@ -444,6 +453,7 @@ export interface ThreadsAutoReplyReply {
 
 /** One spam/hostile comment that was deliberately not replied to. */
 export interface ThreadsAutoReplyFlagged {
+  accountId?: string;
   postId: string;
   commentId: string;
   commenter?: string;
@@ -594,6 +604,8 @@ export type PostResultStatus = "publishing" | "published" | "partial" | "failed"
 
 export interface PostResult {
   platform: PlatformId;
+  accountId?: string;
+  accountLabel?: string;
   ok: boolean;
   mode: AccountMode;
   /** `partial` means at least one part was published, then a later part failed. */
@@ -695,3 +707,5 @@ export interface SchedulerStatus {
   ownedByThisProcess: boolean;
   intervalMs: number;
 }
+
+

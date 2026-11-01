@@ -20,6 +20,7 @@ import { createOAuthProvider } from "./oauth.js";
 import { createCloudApi } from "./cloud-api.js";
 import { CloudFinance } from "./cloud-finance.js";
 import { AUTOREPLY_MIN_TOPUP_MILLI_USD, registerCloudAutoReplyTool } from "./cloud-autoreply.js";
+import { prepareAccountConnect, registerCloudAccountsTool } from "./cloud-accounts.js";
 
 function log(message: string): void {
   process.stderr.write(`[relay-cloud-mcp] ${message}\n`);
@@ -94,8 +95,13 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       if (!customer) throw new Error("Cloud customer authentication failed.");
       const relay = await tenants.get(customer);
       const server = new McpServer({ name: "relay-cloud", version: "0.1.0" });
-      registerTools(server, { relay, ...finance.hooks(customer) });
+      registerTools(server, {
+        relay,
+        ...finance.hooks(customer),
+        beforeConnect: (platform, options) => prepareAccountConnect(customer, relay, ledger, platform, options),
+      });
       registerCloudAutoReplyTool(server, { customer, relay, ledger });
+      registerCloudAccountsTool(server, { customer, relay, ledger });
       server.registerTool(
         "relay_cloud_whoami",
         {
@@ -215,6 +221,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1);
   });
 }
+
 
 
 

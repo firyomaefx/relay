@@ -13,6 +13,8 @@ export interface StoredAccount {
 
 export interface PendingAuth {
   platform: PlatformId;
+  accountId?: string;
+  label?: string;
   codeVerifier: string;
   redirectUri: string;
   createdAt: string;
@@ -20,7 +22,10 @@ export interface PendingAuth {
 
 export interface DbData {
   version: number;
+  /** One primary account per platform, kept for backward compatibility. */
   accounts: Partial<Record<PlatformId, StoredAccount>>;
+  /** Additional accounts keyed by account id. */
+  extraAccounts: Record<string, StoredAccount>;
   posts: PostRecord[];
   queue: QueueJob[];
   oauth: Record<string, PendingAuth>;
@@ -42,7 +47,7 @@ export function emptyThreadsAutoReplyState(): ThreadsAutoReplyState {
 }
 
 function emptyDb(): DbData {
-  return { version: 2, accounts: {}, posts: [], queue: [], oauth: {}, threadsAutoReply: emptyThreadsAutoReplyState(), comments: emptyCommentsState(), deepseekSecret: null };
+  return { version: 3, accounts: {}, extraAccounts: {}, posts: [], queue: [], oauth: {}, threadsAutoReply: emptyThreadsAutoReplyState(), comments: emptyCommentsState(), deepseekSecret: null };
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -158,8 +163,9 @@ function normalize(raw: string): DbData {
   const storedAutoReply = parsed.threadsAutoReply;
   const storedComments = parsed.comments;
   return {
-    version: typeof parsed.version === "number" ? parsed.version : 2,
+    version: typeof parsed.version === "number" ? parsed.version : 3,
     accounts: parsed.accounts ?? {},
+    extraAccounts: parsed.extraAccounts ?? {},
     posts: Array.isArray(parsed.posts) ? parsed.posts : [],
     queue: Array.isArray(parsed.queue) ? parsed.queue : [],
     oauth: parsed.oauth ?? {},
@@ -179,3 +185,4 @@ function normalize(raw: string): DbData {
     deepseekSecret: parsed.deepseekSecret && typeof parsed.deepseekSecret === "object" ? parsed.deepseekSecret : null,
   };
 }
+
