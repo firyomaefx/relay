@@ -69,6 +69,29 @@ test("POST /api/connect/x connects a simulated X account", async () => {
   assert.equal(entry.live, false, "forced mock mode must never report live publishing");
 });
 
+test("POST /api/connect/:platform addAccount creates a second account and disconnects by id", async () => {
+  const added = await httpJson(server.baseUrl, "/api/connect/x", {
+    method: "POST",
+    body: { addAccount: true, label: "Agency X" },
+  });
+  assert.equal(added.ok, true, `add account failed: ${requestSummary(added)}`);
+  assert.match(added.json.account.id, /^acct_/);
+  assert.equal(added.json.account.label, "Agency X");
+
+  const state = await httpJson(server.baseUrl, "/api/state");
+  const accounts = (state.json.accounts ?? []).filter((account) => account.platform === "x");
+  assert.equal(accounts.length, 2, "the primary X account and the added account must both exist");
+  assert.ok(accounts.some((account) => account.id === added.json.account.id));
+
+  const removed = await httpJson(server.baseUrl, "/api/disconnect/x", {
+    method: "POST",
+    body: { accountId: added.json.account.id },
+  });
+  assert.equal(removed.ok, true, `disconnect by account id failed: ${requestSummary(removed)}`);
+  const after = await httpJson(server.baseUrl, "/api/state");
+  assert.equal((after.json.accounts ?? []).filter((account) => account.platform === "x").length, 1);
+});
+
 test("POST /api/media stores a base64 PNG and serves it back", async () => {
   const upload = await httpJson(server.baseUrl, "/api/media", {
     method: "POST",

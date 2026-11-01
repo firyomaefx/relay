@@ -35,7 +35,7 @@ Relay is **ready for a controlled production deployment**, not yet a fully self-
 | Five platform adapters | ✅ Live, subject to each platform's app approval and quotas |
 | MCP over stdio and authenticated HTTP | ✅ Live |
 | Per-part billing and $0.50 starter credit | ✅ Implemented |
-| Unit, integration and end-to-end tests | ✅ **161 passing** |
+| Unit, integration and end-to-end tests | ✅ **162 passing** |
 | Health checks, readiness script and link audit | ✅ Passing |
 | Backups, uptime alerting and process supervision | ✅ Configured |
 | Live card checkout | ⛔ Not configured — manual/operator top-ups only |
@@ -70,7 +70,7 @@ npm run build
 npm test
 ```
 
-Expected: **161 tests passing**.
+Expected: **162 tests passing**.
 
 ### 3. Start the console
 
@@ -345,6 +345,7 @@ See [LICENSE](LICENSE).
 
 **Live product:** <https://relay.duitpoket.fun>
 **MCP endpoint:** `https://mcp.duitpoket.fun/mcp`
+
 
 
 
