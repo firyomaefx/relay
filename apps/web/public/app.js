@@ -5,7 +5,7 @@
   /* ------------------------------------------------------------------ *
    * Constants
    * ------------------------------------------------------------------ */
-  const PLATFORMS = ["x", "threads", "tiktok", "youtube", "instagram"];
+  const PLATFORMS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin"];
   const SCREENS = ["compose", "queue", "history", "accounts", "billing", "settings"];
   const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
   const MAX_MEDIA_PER_PART = 35;
@@ -81,6 +81,20 @@
       scopes: "instagram_business_basic · instagram_business_content_publish",
       videoExt: ["mp4", "mov"],
     },
+    linkedin: {
+      name: "LinkedIn",
+      glyph: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5A2.5 2.5 0 1 0 5 8.5a2.5 2.5 0 0 0-.02-5ZM3 9.75h4v10.75H3V9.75Zm6.5 0h3.83v1.47h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.52 4.78 5.8v5.43h-4v-4.82c0-1.15-.02-2.63-1.68-2.63-1.68 0-1.94 1.25-1.94 2.55v4.9H9.5V9.75Z"/></svg>`,
+      tagline: "Professional posts and updates.",
+      connectLabel: "Sign in with LinkedIn",
+      emptyNote: "No LinkedIn account connected. LinkedIn posts support text, one image or one video.",
+      envId: "LINKEDIN_CLIENT_ID",
+      envSecret: "LINKEDIN_CLIENT_SECRET",
+      docs: "developer.linkedin.com",
+      portal: "https://www.linkedin.com/developers/apps",
+      portalLabel: "Open LinkedIn developer apps",
+      scopes: "openid · profile · w_member_social",
+      videoExt: ["mp4", "mov"],
+    },
   };
 
   const NAV_META = {
@@ -98,6 +112,7 @@
     tiktok: { maxTextLength: 2200, maxParts: 1, maxMediaPerPost: 35 },
     youtube: { maxTextLength: 5000, maxParts: 1, maxMediaPerPost: 1 },
     instagram: { maxTextLength: 2200, maxParts: 1, maxMediaPerPost: 1 },
+    linkedin: { maxTextLength: 3000, maxParts: 1, maxMediaPerPost: 1 },
   };
 
   const ICONS = {
@@ -2497,6 +2512,7 @@
     if (pollTimer) window.clearInterval(pollTimer);
   });
 })();
+
 
 
 

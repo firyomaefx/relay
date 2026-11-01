@@ -8,8 +8,9 @@ import { ThreadsAdapter } from "./adapters/threads.js";
 import { TikTokAdapter } from "./adapters/tiktok.js";
 import { YouTubeAdapter } from "./adapters/youtube.js";
 import { InstagramAdapter } from "./adapters/instagram.js";
+import { LinkedInAdapter } from "./adapters/linkedin.js";
 
-export { XAdapter, ThreadsAdapter, TikTokAdapter, YouTubeAdapter, InstagramAdapter };
+export { XAdapter, ThreadsAdapter, TikTokAdapter, YouTubeAdapter, InstagramAdapter, LinkedInAdapter };
 export { isAuthFailure } from "./adapters/http.js";
 export { mockProfile, mockPublish, mockScopes, requireMediaUrl } from "./mock.js";
 
@@ -19,7 +20,7 @@ export interface CreateAdaptersOptions {
 }
 
 export function createAdapters(_options: CreateAdaptersOptions = {}): PlatformAdapter[] {
-  return [new XAdapter(), new ThreadsAdapter(), new TikTokAdapter(), new YouTubeAdapter(), new InstagramAdapter()];
+  return [new XAdapter(), new ThreadsAdapter(), new TikTokAdapter(), new YouTubeAdapter(), new InstagramAdapter(), new LinkedInAdapter()];
 }
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -111,3 +112,4 @@ export async function createRelay(options: CreateRelayOptions = {}): Promise<Rel
     autoReplyWindowMs: options.autoReplyWindowMs,
   });
 }
+

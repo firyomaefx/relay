@@ -73,6 +73,7 @@ function emptyPerPlatform(): Record<PlatformId, PlatformIssues> {
     tiktok: { ok: true, issues: [] },
     youtube: { ok: true, issues: [] },
     instagram: { ok: true, issues: [] },
+    linkedin: { ok: true, issues: [] },
   };
 }
 
@@ -394,3 +395,4 @@ function finalize(
     normalized,
   };
 }
+

@@ -2,9 +2,9 @@
 
 **One publishing layer for every social channel — built for humans and AI agents.**
 
-Relay is a self-hosted social publishing control plane. It gives creators and teams one place to compose, schedule, publish, comment, reply and delete across **X, Threads, TikTok, YouTube and Instagram** — through a browser console or any MCP-capable AI agent such as Claude, Cursor, Grok or DeepSeek Harness.
+Relay is a self-hosted social publishing control plane. It gives creators and teams one place to compose, schedule, publish, comment, reply and delete across **X, Threads, TikTok, YouTube, Instagram and LinkedIn** — through a browser console or any MCP-capable AI agent such as Claude, Cursor, Grok or DeepSeek Harness.
 
-**Live:** <https://relay.duitpoket.fun> · **MCP:** `https://mcp.duitpoket.fun/mcp` · **5 platforms** · **19 agent tools**
+**Live:** <https://relay.duitpoket.fun> · **MCP:** `https://mcp.duitpoket.fun/mcp` · **6 platforms** · **19 agent tools**
 
 ![Relay flow: install, connect accounts, compose with a human or agent, validate and publish through Relay, then reach five networks](docs/assets/relay-flow.png)
 
@@ -19,7 +19,7 @@ Relay is the **execution layer** between a content workflow and the social platf
 | **Console** | Compose, preview, schedule, queue, history, accounts and billing |
 | **MCP server** | The same publish/schedule/comment tools for Claude, Cursor, Grok and other agents |
 | **Relay core** | Validation, media rules, encrypted credentials, scheduler, queue lock and retries |
-| **Adapters** | X, Threads, TikTok, YouTube and Instagram API integrations |
+| **Adapters** | X, Threads, TikTok, YouTube, Instagram and LinkedIn API integrations |
 
 It is not an analytics dashboard, inbox or social CRM. It does one job: get content published reliably and let humans and agents operate the same control plane.
 
@@ -32,10 +32,10 @@ Relay is **ready for a controlled production deployment**, not yet a fully self-
 | Area | Status |
 |---|---|
 | Console, queue, history, accounts, billing screen | ✅ Live |
-| Five platform adapters | ✅ Live, subject to each platform's app approval and quotas |
+| Six platform adapters | ✅ Live, subject to each platform's app approval and quotas |
 | MCP over stdio and authenticated HTTP | ✅ Live |
 | Per-part billing and $0.50 starter credit | ✅ Implemented |
-| Unit, integration and end-to-end tests | ✅ **162 passing** |
+| Unit, integration and end-to-end tests | ✅ **169 passing** |
 | Health checks, readiness script and link audit | ✅ Passing |
 | Backups, uptime alerting and process supervision | ✅ Configured |
 | Live card checkout | ⛔ Not configured — manual/operator top-ups only |
@@ -70,7 +70,7 @@ npm run build
 npm test
 ```
 
-Expected: **162 tests passing**.
+Expected: **169 tests passing**.
 
 ### 3. Start the console
 
@@ -110,6 +110,7 @@ Common variables:
 | `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` | TikTok content posting app |
 | `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` | Google/YouTube OAuth |
 | `INSTAGRAM_CLIENT_ID` / `INSTAGRAM_CLIENT_SECRET` | Meta/Instagram app |
+| `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` | LinkedIn app with Sign In + Share on LinkedIn |
 
 See [.env.example](.env.example) for the full list and comments.
 
@@ -283,7 +284,7 @@ Production reference deployment:
 | `apps/web` | Browser console, OAuth callbacks, scheduler host |
 | `apps/mcp` | MCP server (stdio + authenticated HTTP) and cloud finance hooks |
 | `packages/core` | Service, validation, encrypted store, scheduler, previews |
-| `packages/platforms` | X, Threads, TikTok, YouTube and Instagram adapters |
+| `packages/platforms` | X, Threads, TikTok, YouTube, Instagram and LinkedIn adapters |
 | `packages/cloud` | Cloud store, pricing, ledger, tenants and rate limits |
 | `deploy` | systemd units, deploy script and Cloudflare example |
 | `docs` | Product, billing, operations and connection guides |
@@ -331,6 +332,8 @@ node tools/audit-live-links.mjs
 - TikTok public posting depends on TikTok app audit.
 - YouTube uploads are bounded by the platform's daily API quota.
 - Threads and Instagram reconnects require valid Meta redirect URIs.
+- LinkedIn live posting requires LinkedIn app approval and the Share on LinkedIn permission; without credentials it runs in simulated mode.
+- LinkedIn company pages are not implemented yet.
 - Live card checkout, self-service signup, customer portal and transactional email are not implemented.
 - Analytics and a unified inbox are intentionally out of scope.
 - Relay is currently single-tenant per deployment; multi-tenant cloud mode exists but onboarding is operator-driven.
@@ -345,6 +348,8 @@ See [LICENSE](LICENSE).
 
 **Live product:** <https://relay.duitpoket.fun>
 **MCP endpoint:** `https://mcp.duitpoket.fun/mcp`
+
+
 
 
 

@@ -23,6 +23,7 @@ export const PLATFORM_LABELS: Record<PlatformId, string> = {
   tiktok: "TikTok",
   youtube: "YouTube",
   instagram: "Instagram",
+  linkedin: "LinkedIn",
 };
 
 export function platformLabel(platform: PlatformId): string {
@@ -36,6 +37,7 @@ export const CREDENTIAL_ENV_HINTS: Record<PlatformId, string> = {
   tiktok: "TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET",
   youtube: "YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET",
   instagram: "INSTAGRAM_CLIENT_ID and INSTAGRAM_CLIENT_SECRET",
+  linkedin: "LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET",
 };
 
 export function truncate(value: string, max = 90): string {
@@ -189,3 +191,4 @@ export function errorResult(message: string, hint?: string, data?: unknown): Cal
     content: [{ type: "text", text: parts.join("\n\n") }],
   };
 }
+

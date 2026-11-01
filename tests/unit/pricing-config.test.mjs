@@ -13,5 +13,8 @@ test("production price config grants $0.50 in free credit and excludes X", () =>
   assert.equal(config.free_allowance_units, undefined);
   assert.equal(config.prices.threads.text, 20);
   assert.equal(config.prices.threads.video, 40);
+  assert.equal(config.prices.linkedin.text, 20);
+  assert.equal(config.prices.linkedin.image, 20);
+  assert.equal(config.prices.linkedin.video, 40);
 });
 

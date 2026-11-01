@@ -22,6 +22,10 @@ const ENV_KEYS: Record<PlatformId, { id: string[]; secret: string[] }> = {
     id: ["INSTAGRAM_CLIENT_ID", "INSTAGRAM_APP_ID"],
     secret: ["INSTAGRAM_CLIENT_SECRET", "INSTAGRAM_APP_SECRET"],
   },
+  linkedin: {
+    id: ["LINKEDIN_CLIENT_ID"],
+    secret: ["LINKEDIN_CLIENT_SECRET"],
+  },
 };
 
 function firstEnv(env: NodeJS.ProcessEnv, names: string[]): string | undefined {
@@ -129,3 +133,4 @@ export class CredentialStore {
 export function credentialsFilePath(dataDir: string): string {
   return path.join(dataDir, "credentials.enc.json");
 }
+
