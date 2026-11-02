@@ -1816,9 +1816,18 @@
         <div class="kv-row"><span class="kv-key">Starter credit</span><span class="kv-value">$${freeRemaining.toFixed(2)} of $${freeLimit.toFixed(2)} remaining</span></div>
       `;
       if (els.billingProviderStatus) {
-        els.billingProviderStatus.textContent = data.providers?.stripe || data.providers?.polar
-          ? "A payment provider is configured. Top-ups are issued by the operator until public checkout is enabled."
-          : "Live card checkout is not configured yet. Request a top-up and the operator will issue credit.";
+        els.billingProviderStatus.textContent = data.providers?.polar
+          ? "Secure checkout is provided by Polar. Choose a top-up amount below."
+          : data.providers?.stripe
+            ? "A payment provider is configured. Top-ups are issued by the operator until public checkout is enabled."
+            : "Live checkout is not configured yet. Request a top-up and the operator will issue credit.";
+      }
+      const polarAmounts = Array.isArray(data.polarAmounts) ? data.polarAmounts : [];
+      if (els.billingTopups) {
+        els.billingTopups.hidden = polarAmounts.length === 0;
+        els.billingTopups.innerHTML = polarAmounts.length
+          ? `<span class="meta-text" style="align-self:center;margin-right:4px">Add credit</span>${polarAmounts.map((cents) => `<button class="primary-btn small" type="button" data-polar-topup="${Number(cents)}">$${(Number(cents) / 100).toFixed(0)}</button>`).join("")}`
+          : "";
       }
       const payments = Array.isArray(data.payments) ? data.payments : [];
       els.billingPaymentsCount.textContent = String(payments.length);
@@ -1835,6 +1844,22 @@
         : `<p class="list-excerpt">No payments yet. Your $0.50 starter credit is already available.</p>`;
     } catch {
       els.billingSummary.innerHTML = `<p class="list-excerpt">Unable to load billing right now.</p>`;
+    }
+  }
+
+  async function startPolarTopup(amount) {
+    try {
+      const response = await fetch("/api/billing/polar-checkout", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.url) throw new Error(data.error || "Could not start Polar checkout.");
+      window.location.href = data.url;
+    } catch (error) {
+      toast({ tone: "error", title: "Checkout unavailable", text: error.message });
     }
   }
 
@@ -2425,6 +2450,7 @@
       creditBalance: $("#creditBalance"),
       creditFree: $("#creditFree"),
       billingSummary: $("#billingSummary"),
+      billingTopups: $("#billingTopups"),
       billingPayments: $("#billingPayments"),
       billingPaymentsCount: $("#billingPaymentsCount"),
       billingProviderStatus: $("#billingProviderStatus"),
@@ -2489,6 +2515,12 @@
           .finally(() => {
             saveDeepseek.disabled = false;
           });
+        return;
+      }
+
+      const polarTopup = event.target.closest("[data-polar-topup]");
+      if (polarTopup) {
+        void startPolarTopup(Number(polarTopup.dataset.polarTopup));
         return;
       }
 

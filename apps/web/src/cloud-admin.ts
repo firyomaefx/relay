@@ -94,6 +94,7 @@ export async function handleCloudAdmin(
           stripe: Boolean(deps.billing),
           polar: Boolean(deps.polar),
         },
+        polarAmounts: Object.keys(deps.polar?.products ?? {}).map(Number).sort((a, b) => a - b),
       });
       return;
     }

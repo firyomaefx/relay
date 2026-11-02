@@ -20,7 +20,7 @@ import { createRelay } from "@relay/platforms";
 import { PriceTable, defaultPricePath, type CloudPrices } from "@relay/cloud";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { loadStripeConfig, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
-import { centsToMilliUSD, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
+import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
 import { SessionManager } from "./auth.js";
 import { readConfig } from "./config.js";
 import {
@@ -408,6 +408,27 @@ async function handleApi(
   url: URL,
   deps: HandlerDeps,
 ): Promise<void> {
+  if (segments[1] === "billing" && segments[2] === "polar-checkout") {
+    if (method !== "POST") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
+    if (!deps.polar || !deps.cloudAdmin) {
+      throw new RelayError("Polar payments are not configured yet.", "polar_unavailable", undefined, 503);
+    }
+    const body = asRecord(await readJsonBody(req, 16 * 1024));
+    const amount = Number(body.amount);
+    const productId = deps.polar.products[String(amount)];
+    if (!Number.isInteger(amount) || !productId) {
+      throw new RelayError("Choose an available top-up amount.", "polar_amount_invalid", undefined, 400);
+    }
+    const owner = deps.cloudAdmin.store.ensureOwnerCustomer("Owner");
+    const session = await createPolarCheckout(deps.polar, {
+      customerId: owner.id,
+      productId,
+      amountMilli: amount * 10,
+    });
+    sendJson(res, 200, { id: session.id, url: session.url });
+    return;
+  }
+
   if (segments[1] === "cloud" && segments[2] === "admin") {
     await handleCloudAdmin(req, res, segments, url, deps.cloudAdmin);
     return;
@@ -949,6 +970,7 @@ export async function runMain(): Promise<void> {
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
+
 
 
 

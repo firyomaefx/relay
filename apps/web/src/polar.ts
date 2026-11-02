@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export interface PolarConfig {
   accessToken: string;
   productId: string;
+  products: Record<string, string>;
   webhookSecret: string;
   apiBase: string;
   successUrl: string;
@@ -11,13 +12,33 @@ export interface PolarConfig {
 
 export function loadPolarConfig(env: NodeJS.ProcessEnv): PolarConfig | null {
   const accessToken = env.RELAY_POLAR_ACCESS_TOKEN?.trim();
-  const productId = env.RELAY_POLAR_PRODUCT_ID?.trim();
+  const fallbackProductId = env.RELAY_POLAR_PRODUCT_ID?.trim() ?? "";
   const webhookSecret = env.RELAY_POLAR_WEBHOOK_SECRET?.trim() ?? "";
+  let products: Record<string, string> = {};
+  const rawProducts = env.RELAY_POLAR_PRODUCTS?.trim();
+  if (rawProducts) {
+    try {
+      const parsed = JSON.parse(rawProducts) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        for (const [amount, productId] of Object.entries(parsed as Record<string, unknown>)) {
+          const cents = Number(amount);
+          if (Number.isInteger(cents) && cents >= 100 && typeof productId === "string" && productId.trim()) {
+            products[String(cents)] = productId.trim();
+          }
+        }
+      }
+    } catch {
+      return null;
+    }
+  }
+  if (!Object.keys(products).length && fallbackProductId) products = { "1000": fallbackProductId };
+  const productId = fallbackProductId || Object.values(products)[0] || "";
   // Checkout without webhook verification could take money without crediting the ledger.
   if (!accessToken || !productId || !webhookSecret) return null;
   return {
     accessToken,
     productId,
+    products,
     webhookSecret,
     apiBase: (env.RELAY_POLAR_API_BASE?.trim() || "https://api.polar.sh").replace(/\/+$/, ""),
     successUrl: env.RELAY_POLAR_SUCCESS_URL?.trim() || "https://relay.duitpoket.fun/billing/success",
@@ -27,13 +48,19 @@ export function loadPolarConfig(env: NodeJS.ProcessEnv): PolarConfig | null {
 
 export async function createPolarCheckout(
   config: PolarConfig,
-  input: { customerId: string; amountMilli?: number },
+  input: { customerId: string; productId?: string; amountMilli?: number },
 ): Promise<{ id: string; url: string }> {
+  const productId = input.productId ?? config.productId;
+  if (!productId) throw new Error("Polar product is not configured.");
   const body: Record<string, unknown> = {
-    products: [config.productId],
+    products: [productId],
     success_url: config.successUrl,
     cancel_url: config.cancelUrl,
-    metadata: { customer_id: input.customerId, source: "relay-cloud" },
+    metadata: {
+      customer_id: input.customerId,
+      source: "relay-cloud",
+      ...(input.amountMilli ? { amount_milli: String(input.amountMilli) } : {}),
+    },
   };
   const response = await fetch(`${config.apiBase}/v1/checkouts/`, {
     method: "POST",
