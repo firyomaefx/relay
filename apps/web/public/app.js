@@ -1815,18 +1815,21 @@
         <div class="kv-row"><span class="kv-key">Paid balance</span><span class="kv-value">$${paid.toFixed(2)}</span></div>
         <div class="kv-row"><span class="kv-key">Starter credit</span><span class="kv-value">$${freeRemaining.toFixed(2)} of $${freeLimit.toFixed(2)} remaining</span></div>
       `;
+      const stripeAmounts = Array.isArray(data.stripeAmounts) ? data.stripeAmounts : [];
+      const polarAmounts = Array.isArray(data.polarAmounts) ? data.polarAmounts : [];
       if (els.billingProviderStatus) {
-        els.billingProviderStatus.textContent = data.providers?.polar
-          ? "Secure checkout is provided by Polar. Choose a top-up amount below."
-          : data.providers?.stripe
-            ? "A payment provider is configured. Top-ups are issued by the operator until public checkout is enabled."
+        els.billingProviderStatus.textContent = stripeAmounts.length
+          ? "Secure checkout is provided by Stripe. Choose a top-up amount below."
+          : polarAmounts.length
+            ? "Secure checkout is provided by Polar. Choose a top-up amount below."
             : "Live checkout is not configured yet. Request a top-up and the operator will issue credit.";
       }
-      const polarAmounts = Array.isArray(data.polarAmounts) ? data.polarAmounts : [];
+      const topupProvider = stripeAmounts.length ? "stripe" : polarAmounts.length ? "polar" : "";
+      const topupAmounts = topupProvider === "stripe" ? stripeAmounts : polarAmounts;
       if (els.billingTopups) {
-        els.billingTopups.hidden = polarAmounts.length === 0;
-        els.billingTopups.innerHTML = polarAmounts.length
-          ? `<span class="meta-text" style="align-self:center;margin-right:4px">Add credit</span>${polarAmounts.map((cents) => `<button class="primary-btn small" type="button" data-polar-topup="${Number(cents)}">$${(Number(cents) / 100).toFixed(0)}</button>`).join("")}`
+        els.billingTopups.hidden = topupAmounts.length === 0;
+        els.billingTopups.innerHTML = topupAmounts.length
+          ? `<span class="meta-text" style="align-self:center;margin-right:4px">Add credit</span>${topupAmounts.map((cents) => `<button class="primary-btn small" type="button" data-${topupProvider}-topup="${Number(cents)}">$${(Number(cents) / 100).toFixed(0)}</button>`).join("")}`
           : "";
       }
       const payments = Array.isArray(data.payments) ? data.payments : [];
@@ -1844,6 +1847,22 @@
         : `<p class="list-excerpt">No payments yet. Your $0.50 starter credit is already available.</p>`;
     } catch {
       els.billingSummary.innerHTML = `<p class="list-excerpt">Unable to load billing right now.</p>`;
+    }
+  }
+
+  async function startStripeTopup(amount) {
+    try {
+      const response = await fetch("/api/billing/stripe-checkout", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.url) throw new Error(data.error || "Could not start Stripe checkout.");
+      window.location.href = data.url;
+    } catch (error) {
+      toast({ tone: "error", title: "Checkout unavailable", text: error.message });
     }
   }
 
@@ -2515,6 +2534,12 @@
           .finally(() => {
             saveDeepseek.disabled = false;
           });
+        return;
+      }
+
+      const stripeTopup = event.target.closest("[data-stripe-topup]");
+      if (stripeTopup) {
+        void startStripeTopup(Number(stripeTopup.dataset.stripeTopup));
         return;
       }
 

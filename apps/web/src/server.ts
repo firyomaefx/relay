@@ -19,7 +19,7 @@ import {
 import { createRelay } from "@relay/platforms";
 import { PriceTable, defaultPricePath, type CloudPrices } from "@relay/cloud";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
-import { loadStripeConfig, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
+import { createCheckoutSession, loadStripeConfig, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
 import { SessionManager } from "./auth.js";
 import { readConfig } from "./config.js";
@@ -408,6 +408,26 @@ async function handleApi(
   url: URL,
   deps: HandlerDeps,
 ): Promise<void> {
+  if (segments[1] === "billing" && segments[2] === "stripe-checkout") {
+    if (method !== "POST") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
+    if (!deps.billing?.webhookSecret || !deps.cloudAdmin) {
+      throw new RelayError("Card payments are not configured yet.", "stripe_unavailable", undefined, 503);
+    }
+    const body = asRecord(await readJsonBody(req, 16 * 1024));
+    const amount = Number(body.amount);
+    if (![1000, 2500, 5000].includes(amount)) {
+      throw new RelayError("Choose an available top-up amount.", "stripe_amount_invalid", undefined, 400);
+    }
+    const owner = deps.cloudAdmin.store.ensureOwnerCustomer("Owner");
+    const session = await createCheckoutSession(deps.billing, {
+      customerId: owner.id,
+      amount,
+      baseUrl: process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun",
+    });
+    sendJson(res, 200, { id: session.id, url: session.url });
+    return;
+  }
+
   if (segments[1] === "billing" && segments[2] === "polar-checkout") {
     if (method !== "POST") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
     if (!deps.polar || !deps.cloudAdmin) {
