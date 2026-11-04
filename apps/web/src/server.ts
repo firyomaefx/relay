@@ -273,6 +273,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
           accepted,
           limit,
           remaining: Math.max(0, limit - accepted),
+          emailConfigured: Boolean(deps.cloudAdmin.email?.apiKey && deps.cloudAdmin.email.from),
         });
         return;
       }

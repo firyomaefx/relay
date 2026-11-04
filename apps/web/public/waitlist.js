@@ -6,6 +6,7 @@ const successCard = document.getElementById('successCard');
 const title = document.getElementById('position');
 const spots = document.getElementById('spots');
 const successText = document.getElementById('successText');
+const deliveryNote = document.getElementById('deliveryNote');
 const countrySelect = document.getElementById('phoneCountry');
 const countries = Array.isArray(window.RELAY_COUNTRIES) ? window.RELAY_COUNTRIES : [
   { code: 'MY', name: 'Malaysia', dial: '+60', flag: '🇲🇾' },
@@ -30,6 +31,9 @@ async function loadStatus() {
     }
     if (Number.isFinite(d.remaining)) {
       spots.textContent = d.remaining + ' of ' + d.limit + ' places left';
+    }
+    if (!d.emailConfigured && deliveryNote) {
+      deliveryNote.textContent = 'We review every request manually. We will contact you when your place is ready.';
     }
   } catch { /* the form still works if status is unavailable */ }
 }
