@@ -3,8 +3,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RelayService } from "@relay/core";
 import type { CloudLedger, Customer } from "@relay/cloud";
 
-/** Minimum lifetime paid top-up before Cloud auto-reply can be enabled. */
-export const AUTOREPLY_MIN_TOPUP_MILLI_USD = 10000;
+/** Minimum single paid top-up before Cloud auto-reply can be enabled. */
+export const AUTOREPLY_MIN_TOPUP_MILLI_USD = 9900;
 
 interface AutoReplyStatus {
   eligible: boolean;
@@ -20,7 +20,7 @@ interface AutoReplyStatus {
 }
 
 async function status(customer: Customer, relay: RelayService, ledger: CloudLedger): Promise<AutoReplyStatus> {
-  const paidTopupMilliUsd = ledger.totalTopups(customer.id);
+  const paidTopupMilliUsd = ledger.largestTopup(customer.id);
   const keyConfigured = Boolean(relay.getDeepSeekApiKey());
   const enabled = relay.isThreadsAutoReplyEnabled();
   const reports = await relay.commentsStatus();
@@ -31,7 +31,7 @@ async function status(customer: Customer, relay: RelayService, ledger: CloudLedg
   const eligible = paidTopupMilliUsd >= AUTOREPLY_MIN_TOPUP_MILLI_USD && keyConfigured && threadsReady;
   let reason: string | null = null;
   if (paidTopupMilliUsd < AUTOREPLY_MIN_TOPUP_MILLI_USD) {
-    reason = `Top up at least $${(AUTOREPLY_MIN_TOPUP_MILLI_USD / 1000).toFixed(2)} in paid credit before enabling auto-reply. Paid top-ups: $${(paidTopupMilliUsd / 1000).toFixed(2)}.`;
+    reason = `Make a single top-up of at least $${(AUTOREPLY_MIN_TOPUP_MILLI_USD / 1000).toFixed(2)} before enabling auto-reply. Largest paid top-up: $${(paidTopupMilliUsd / 1000).toFixed(2)}.`;
   } else if (!keyConfigured) {
     reason = "Add your DeepSeek API key before enabling auto-reply.";
   } else if (!threadsConnected) {
@@ -73,7 +73,7 @@ export function registerCloudAutoReplyTool(
     {
       title: "Cloud Threads auto-reply",
       description:
-        "Manage Relay Cloud's automatic Threads replies. Auto-reply can be enabled only after at least $10.00 in lifetime paid top-ups, a valid DeepSeek API key, and a connected Threads account with threads_read_replies plus threads_manage_replies. The key is encrypted per tenant and never returned. Actions: status, set_key, clear_key, enable, disable. Replies run only inside the 30-minute window after a Threads post; spam and hostile comments are never auto-replied.",
+        "Manage Relay Cloud's automatic Threads replies. Auto-reply can be enabled only after a single paid top-up of at least $9.90, a valid DeepSeek API key, and a connected Threads account with threads_read_replies plus threads_manage_replies. The key is encrypted per tenant and never returned. Actions: status, set_key, clear_key, enable, disable. Replies run only inside the 30-minute window after a Threads post; spam and hostile comments are never auto-replied.",
       inputSchema: z.object({
         action: z.enum(["status", "set_key", "clear_key", "enable", "disable"]),
         api_key: z.string().min(10).max(500).optional().describe("DeepSeek API key. Required for set_key; never returned."),
@@ -119,3 +119,4 @@ export function registerCloudAutoReplyTool(
     },
   );
 }
+

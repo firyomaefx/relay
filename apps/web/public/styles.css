@@ -4981,3 +4981,7 @@ body { font-size: 17px; }
 .integration-wizard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .integration-wizard-actions .primary-btn, .integration-wizard-actions .ghost-btn { width: auto; }
 @media (max-width: 620px) { .integration-wizard { padding: 10px; } .integration-wizard-card { padding: 22px 17px; border-radius: 18px; } }
+
+.topup-custom { display: inline-flex; align-items: center; gap: 6px; }
+.topup-custom .input { height: 38px; }
+

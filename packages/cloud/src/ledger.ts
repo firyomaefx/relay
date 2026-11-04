@@ -135,6 +135,14 @@ export class CloudLedger {
     return Number(row.total);
   }
 
+  /** Largest single successful paid top-up, excluding free starter credit and charges. */
+  largestTopup(customerId: string): number {
+    const row = this.db.prepare(
+      "SELECT COALESCE(MAX(amount), 0) AS largest FROM payment_events WHERE customer_id = ? AND status = 'succeeded'",
+    ).get(customerId) as { largest: number };
+    return Number(row.largest);
+  }
+
   private balanceInTransaction(customerId: string): number {
     const sum = this.db.prepare("SELECT COALESCE(SUM(amount), 0) AS total FROM ledger WHERE customer_id = ?").get(customerId) as { total: number };
     const holds = this.db.prepare(

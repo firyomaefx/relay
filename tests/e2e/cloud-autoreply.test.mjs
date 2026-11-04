@@ -74,7 +74,7 @@ test("cloud auto-reply requires a paid 10 USD top-up, DeepSeek key and Threads r
 
     const blocked = await call(base, key.key, "relay_cloud_autoreply", { action: "enable" });
     assert.equal(blocked.isError, true);
-    assert.match(blocked.text, /Top up at least \$10\.00/);
+    assert.match(blocked.text, /single top-up of at least \$9\.90/);
 
     ledger = new CloudLedger(dbPath);
     ledger.recordTopup({
@@ -112,6 +112,7 @@ test("cloud auto-reply requires a paid 10 USD top-up, DeepSeek key and Threads r
     await cleanupTempDir(dir);
   }
 });
+
 
 
 

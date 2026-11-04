@@ -384,8 +384,8 @@
       <div class="faq-list">
         <details open><summary>What exactly am I charged for?</summary><p>Only successful posts. Relay reserves the price when you publish or schedule, commits the charge when a platform accepts the post, and releases the hold on failure or cancellation.</p></details>
         <details><summary>Is there a monthly subscription?</summary><p>No. The default model is prepaid pay-as-you-go credits with a free-post allowance. Agency arrangements are separate.</p></details>
-        <details><summary>How many social accounts can I connect?</summary><p>Each platform gets <strong>3 account slots after $10 in lifetime paid top-ups</strong>, and <strong>10 account slots after $50</strong>. The first account on a platform is the baseline; additional slots are cumulative and one-time. Free starter credit does not count.</p></details>
-        <details><summary>Does Relay Cloud include automatic replies?</summary><p>Threads auto-reply unlocks after at least <strong>$10 in lifetime paid top-ups</strong>, your own DeepSeek API key, and a connected Threads account with read and reply permissions. The key is encrypted per customer; spam and hostile comments are skipped. Agent-called replies work without the unlock.</p></details>
+        <details><summary>How many social accounts can I connect?</summary><p>Each platform gets <strong>3 account slots after a single $9.90 paid top-up</strong>, and <strong>10 account slots after a single $49.90 top-up</strong>. Smaller top-ups do not accumulate toward the unlock. The first account on a platform is the baseline. Free starter credit does not count.</p></details>
+        <details><summary>Does Relay Cloud include automatic replies?</summary><p>Threads auto-reply unlocks after a single <strong>$9.90 paid top-up</strong>, your own DeepSeek API key, and a connected Threads account with read and reply permissions. The key is encrypted per customer; spam and hostile comments are skipped. Agent-called replies work without the unlock.</p></details>
         <details><summary>How do I access the cloud MCP?</summary><p>A customer-specific API key is required. Cloud access is currently operator-provisioned while Stripe card checkout is being completed. Use the console or contact Relay for access.</p></details>
         <details><summary>Why does the MCP URL show an error in my browser?</summary><p><span class="mono">/mcp</span> speaks Streamable HTTP MCP, not HTML. A browser request without an API key returns 401. It is working as intended; use an MCP client.</p></details>
         <details><summary>Can I cancel a scheduled post?</summary><p>Yes, while it is still pending. The reserved amount is released and the post is not published.</p></details>
@@ -479,6 +479,7 @@ load();
 </script>
 </body>
 </html>
+
 
 
 

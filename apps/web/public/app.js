@@ -1822,15 +1822,26 @@
           ? "Secure checkout is provided by Stripe. Choose a top-up amount below."
           : polarAmounts.length
             ? "Secure checkout is provided by Polar. Choose a top-up amount below."
-            : "Live checkout is not configured yet. Request a top-up and the operator will issue credit.";
+            : "Live checkout is not configured yet. Contact support to add credit.";
       }
       const topupProvider = stripeAmounts.length ? "stripe" : polarAmounts.length ? "polar" : "";
       const topupAmounts = topupProvider === "stripe" ? stripeAmounts : polarAmounts;
       if (els.billingTopups) {
         els.billingTopups.hidden = topupAmounts.length === 0;
-        els.billingTopups.innerHTML = topupAmounts.length
-          ? `<span class="meta-text" style="align-self:center;margin-right:4px">Add credit</span>${topupAmounts.map((cents) => `<button class="primary-btn small" type="button" data-${topupProvider}-topup="${Number(cents)}">$${(Number(cents) / 100).toFixed(0)}</button>`).join("")}`
+        const priceLabel = (cents) => {
+          const value = Number(cents) / 100;
+          return `$${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2)}`;
+        };
+        const tierButtons = topupAmounts
+          .map((cents) => `<button class="primary-btn small" type="button" data-${topupProvider}-topup="${Number(cents)}">${priceLabel(cents)}</button>`)
+          .join("");
+        const custom = topupProvider === "stripe"
+          ? `<span class="topup-custom"><span class="meta-text">$</span><input class="input" id="customTopupInput" type="number" min="1" max="500" step="0.01" inputmode="decimal" placeholder="1.00" aria-label="Custom top-up amount" style="width:108px"><button class="ghost-btn small" type="button" data-custom-topup>Top up</button></span>`
           : "";
+        const note = topupProvider === "stripe"
+          ? `<p class="list-excerpt" style="flex-basis:100%;margin:2px 0 0">One-time $9.90 payment unlocks paid features. Smaller top-ups do not accumulate toward the unlock.</p>`
+          : "";
+        els.billingTopups.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;width:100%"><span class="meta-text">Add credit</span>${tierButtons}${custom}${note}</div>`;
       }
       const payments = Array.isArray(data.payments) ? data.payments : [];
       els.billingPaymentsCount.textContent = String(payments.length);
@@ -2537,6 +2548,18 @@
         return;
       }
 
+      const customTopup = event.target.closest("[data-custom-topup]");
+      if (customTopup) {
+        const input = $("#customTopupInput");
+        const amount = Math.round(Number(input?.value ?? 0) * 100);
+        if (!Number.isInteger(amount) || amount < 100 || amount > 50000) {
+          toast({ tone: "error", title: "Invalid amount", text: "Enter a top-up between $1.00 and $500.00." });
+          return;
+        }
+        void startStripeTopup(amount);
+        return;
+      }
+
       const stripeTopup = event.target.closest("[data-stripe-topup]");
       if (stripeTopup) {
         void startStripeTopup(Number(stripeTopup.dataset.stripeTopup));
@@ -2852,6 +2875,7 @@
     if (pollTimer) window.clearInterval(pollTimer);
   });
 })();
+
 
 
 

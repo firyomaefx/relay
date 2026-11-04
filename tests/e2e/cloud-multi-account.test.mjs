@@ -53,17 +53,17 @@ test("cloud accounts unlock 3 per platform at $10 and 10 per platform at $50", a
     assert.equal((await call(base, key.key, "relay_connect", { platform: "x" })).isError, false);
     const blocked = await call(base, key.key, "relay_connect", { platform: "x" });
     assert.equal(blocked.isError, true);
-    assert.match(blocked.text, /Top up at least \$10\.00/);
+    assert.match(blocked.text, /Top up at least \$9\.90/);
 
     ledger = new CloudLedger(dbPath);
-    ledger.recordTopup({ customerId: customer.id, amount: 10000, reference: "MULTI-10" });
+    ledger.recordTopup({ customerId: customer.id, amount: 9900, reference: "MULTI-9.90" });
     assert.equal((await call(base, key.key, "relay_connect", { platform: "x" })).isError, false);
     assert.equal((await call(base, key.key, "relay_connect", { platform: "x" })).isError, false);
     const fourth = await call(base, key.key, "relay_connect", { platform: "x" });
     assert.equal(fourth.isError, true);
     assert.match(fourth.text, /account limit reached \(3\/3\)/);
 
-    ledger.recordTopup({ customerId: customer.id, amount: 40000, reference: "MULTI-50" });
+    ledger.recordTopup({ customerId: customer.id, amount: 49900, reference: "MULTI-49.90" });
     for (let index = 4; index <= 10; index += 1) {
       const connected = await call(base, key.key, "relay_connect", { platform: "x", label: `X ${index}` });
       assert.equal(connected.isError, false, connected.text);
@@ -84,3 +84,4 @@ test("cloud accounts unlock 3 per platform at $10 and 10 per platform at $50", a
     await cleanupTempDir(dir);
   }
 });
+

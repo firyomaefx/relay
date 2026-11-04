@@ -6,8 +6,8 @@ import { PLATFORM_IDS } from "@relay/core";
 import type { CloudLedger, Customer } from "@relay/cloud";
 
 export const ACCOUNT_TIERS = [
-  { id: "starter", minimumTopupMilliUsd: 10_000, perPlatform: 3 },
-  { id: "scale", minimumTopupMilliUsd: 50_000, perPlatform: 10 },
+  { id: "starter", minimumTopupMilliUsd: 9_900, perPlatform: 3 },
+  { id: "scale", minimumTopupMilliUsd: 49_900, perPlatform: 10 },
 ] as const;
 
 export interface AccountTier {
@@ -17,19 +17,20 @@ export interface AccountTier {
   nextTierMilliUsd: number | null;
 }
 
-export function accountTierFor(lifetimePaidMilliUsd: number): AccountTier {
-  if (lifetimePaidMilliUsd >= 50_000) {
-    return { id: "scale", minimumTopupMilliUsd: 50_000, perPlatform: 10, nextTierMilliUsd: null };
+export function accountTierFor(largestPaidMilliUsd: number): AccountTier {
+  if (largestPaidMilliUsd >= 49_900) {
+    return { id: "scale", minimumTopupMilliUsd: 49_900, perPlatform: 10, nextTierMilliUsd: null };
   }
-  if (lifetimePaidMilliUsd >= 10_000) {
-    return { id: "starter", minimumTopupMilliUsd: 10_000, perPlatform: 3, nextTierMilliUsd: 50_000 };
+  if (largestPaidMilliUsd >= 9_900) {
+    return { id: "starter", minimumTopupMilliUsd: 9_900, perPlatform: 3, nextTierMilliUsd: 49_900 };
   }
-  return { id: "locked", minimumTopupMilliUsd: 10_000, perPlatform: 0, nextTierMilliUsd: 10_000 };
+  return { id: "locked", minimumTopupMilliUsd: 9_900, perPlatform: 0, nextTierMilliUsd: 9_900 };
 }
 
 export async function accountSummary(customer: Customer, relay: RelayService, ledger: CloudLedger) {
+  const largestTopupMilliUsd = ledger.largestTopup(customer.id);
   const lifetimePaidMilliUsd = ledger.totalTopups(customer.id);
-  const tier = accountTierFor(lifetimePaidMilliUsd);
+  const tier = accountTierFor(largestTopupMilliUsd);
   const accounts = await relay.accounts();
   const platforms = Object.fromEntries(
     PLATFORM_IDS.map((platform) => {
@@ -37,7 +38,7 @@ export async function accountSummary(customer: Customer, relay: RelayService, le
       return [platform, { used, limit: tier.perPlatform, remaining: Math.max(0, tier.perPlatform - used) }];
     }),
   ) as Record<PlatformId, { used: number; limit: number; remaining: number }>;
-  return { tier, lifetimePaidMilliUsd, accounts, platforms };
+  return { tier, largestTopupMilliUsd, lifetimePaidMilliUsd, accounts, platforms };
 }
 
 function result(value: unknown, isError = false) {
@@ -66,13 +67,13 @@ export async function prepareAccountConnect(
   if (existingCount === 0) return { accountId: options.accountId ?? `acct_${randomUUID()}` };
   if (summary.tier.perPlatform === 0) {
     throw new Error(
-      `Top up at least $10.00 in paid credit to add another ${platform} account. Paid top-ups: $${(summary.lifetimePaidMilliUsd / 1000).toFixed(2)}.`,
+      `Top up at least $9.90 in one payment to add another ${platform} account. Largest paid top-up: $${(summary.largestTopupMilliUsd / 1000).toFixed(2)}.`,
     );
   }
   if (summary.platforms[platform].remaining <= 0) {
     throw new Error(
       `${platform} account limit reached (${summary.platforms[platform].used}/${summary.tier.perPlatform}). ` +
-        `${summary.tier.nextTierMilliUsd ? `Top up to $${(summary.tier.nextTierMilliUsd / 1000).toFixed(2)} lifetime for ${accountTierFor(summary.tier.nextTierMilliUsd).perPlatform} per platform.` : "Disconnect an account first."}`,
+        `${summary.tier.nextTierMilliUsd ? `Make a single top-up of $${(summary.tier.nextTierMilliUsd / 1000).toFixed(2)} for ${accountTierFor(summary.tier.nextTierMilliUsd).perPlatform} per platform.` : "Disconnect an account first."}`,
     );
   }
   return { accountId: options.accountId ?? `acct_${randomUUID()}` };
@@ -88,7 +89,7 @@ export function registerCloudAccountsTool(
     {
       title: "Cloud account slots and limits",
       description:
-        "Show or claim per-platform account slots. A one-time $10 lifetime paid top-up unlocks 3 accounts per platform; $50 unlocks 10 per platform. Free starter credit and free promotional credit do not count. Actions: status, claim.",
+        "Show or claim per-platform account slots. A single one-time $9.90 paid top-up unlocks 3 accounts per platform; a single $49.90 payment unlocks 10 per platform. Smaller top-ups do not accumulate toward these unlocks. Free starter credit and free promotional credit do not count. Actions: status, claim.",
       inputSchema: z.object({
         action: z.enum(["status", "claim"]),
         platform: z.enum(["x", "threads", "tiktok", "youtube", "instagram", "linkedin"]).optional(),
@@ -111,5 +112,6 @@ export function registerCloudAccountsTool(
     },
   );
 }
+
 
 

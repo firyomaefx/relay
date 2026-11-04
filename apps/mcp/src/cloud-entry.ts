@@ -184,7 +184,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
         try {
           const relay = await tenants.get(customer);
           await relay.runDueJobs();
-          const paidTopups = ledger.totalTopups(customer.id);
+          const paidTopups = ledger.largestTopup(customer.id);
           const comments = await relay.commentsStatus();
           const threads = comments.find((entry) => entry.platform === "threads");
           if (

@@ -415,8 +415,8 @@ async function handleApi(
     }
     const body = asRecord(await readJsonBody(req, 16 * 1024));
     const amount = Number(body.amount);
-    if (![1000, 2500, 5000].includes(amount)) {
-      throw new RelayError("Choose an available top-up amount.", "stripe_amount_invalid", undefined, 400);
+    if (!Number.isInteger(amount) || amount < 100 || amount > 50_000) {
+      throw new RelayError("Top-ups must be between $1.00 and $500.00.", "stripe_amount_invalid", undefined, 400);
     }
     const owner = deps.cloudAdmin.store.ensureOwnerCustomer("Owner");
     const session = await createCheckoutSession(deps.billing, {
