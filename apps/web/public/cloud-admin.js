@@ -16,10 +16,11 @@ async function loadWaitlist() {
   const counts = data.counts || {};
   $('waitlistCounts').textContent = `${data.accepted || 0} / ${data.limit || 100} invited · ${counts.pending || 0} pending · ${counts.rejected || 0} rejected`;
   $('waitlist').innerHTML = waitlistEntries.length
-    ? `<table class="waitlist-table"><thead><tr><th>Name</th><th>Email</th><th>Platforms</th><th>Volume</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>${waitlistEntries.map((entry) => `
+    ? `<table class="waitlist-table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Platforms</th><th>Volume</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>${waitlistEntries.map((entry) => `
         <tr>
           <td>${esc(entry.name)}</td>
           <td>${esc(entry.email)}</td>
+          <td>${esc(entry.phone || '—')}</td>
           <td>${esc(entry.platforms || '—')}</td>
           <td>${esc(entry.volume || '—')}</td>
           <td><span class="pill status-${esc(entry.status)}">${esc(entry.status)}</span></td>
@@ -60,7 +61,7 @@ async function waitlistAction(id, action) {
   const body = encodeURIComponent(`Hi ${entry.name},\n\nYour Relay Cloud place is ready. Use this private connection link:\n\n${inviteUrl}\n\nTreat this link like a password.\n\n— Relay`);
   $('waitlistInvite').innerHTML = `<div class="invite-box">
     <strong>Invite ready for ${esc(entry.name)} <${esc(entry.email)}></strong>
-    <div class="muted" style="margin-top:4px">Send this private link to the customer. It acts as their account; do not post it publicly.</div>
+    <div class="muted" style="margin-top:4px">${data.emailSent ? 'The invite email was sent automatically. You can resend the link below.' : 'Automatic email is not configured. Copy this private link or open an email draft.'} It acts as their account; do not post it publicly.</div>
     <input id="inviteUrl" readonly value="${esc(inviteUrl)}">
     <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
       <a href="mailto:${encodeURIComponent(entry.email)}?subject=${subject}&body=${body}">Open email draft</a>

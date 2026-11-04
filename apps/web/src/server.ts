@@ -21,6 +21,7 @@ import { PriceTable, defaultPricePath, type CloudPrices } from "@relay/cloud";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { createCheckoutSession, loadStripeConfig, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
+import { sendEmail, waitlistConfirmationEmail } from "./email.js";
 import { SessionManager } from "./auth.js";
 import { readConfig } from "./config.js";
 import {
@@ -297,6 +298,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       const result = deps.cloudAdmin.store.createWaitlistEntry({
         name: String(body.name ?? ""),
         email: String(body.email ?? ""),
+        phone: String(body.phone ?? ""),
         platforms,
         volume: String(body.volume ?? ""),
         useCase: String(body.use_case ?? body.useCase ?? ""),
@@ -312,11 +314,19 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
           signal: AbortSignal.timeout(5000),
         }).catch((error: unknown) => deps.logger(`waitlist webhook failed: ${errorMessage(error)}`));
       }
+      const position = deps.cloudAdmin.store.waitlistPosition(result.entry.id);
+      const emailResult = result.duplicate
+        ? { sent: false }
+        : await sendEmail(deps.cloudAdmin.email, {
+            ...waitlistConfirmationEmail({ name: result.entry.name, position }),
+            to: result.entry.email,
+          });
       sendJson(res, result.duplicate ? 200 : 201, {
         ok: true,
-        position: deps.cloudAdmin.store.waitlistPosition(result.entry.id),
+        position,
         duplicate: result.duplicate,
         status: result.entry.status,
+        emailSent: emailResult.sent,
       });
       return;
     }
@@ -332,6 +342,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
           polarConfigured: Boolean(deps.polar?.accessToken && deps.polar?.productId),
           polarSandbox: Boolean(deps.polar?.apiBase.includes("sandbox")),
         },
+        emailConfigured: Boolean(deps.cloudAdmin?.email?.apiKey && deps.cloudAdmin.email.from),
         uptimeSeconds: Math.round(process.uptime()),
         timestamp: new Date().toISOString(),
       });

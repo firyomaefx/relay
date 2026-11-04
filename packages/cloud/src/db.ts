@@ -50,6 +50,7 @@ export interface WaitlistEntry {
   id: string;
   name: string;
   email: string;
+  phone: string;
   platforms: string;
   volume: string;
   useCase: string;
@@ -99,12 +100,22 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function normalizePhone(value: string): string {
+  let raw = value.trim().replace(/[\s().-]/g, "");
+  if (raw.startsWith("00")) raw = `+${raw.slice(2)}`;
+  if (!raw.startsWith("+")) return "";
+  const digits = raw.slice(1).replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 15) return "";
+  return `+${digits}`;
+}
+
 function toWaitlist(row: Record<string, unknown>): WaitlistEntry {
   const status = String(row.status) as WaitlistEntry["status"];
   return {
     id: String(row.id),
     name: String(row.name),
     email: String(row.email),
+    phone: String(row.phone ?? ""),
     platforms: String(row.platforms ?? ""),
     volume: String(row.volume ?? ""),
     useCase: String(row.use_case ?? ""),
@@ -212,6 +223,7 @@ export class CloudStore {
         name TEXT NOT NULL,
         email TEXT NOT NULL,
         email_normalized TEXT NOT NULL UNIQUE,
+        phone TEXT NOT NULL DEFAULT '',
         platforms TEXT NOT NULL DEFAULT '',
         volume TEXT NOT NULL DEFAULT '',
         use_case TEXT NOT NULL DEFAULT '',
@@ -224,6 +236,10 @@ export class CloudStore {
       );
       CREATE INDEX IF NOT EXISTS waitlist_status_created ON waitlist(status, created_at);
     `);
+    const waitlistColumns = db.prepare("PRAGMA table_info(waitlist)").all() as Array<{ name: string }>;
+    if (!waitlistColumns.some((column) => column.name === "phone")) {
+      db.exec("ALTER TABLE waitlist ADD COLUMN phone TEXT NOT NULL DEFAULT ''");
+    }
     return new CloudStore(db);
   }
 
@@ -405,6 +421,7 @@ export class CloudStore {
   createWaitlistEntry(input: {
     name: string;
     email: string;
+    phone?: string;
     platforms?: string;
     volume?: string;
     useCase?: string;
@@ -412,9 +429,13 @@ export class CloudStore {
     const name = input.name.trim();
     const email = input.email.trim();
     const emailNormalized = normalizeEmail(email);
+    const phone = normalizePhone(input.phone ?? "");
     if (!name) throw new RelayError("Your name is required.", "waitlist_name_required", undefined, 400);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new RelayError("A valid email is required.", "waitlist_email_invalid", undefined, 400);
+    }
+    if (!phone) {
+      throw new RelayError("A valid phone number with country code is required.", "waitlist_phone_invalid", undefined, 400);
     }
     const existing = this.db.prepare("SELECT * FROM waitlist WHERE email_normalized = ?").get(emailNormalized) as
       | Record<string, unknown>
@@ -423,13 +444,14 @@ export class CloudStore {
     const id = `wl_${randomUUID()}`;
     const createdAt = new Date().toISOString();
     this.db.prepare(
-      `INSERT INTO waitlist (id, name, email, email_normalized, platforms, volume, use_case, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      `INSERT INTO waitlist (id, name, email, email_normalized, phone, platforms, volume, use_case, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
     ).run(
       id,
       name.slice(0, 120),
       email.slice(0, 200),
       emailNormalized,
+      phone,
       (input.platforms ?? "").trim().slice(0, 300),
       (input.volume ?? "").trim().slice(0, 120),
       (input.useCase ?? "").trim().slice(0, 2000),

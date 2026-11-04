@@ -26,22 +26,29 @@ test("public waitlist accepts requests, dedupes email, and admin approval stops 
 
     const first = await httpJson(server.baseUrl, "/api/waitlist", {
       method: "POST",
-      body: { name: "Aina", email: "Aina@example.com", platforms: ["Threads", "TikTok"], volume: "1–20" },
+      body: { name: "Aina", email: "Aina@example.com", phone: "+60123456789", platforms: ["Threads", "TikTok"], volume: "1–20" },
     });
     assert.equal(first.status, 201, requestSummary(first));
     assert.equal(first.json.ok, true);
     assert.equal(first.json.position, 1);
 
+    const missingPhone = await httpJson(server.baseUrl, "/api/waitlist", {
+      method: "POST",
+      body: { name: "No Phone", email: "nophone@example.com" },
+    });
+    assert.equal(missingPhone.status, 400, requestSummary(missingPhone));
+    assert.match(missingPhone.json.error, /phone number/i);
+
     const duplicate = await httpJson(server.baseUrl, "/api/waitlist", {
       method: "POST",
-      body: { name: "Aina again", email: "aina@example.com" },
+      body: { name: "Aina again", email: "aina@example.com", phone: "+60123456789" },
     });
     assert.equal(duplicate.status, 200, requestSummary(duplicate));
     assert.equal(duplicate.json.duplicate, true);
 
     const second = await httpJson(server.baseUrl, "/api/waitlist", {
       method: "POST",
-      body: { name: "Ben", email: "ben@example.com", volume: "21–100" },
+      body: { name: "Ben", email: "ben@example.com", phone: "+6591234567", volume: "21–100" },
     });
     assert.equal(second.status, 201, requestSummary(second));
 
@@ -72,7 +79,7 @@ test("public waitlist accepts requests, dedupes email, and admin approval stops 
 
     const full = await httpJson(server.baseUrl, "/api/waitlist", {
       method: "POST",
-      body: { name: "Third", email: "third@example.com" },
+      body: { name: "Third", email: "third@example.com", phone: "+60111222333" },
     });
     assert.equal(full.status, 409, requestSummary(full));
     assert.match(full.json.error, /first waitlist batch is full/i);
@@ -86,3 +93,4 @@ test("public waitlist accepts requests, dedupes email, and admin approval stops 
     await cleanupTempDir(dir);
   }
 });
+

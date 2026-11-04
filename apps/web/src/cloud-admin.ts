@@ -3,6 +3,7 @@ import { RelayError, errorMessage } from "@relay/core";
 import { CloudLedger, CloudStore, PriceTable, defaultPricePath, loadCloudConfig } from "@relay/cloud";
 import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
 import { createPolarCheckout, loadPolarConfig, type PolarConfig } from "./polar.js";
+import { loadEmailConfig, sendEmail, waitlistInviteEmail, type EmailConfig } from "./email.js";
 
 export interface CloudAdminDeps {
   store: CloudStore;
@@ -10,6 +11,7 @@ export interface CloudAdminDeps {
   pricing?: PriceTable;
   billing?: StripeBillingConfig;
   polar?: PolarConfig;
+  email?: EmailConfig;
   close(): Promise<void>;
 }
 
@@ -35,6 +37,7 @@ export function openCloudAdmin(env: NodeJS.ProcessEnv): CloudAdminDeps | null {
     pricing,
     billing: loadStripeConfig(env) ?? undefined,
     polar: loadPolarConfig(env) ?? undefined,
+    email: loadEmailConfig(env) ?? undefined,
     close: async () => {
       ledger.close();
       store.close();
@@ -180,11 +183,18 @@ export async function handleCloudAdmin(
         const created = deps.store.createConnectToken(entry.customerId, `Waitlist reinvite: ${entry.email}`);
         const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
         const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun/mcp";
+        const connectUrl = `${publicBase}/connect?token=${encodeURIComponent(created.token)}`;
+        const emailResult = await sendEmail(deps.email, {
+          ...waitlistInviteEmail({ name: entry.name, connectUrl }),
+          to: entry.email,
+        });
         send(res, 201, {
           ok: true,
           entry,
-          connectUrl: `${publicBase}/connect?token=${encodeURIComponent(created.token)}`,
+          connectUrl,
           mcpUrl: `${mcpBase}?token=${encodeURIComponent(created.token)}`,
+          emailSent: emailResult.sent,
+          emailError: emailResult.sent ? undefined : emailResult.error,
         });
         return;
       }
@@ -203,12 +213,19 @@ export async function handleCloudAdmin(
       const invited = deps.store.approveWaitlist(id, customer.id);
       const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
       const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun/mcp";
+      const connectUrl = `${publicBase}/connect?token=${encodeURIComponent(created.token)}`;
+      const emailResult = await sendEmail(deps.email, {
+        ...waitlistInviteEmail({ name: entry.name, connectUrl }),
+        to: entry.email,
+      });
       send(res, 201, {
         ok: true,
         entry: invited,
         customer: { id: customer.id, displayName: customer.displayName },
-        connectUrl: `${publicBase}/connect?token=${encodeURIComponent(created.token)}`,
+        connectUrl,
         mcpUrl: `${mcpBase}?token=${encodeURIComponent(created.token)}`,
+        emailSent: emailResult.sent,
+        emailError: emailResult.sent ? undefined : emailResult.error,
       });
       return;
     }
