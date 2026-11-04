@@ -1833,7 +1833,7 @@
           return `$${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2)}`;
         };
         const tierButtons = topupAmounts
-          .map((cents) => `<button class="primary-btn small" type="button" data-${topupProvider}-topup="${Number(cents)}">${priceLabel(cents)}</button>`)
+          .map((cents) => `<button class="primary-btn small" type="button" style="width:auto;min-width:100px" data-${topupProvider}-topup="${Number(cents)}">${priceLabel(cents)}</button>`)
           .join("");
         const custom = topupProvider === "stripe"
           ? `<span class="topup-custom"><span class="meta-text">$</span><input class="input" id="customTopupInput" type="number" min="1" max="500" step="0.01" inputmode="decimal" placeholder="1.00" aria-label="Custom top-up amount" style="width:108px"><button class="ghost-btn small" type="button" data-custom-topup>Top up</button></span>`
