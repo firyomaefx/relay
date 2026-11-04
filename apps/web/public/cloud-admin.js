@@ -204,7 +204,11 @@ $('connect').addEventListener('click', async () => {
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || 'Could not create a connect link');
-    $('connectLink').innerHTML = `<div class="muted">Share this connect page with the customer. It contains a private URL that acts as this customer.</div><input readonly style="width:100%;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:12px monospace" value="${data.connectUrl.replace(/"/g, '&quot;')}">`;
+    const mcpUrl = data.url || '';
+    $('connectLink').innerHTML = `<div class="muted">Share this connect page with the customer. It contains a private URL that acts as this customer.</div><input readonly style="width:100%;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:12px monospace" value="${data.connectUrl.replace(/"/g, '&quot;')}">
+      <div class="muted" style="margin-top:12px">MCP URL for Grokbot or another MCP client (Streamable HTTP):</div>
+      <input readonly style="width:100%;margin-top:6px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:12px monospace" value="${mcpUrl.replace(/"/g, '&quot;')}">
+      <div class="muted" style="margin-top:6px">Keep this URL private — it can act as this customer.</div>`;
   } catch (error) { $('connectLink').textContent = error.message; }
 });
 
