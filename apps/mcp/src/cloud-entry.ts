@@ -21,6 +21,7 @@ import { createCloudApi } from "./cloud-api.js";
 import { CloudFinance } from "./cloud-finance.js";
 import { AUTOREPLY_MIN_TOPUP_MILLI_USD, registerCloudAutoReplyTool } from "./cloud-autoreply.js";
 import { prepareAccountConnect, registerCloudAccountsTool } from "./cloud-accounts.js";
+import { registerOwnerWaitlistTools } from "./cloud-waitlist.js";
 
 function log(message: string): void {
   process.stderr.write(`[relay-cloud-mcp] ${message}\n`);
@@ -102,6 +103,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       });
       registerCloudAutoReplyTool(server, { customer, relay, ledger });
       registerCloudAccountsTool(server, { customer, relay, ledger });
+      registerOwnerWaitlistTools(server, { store, customer });
       server.registerTool(
         "relay_cloud_whoami",
         {
@@ -221,6 +223,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1);
   });
 }
+
+
 
 
 

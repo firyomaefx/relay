@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
-import { loadEmailConfig, sendEmail, waitlistConfirmationEmail } from "../../apps/web/dist/email.js";
+import { loadEmailConfig, sendEmail, waitlistConfirmationEmail } from "../../packages/cloud/dist/email.js";
 
 test("email client skips cleanly without configuration", async () => {
   assert.equal(loadEmailConfig({}), null);
@@ -46,3 +46,4 @@ test("email client posts a Resend message and reports the provider id", async ()
     await new Promise((resolve) => server.close(resolve));
   }
 });
+

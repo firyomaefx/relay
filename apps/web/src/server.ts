@@ -21,7 +21,7 @@ import { PriceTable, defaultPricePath, type CloudPrices } from "@relay/cloud";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { createCheckoutSession, loadStripeConfig, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
-import { sendEmail, waitlistConfirmationEmail } from "./email.js";
+import { sendEmail, waitlistConfirmationEmail } from "@relay/cloud";
 import { SessionManager } from "./auth.js";
 import { readConfig } from "./config.js";
 import {
@@ -1072,6 +1072,7 @@ export async function runMain(): Promise<void> {
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
+
 
 
 

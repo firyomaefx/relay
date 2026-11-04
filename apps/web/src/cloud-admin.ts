@@ -3,7 +3,7 @@ import { RelayError, errorMessage } from "@relay/core";
 import { CloudLedger, CloudStore, PriceTable, defaultPricePath, loadCloudConfig } from "@relay/cloud";
 import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
 import { createPolarCheckout, loadPolarConfig, type PolarConfig } from "./polar.js";
-import { loadEmailConfig, sendEmail, waitlistInviteEmail, type EmailConfig } from "./email.js";
+import { loadEmailConfig, sendEmail, waitlistInviteEmail, type EmailConfig } from "@relay/cloud";
 
 export interface CloudAdminDeps {
   store: CloudStore;
@@ -302,6 +302,7 @@ export async function handleCloudAdmin(
     send(res, status, { error: errorMessage(error), code: error instanceof RelayError ? error.code : "cloud_admin_error" });
   }
 }
+
 
 
 
