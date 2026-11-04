@@ -421,7 +421,7 @@ async function handleApi(
     const owner = deps.cloudAdmin.store.ensureOwnerCustomer("Owner");
     const session = await createCheckoutSession(deps.billing, {
       customerId: owner.id,
-      amount,
+      amount: amount * 10,
       baseUrl: process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun",
     });
     sendJson(res, 200, { id: session.id, url: session.url });
