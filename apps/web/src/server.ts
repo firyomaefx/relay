@@ -38,6 +38,11 @@ const MAX_JSON_BYTES = 2 * 1024 * 1024;
 const MAX_MEDIA_JSON_BYTES = 90 * 1024 * 1024;
 const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
 
+function waitlistLimit(): number {
+  const parsed = Number(process.env.RELAY_WAITLIST_LIMIT ?? "100");
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 100;
+}
+
 const STATIC_EXTENSIONS = new Set([
   ".html",
   ".css",
@@ -257,6 +262,64 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       sendJson(res, 201, { ok: true });
       return;
     }
+    if (segments.length === 2 && segments[1] === "waitlist") {
+      if (!deps.cloudAdmin) throw new RelayError("Waitlist is not configured.", "waitlist_unavailable", undefined, 503);
+      const limit = waitlistLimit();
+      if (isGet) {
+        const accepted = deps.cloudAdmin.store.waitlistAcceptedCount();
+        sendJson(res, 200, {
+          open: accepted < limit,
+          accepted,
+          limit,
+          remaining: Math.max(0, limit - accepted),
+        });
+        return;
+      }
+      if (method !== "POST") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
+      const body = asRecord(await readJsonBody(req, 32 * 1024));
+      // Bots fill hidden fields; humans leave this empty.
+      if (String(body.website ?? "").trim()) {
+        sendJson(res, 201, { ok: true, position: 0, duplicate: false, status: "pending" });
+        return;
+      }
+      const accepted = deps.cloudAdmin.store.waitlistAcceptedCount();
+      if (accepted >= limit) {
+        throw new RelayError(
+          "The first waitlist batch is full. Public access is opening next.",
+          "waitlist_full",
+          undefined,
+          409,
+        );
+      }
+      const platforms = Array.isArray(body.platforms)
+        ? body.platforms.map((item) => String(item)).filter(Boolean).join(", ")
+        : String(body.platforms ?? "");
+      const result = deps.cloudAdmin.store.createWaitlistEntry({
+        name: String(body.name ?? ""),
+        email: String(body.email ?? ""),
+        platforms,
+        volume: String(body.volume ?? ""),
+        useCase: String(body.use_case ?? body.useCase ?? ""),
+      });
+      const webhook = process.env.RELAY_WAITLIST_WEBHOOK_URL?.trim();
+      if (webhook && !result.duplicate) {
+        void fetch(webhook, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            text: `Relay waitlist request from ${result.entry.name} <${result.entry.email}>: ${result.entry.useCase || "no note"}`,
+          }),
+          signal: AbortSignal.timeout(5000),
+        }).catch((error: unknown) => deps.logger(`waitlist webhook failed: ${errorMessage(error)}`));
+      }
+      sendJson(res, result.duplicate ? 200 : 201, {
+        ok: true,
+        position: deps.cloudAdmin.store.waitlistPosition(result.entry.id),
+        duplicate: result.duplicate,
+        status: result.entry.status,
+      });
+      return;
+    }
     if (isGet && segments.length === 2 && segments[1] === "health") {
       sendJson(res, 200, {
         ok: true,
@@ -351,6 +414,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   if (isGet && (pathname === "/billing/cancel" || pathname === "/billing/cancel.html")) {
     const served = await sendFile(req, res, path.join(deps.publicDir, "billing-cancel.html"), { html: true });
     if (!served) throw new RelayError("The billing return page is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
+  // Public waitlist page for the first 100 customers.
+  if (isGet && (pathname === "/waitlist" || pathname === "/waitlist.html")) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, "waitlist.html"), { html: true });
+    if (!served) throw new RelayError("The waitlist page is missing", "console_assets_missing", undefined, 500);
     return;
   }
 

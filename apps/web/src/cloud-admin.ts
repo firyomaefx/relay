@@ -13,6 +13,11 @@ export interface CloudAdminDeps {
   close(): Promise<void>;
 }
 
+function waitlistLimit(): number {
+  const parsed = Number(process.env.RELAY_WAITLIST_LIMIT ?? "100");
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 100;
+}
+
 export function openCloudAdmin(env: NodeJS.ProcessEnv): CloudAdminDeps | null {
   const config = loadCloudConfig(env);
   if (!config.enabled) return null;
@@ -139,6 +144,72 @@ export async function handleCloudAdmin(
       if (!customerId) throw new RelayError("Customer is required.", "cloud_customer_required", undefined, 400);
       const payments = deps.ledger.listPayments(customerId, Number(url.searchParams.get("limit") ?? "20"));
       send(res, 200, { customerId, payments });
+      return;
+    }
+
+    if (method === "GET" && resource === "waitlist") {
+      const status = url.searchParams.get("status")?.trim() || undefined;
+      const allowed = status && ["pending", "invited", "active", "rejected"].includes(status) ? status : undefined;
+      send(res, 200, {
+        entries: deps.store.listWaitlist(allowed),
+        counts: deps.store.waitlistStatusCounts(),
+        accepted: deps.store.waitlistAcceptedCount(),
+        limit: waitlistLimit(),
+      });
+      return;
+    }
+
+    if (method === "POST" && resource === "waitlist" && segments[4] && segments[5]) {
+      const id = segments[4];
+      const action = segments[5];
+      const entry = deps.store.getWaitlist(id);
+      if (!entry) throw new RelayError("Waitlist entry not found.", "waitlist_not_found", undefined, 404);
+      if (action === "reject") {
+        const body = await readJson(req);
+        const rejected = deps.store.rejectWaitlist(id, String(body.note ?? ""));
+        send(res, 200, { ok: true, entry: rejected });
+        return;
+      }
+      if (action === "invite") {
+        if (entry.status === "rejected" || entry.status === "pending") {
+          throw new RelayError("Approve this entry before creating an invite.", "waitlist_not_invited", undefined, 409);
+        }
+        if (!entry.customerId) {
+          throw new RelayError("This entry has no customer yet.", "waitlist_customer_missing", undefined, 409);
+        }
+        const created = deps.store.createConnectToken(entry.customerId, `Waitlist reinvite: ${entry.email}`);
+        const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+        const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun/mcp";
+        send(res, 201, {
+          ok: true,
+          entry,
+          connectUrl: `${publicBase}/connect?token=${encodeURIComponent(created.token)}`,
+          mcpUrl: `${mcpBase}?token=${encodeURIComponent(created.token)}`,
+        });
+        return;
+      }
+      if (action !== "approve") throw new RelayError("Unknown waitlist action.", "waitlist_action_invalid", undefined, 400);
+      if (entry.status === "rejected") throw new RelayError("Rejected entries cannot be approved.", "waitlist_rejected", undefined, 409);
+      if (entry.status === "invited" || entry.status === "active") {
+        throw new RelayError("This entry is already invited. Create a new invite link instead.", "waitlist_already_invited", undefined, 409);
+      }
+      const accepted = deps.store.waitlistAcceptedCount();
+      const limit = waitlistLimit();
+      if (accepted >= limit) {
+        throw new RelayError(`The first batch is full (${limit}). Raise RELAY_WAITLIST_LIMIT to approve more.`, "waitlist_full", undefined, 409);
+      }
+      const customer = deps.store.createCustomer({ displayName: entry.name });
+      const created = deps.store.createConnectToken(customer.id, `Waitlist invite: ${entry.email}`);
+      const invited = deps.store.approveWaitlist(id, customer.id);
+      const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+      const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun/mcp";
+      send(res, 201, {
+        ok: true,
+        entry: invited,
+        customer: { id: customer.id, displayName: customer.displayName },
+        connectUrl: `${publicBase}/connect?token=${encodeURIComponent(created.token)}`,
+        mcpUrl: `${mcpBase}?token=${encodeURIComponent(created.token)}`,
+      });
       return;
     }
 

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join the Relay Cloud waitlist</title>
+<style>
+:root{--bg:#f5f4ef;--ink:#18211c;--muted:#68736c;--line:#d8ded7;--accent:#1e6b4f;--soft:#e8f1ec;--danger:#9a3b32}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(900px 560px at 10% -10%,rgba(30,107,79,.14),transparent 65%),var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{width:min(760px,100%);margin:0 auto;padding:48px 22px 64px}
+.brand{display:inline-flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.03em;text-decoration:none;color:var(--ink)}
+.brand span{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px}
+.eyebrow{margin:42px 0 10px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700}
+h1{font-size:clamp(38px,7vw,62px);line-height:.98;letter-spacing:-.055em;font-weight:600;margin:0 0 18px;max-width:12ch}
+.lede{color:var(--muted);font-size:18px;max-width:56ch;margin:0 0 20px}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 30px}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.62);font-size:12px;color:var(--muted)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.card{background:rgba(255,255,255,.86);border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:0 20px 60px -45px rgba(24,33,28,.45)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.grid{grid-template-columns:1fr}main{padding-top:30px}}
+label{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 7px}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:12px 13px;font:inherit;outline:none}
+input:focus,select:focus,textarea:focus{border-color:rgba(30,107,79,.55);box-shadow:0 0 0 3px rgba(30,107,79,.1)}
+textarea{min-height:96px;resize:vertical}
+.field{margin-bottom:16px}
+.field-wide{grid-column:1/-1}
+.platforms{display:flex;flex-wrap:wrap;gap:8px}
+.platform{display:inline-flex;align-items:center;gap:7px;margin:0;padding:8px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:13px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink);cursor:pointer}
+.platform input{width:auto;margin:0;accent-color:var(--accent)}
+.consent{display:flex;gap:10px;align-items:flex-start;margin:4px 0 20px;font-size:13px;color:var(--muted)}
+.consent input{width:auto;margin-top:3px;accent-color:var(--accent)}
+button{width:100%;border:0;border-radius:999px;background:var(--ink);color:#fff;padding:14px 18px;font:inherit;font-weight:700;cursor:pointer;transition:transform .18s ease,opacity .18s ease}
+button:hover{transform:translateY(-1px)}
+button:disabled{opacity:.55;cursor:wait;transform:none}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.msg{min-height:22px;margin:14px 0 0;font-size:14px;color:var(--accent)}
+.msg.error{color:var(--danger)}
+.note{margin:16px 0 0;font-size:12px;color:var(--muted)}
+.success{display:none;text-align:left}
+.success h2{font-size:32px;letter-spacing:-.04em;margin:0 0 10px}
+.position{font-size:54px;letter-spacing:-.06em;font-weight:600;line-height:1;margin:18px 0 6px}
+.back{display:inline-block;margin-top:22px;color:var(--accent);font-size:13px;text-decoration:none}
+</style>
+</head>
+<body>
+<main>
+  <a class="brand" href="/"><span>R</span> Relay</a>
+  <p class="eyebrow">Relay Cloud · first 100</p>
+  <h1>Publish once. Everywhere.</h1>
+  <p class="lede">One MCP endpoint for X, Threads, TikTok, YouTube, Instagram and LinkedIn. We are onboarding the first 100 operators by hand, then opening public access.</p>
+  <div class="meta">
+    <span class="pill"><span class="dot"></span><span id="spots">First 100 places</span></span>
+    <span class="pill">No monthly fee</span>
+    <span class="pill">Prepaid usage</span>
+  </div>
+
+  <section class="card" id="formCard">
+    <form id="waitlistForm">
+      <div class="grid">
+        <div class="field">
+          <label for="name">Your name</label>
+          <input id="name" name="name" required maxlength="120" autocomplete="name" placeholder="Name">
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required maxlength="200" autocomplete="email" placeholder="you@example.com">
+        </div>
+        <div class="field field-wide">
+          <label>Platforms you want to publish to</label>
+          <div class="platforms">
+            <label class="platform"><input type="checkbox" name="platform" value="Threads"> Threads</label>
+            <label class="platform"><input type="checkbox" name="platform" value="TikTok"> TikTok</label>
+            <label class="platform"><input type="checkbox" name="platform" value="YouTube"> YouTube</label>
+            <label class="platform"><input type="checkbox" name="platform" value="Instagram"> Instagram</label>
+            <label class="platform"><input type="checkbox" name="platform" value="LinkedIn"> LinkedIn</label>
+            <label class="platform"><input type="checkbox" name="platform" value="X"> X</label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="volume">Posts per month</label>
+          <select id="volume" name="volume">
+            <option value="">Select volume</option>
+            <option>1–20</option>
+            <option>21–100</option>
+            <option>101–500</option>
+            <option>500+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="agent">How will you connect?</label>
+          <select id="agent" name="agent">
+            <option value="">Select agent</option>
+            <option>Claude Desktop / Web</option>
+            <option>Cursor</option>
+            <option>Grok</option>
+            <option>ChatGPT / Codex</option>
+            <option>Direct API</option>
+            <option>Not sure yet</option>
+          </select>
+        </div>
+        <div class="field field-wide">
+          <label for="use_case">What are you publishing?</label>
+          <textarea id="use_case" name="use_case" maxlength="2000" placeholder="Brand, agency, personal account, the workflow you want to automate…"></textarea>
+        </div>
+      </div>
+      <label class="consent"><input id="consent" type="checkbox" required> I agree to be contacted about Relay Cloud access. No spam.</label>
+      <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+      <button id="submit" type="submit">Join the waitlist</button>
+      <p class="msg" id="message" role="status"></p>
+      <p class="note">We review every request manually. You will get a private connect link when your place is ready.</p>
+    </form>
+  </section>
+
+  <section class="card success" id="successCard" aria-live="polite">
+    <p class="eyebrow">You're in the queue</p>
+    <h2>Thanks — request received.</h2>
+    <div class="position" id="position">#—</div>
+    <p class="lede" id="successText">We will email you when your Relay Cloud account is ready.</p>
+    <a class="back" href="/pricing">← See pricing while you wait</a>
+  </section>
+</main>
+<script>
+const form = document.getElementById('waitlistForm');
+const message = document.getElementById('message');
+const submit = document.getElementById('submit');
+const formCard = document.getElementById('formCard');
+const successCard = document.getElementById('successCard');
+const title = document.getElementById('position');
+const spots = document.getElementById('spots');
+const successText = document.getElementById('successText');
+
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/waitlist', { headers: { accept: 'application/json' } });
+    const d = await r.json();
+    if (!d.open) {
+      spots.textContent = 'First batch full';
+      formCard.hidden = true;
+      successCard.style.display = 'block';
+      successCard.querySelector('h2').textContent = 'The first batch is full.';
+      title.textContent = '';
+      successText.textContent = 'Public access is opening next. Follow Relay for the announcement.';
+      return;
+    }
+    if (Number.isFinite(d.remaining)) {
+      spots.textContent = d.remaining + ' of ' + d.limit + ' places left';
+    }
+  } catch { /* the form still works if status is unavailable */ }
+}
+loadStatus();
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  message.textContent = '';
+  message.className = 'msg';
+  submit.disabled = true;
+  const platforms = [...form.querySelectorAll('input[name="platform"]:checked')].map((input) => input.value);
+  const body = {
+    name: form.elements.namedItem('name').value,
+    email: form.email.value,
+    platforms,
+    volume: form.volume.value,
+    use_case: form.use_case.value + (form.agent.value ? '\nAgent: ' + form.agent.value : ''),
+    website: form.website.value,
+    consent: form.consent.checked,
+  };
+  try {
+    const response = await fetch('/api/waitlist', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Could not join the waitlist.');
+    formCard.hidden = true;
+    successCard.style.display = 'block';
+    title.textContent = data.position ? '#' + data.position : 'Received';
+    successText.textContent = data.duplicate
+      ? 'You were already on the list. We have your request.'
+      : 'We will email you when your Relay Cloud account is ready.';
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = 'msg error';
+  } finally {
+    submit.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

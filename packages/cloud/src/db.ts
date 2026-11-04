@@ -46,6 +46,21 @@ export interface CreatedConnectToken extends ConnectTokenRecord {
   token: string;
 }
 
+export interface WaitlistEntry {
+  id: string;
+  name: string;
+  email: string;
+  platforms: string;
+  volume: string;
+  useCase: string;
+  status: "pending" | "invited" | "active" | "rejected";
+  customerId: string | null;
+  note: string | null;
+  createdAt: string;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+}
+
 export interface ApiKeyIdentity {
   customer: Customer;
   key: ApiKeyRecord;
@@ -77,6 +92,28 @@ function toKey(row: Record<string, unknown>): ApiKeyRecord {
     createdAt: String(row.created_at),
     revokedAt: row.revoked_at == null ? null : String(row.revoked_at),
     lastUsedAt: row.last_used_at == null ? null : String(row.last_used_at),
+  };
+}
+
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function toWaitlist(row: Record<string, unknown>): WaitlistEntry {
+  const status = String(row.status) as WaitlistEntry["status"];
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    email: String(row.email),
+    platforms: String(row.platforms ?? ""),
+    volume: String(row.volume ?? ""),
+    useCase: String(row.use_case ?? ""),
+    status: status === "invited" || status === "active" || status === "rejected" ? status : "pending",
+    customerId: row.customer_id == null ? null : String(row.customer_id),
+    note: row.note == null ? null : String(row.note),
+    createdAt: String(row.created_at),
+    approvedAt: row.approved_at == null ? null : String(row.approved_at),
+    rejectedAt: row.rejected_at == null ? null : String(row.rejected_at),
   };
 }
 
@@ -170,6 +207,22 @@ export class CloudStore {
         platform TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS waitlist (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        email_normalized TEXT NOT NULL UNIQUE,
+        platforms TEXT NOT NULL DEFAULT '',
+        volume TEXT NOT NULL DEFAULT '',
+        use_case TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'pending',
+        customer_id TEXT REFERENCES customers(id),
+        note TEXT,
+        created_at TEXT NOT NULL,
+        approved_at TEXT,
+        rejected_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS waitlist_status_created ON waitlist(status, created_at);
     `);
     return new CloudStore(db);
   }
@@ -347,6 +400,101 @@ export class CloudStore {
       },
       key: toKey(row),
     };
+  }
+
+  createWaitlistEntry(input: {
+    name: string;
+    email: string;
+    platforms?: string;
+    volume?: string;
+    useCase?: string;
+  }): { entry: WaitlistEntry; duplicate: boolean } {
+    const name = input.name.trim();
+    const email = input.email.trim();
+    const emailNormalized = normalizeEmail(email);
+    if (!name) throw new RelayError("Your name is required.", "waitlist_name_required", undefined, 400);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new RelayError("A valid email is required.", "waitlist_email_invalid", undefined, 400);
+    }
+    const existing = this.db.prepare("SELECT * FROM waitlist WHERE email_normalized = ?").get(emailNormalized) as
+      | Record<string, unknown>
+      | undefined;
+    if (existing) return { entry: toWaitlist(existing), duplicate: true };
+    const id = `wl_${randomUUID()}`;
+    const createdAt = new Date().toISOString();
+    this.db.prepare(
+      `INSERT INTO waitlist (id, name, email, email_normalized, platforms, volume, use_case, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+    ).run(
+      id,
+      name.slice(0, 120),
+      email.slice(0, 200),
+      emailNormalized,
+      (input.platforms ?? "").trim().slice(0, 300),
+      (input.volume ?? "").trim().slice(0, 120),
+      (input.useCase ?? "").trim().slice(0, 2000),
+      createdAt,
+    );
+    return { entry: this.getWaitlist(id)!, duplicate: false };
+  }
+
+  getWaitlist(id: string): WaitlistEntry | null {
+    const row = this.db.prepare("SELECT * FROM waitlist WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    return row ? toWaitlist(row) : null;
+  }
+
+  listWaitlist(status?: string): WaitlistEntry[] {
+    const rows = status
+      ? (this.db.prepare("SELECT * FROM waitlist WHERE status = ? ORDER BY created_at ASC").all(status) as Record<string, unknown>[])
+      : (this.db.prepare("SELECT * FROM waitlist ORDER BY created_at ASC").all() as Record<string, unknown>[]);
+    return rows.map(toWaitlist);
+  }
+
+  waitlistPosition(id: string): number {
+    const entry = this.getWaitlist(id);
+    if (!entry) return 0;
+    const row = this.db.prepare(
+      "SELECT COUNT(*) AS n FROM waitlist WHERE status = 'pending' AND created_at <= ?",
+    ).get(entry.createdAt) as { n: number };
+    return Number(row.n);
+  }
+
+  waitlistAcceptedCount(): number {
+    const row = this.db.prepare(
+      "SELECT COUNT(*) AS n FROM waitlist WHERE status IN ('invited', 'active')",
+    ).get() as { n: number };
+    return Number(row.n);
+  }
+
+  waitlistStatusCounts(): Record<string, number> {
+    const rows = this.db.prepare("SELECT status, COUNT(*) AS n FROM waitlist GROUP BY status").all() as Array<{
+      status: string;
+      n: number;
+    }>;
+    return Object.fromEntries(rows.map((row) => [String(row.status), Number(row.n)]));
+  }
+
+  approveWaitlist(id: string, customerId: string): WaitlistEntry {
+    const entry = this.getWaitlist(id);
+    if (!entry) throw new RelayError("Waitlist entry not found.", "waitlist_not_found", undefined, 404);
+    if (entry.status === "rejected") throw new RelayError("Rejected entries cannot be approved.", "waitlist_rejected", undefined, 409);
+    if (entry.status === "invited" || entry.status === "active") return entry;
+    this.db.prepare(
+      "UPDATE waitlist SET status = 'invited', customer_id = ?, approved_at = ? WHERE id = ?",
+    ).run(customerId, new Date().toISOString(), id);
+    return this.getWaitlist(id)!;
+  }
+
+  rejectWaitlist(id: string, note?: string): WaitlistEntry {
+    const entry = this.getWaitlist(id);
+    if (!entry) throw new RelayError("Waitlist entry not found.", "waitlist_not_found", undefined, 404);
+    if (entry.status === "invited" || entry.status === "active") {
+      throw new RelayError("An invited customer cannot be rejected here.", "waitlist_already_invited", undefined, 409);
+    }
+    this.db.prepare(
+      "UPDATE waitlist SET status = 'rejected', note = ?, rejected_at = ? WHERE id = ?",
+    ).run((note ?? "").trim().slice(0, 1000) || null, new Date().toISOString(), id);
+    return this.getWaitlist(id)!;
   }
 
   close(): void {
