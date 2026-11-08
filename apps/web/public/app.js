@@ -1474,7 +1474,8 @@
     connectMatrixLoading = true;
     try {
       const data = await api("/api/connect/clients");
-      mount.innerHTML = data.clients.map((client) => `<article class="integration-card" data-client-row="${escapeAttr(client.id)}">
+      const target = document.querySelector("#connectClientMatrix") ?? mount;
+      target.innerHTML = data.clients.map((client) => `<article class="integration-card" data-client-row="${escapeAttr(client.id)}">
         <div class="integration-mark" aria-hidden="true">${escapeHtml(client.displayName.slice(0, 1))}</div>
         <div class="integration-copy">
           <div class="integration-title"><strong>${escapeHtml(client.displayName)}</strong>${connectTierBadge(client.tier)}<span class="status-badge" data-client-status="${escapeAttr(client.id)}" hidden></span></div>
@@ -1488,7 +1489,8 @@
         </div>
       </article>`).join("");
     } catch (error) {
-      mount.innerHTML = `<p class="list-excerpt">Client list unavailable: ${escapeHtml(error.message)}</p>`;
+      const target = document.querySelector("#connectClientMatrix") ?? mount;
+      target.innerHTML = `<p class="list-excerpt">Client list unavailable: ${escapeHtml(error.message)}</p>`;
     } finally {
       connectMatrixLoading = false;
     }
