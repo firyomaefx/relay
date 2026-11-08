@@ -85,10 +85,12 @@ export async function verifyConnectSession(
   }
 
   const verificationToken = deps.store.createConnectToken(session.customerId, "connect-verification");
+  const verifyUrl = new URL(deps.mcpUrl);
+  verifyUrl.searchParams.set("token", verificationToken.token);
   let success: { protocolVersion: string; toolCount: number } | null = null;
   let failure = "";
   try {
-    success = await verifyMcp(deps.mcpUrl, verificationToken.token);
+    success = await verifyMcp(verifyUrl.toString(), verificationToken.token);
   } catch (error) {
     failure = error instanceof Error ? error.message : "MCP verification failed.";
   } finally {

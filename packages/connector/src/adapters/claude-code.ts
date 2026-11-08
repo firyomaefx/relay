@@ -53,6 +53,8 @@ export const claudeCodeAdapter: ClientAdapter = {
   },
 
   async install(_action: PlannedAction, ctx: AdapterContext): Promise<AdapterResult> {
+    // REQ-024: replace an existing Relay entry rather than failing on retry.
+    await run(ctx, ["mcp", "remove", "relay", "--scope", "user"]);
     const result = await run(ctx, ["mcp", "add", "--transport", "http", "--scope", "user", "relay", ctx.mcpUrl]);
     if (result.code !== 0) {
       return { clientId: "claude-code", state: "failed", detail: result.stderr.trim() || `claude mcp add failed (${result.code}).` };

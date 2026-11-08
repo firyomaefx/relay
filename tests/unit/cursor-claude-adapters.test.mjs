@@ -53,11 +53,12 @@ test("Claude Code adapter uses the supported CLI with scoped arguments", async (
     assert.equal((await claudeCodeAdapter.detect(fake)).detected, true);
     const installed = await claudeCodeAdapter.install({ clientId: "claude-code", kind: "run-cli", target: "claude" }, fake);
     assert.equal(installed.state, "connected");
-    assert.deepEqual(calls[0], { file: "claude", args: ["mcp", "add", "--transport", "http", "--scope", "user", "relay", ctx.mcpUrl] });
+    assert.deepEqual(calls[0], { file: "claude", args: ["mcp", "remove", "relay", "--scope", "user"] });
+    assert.deepEqual(calls[1], { file: "claude", args: ["mcp", "add", "--transport", "http", "--scope", "user", "relay", ctx.mcpUrl] });
 
     const removed = await claudeCodeAdapter.remove(fake);
     assert.equal(removed.state, "connected");
-    assert.deepEqual(calls[1], { file: "claude", args: ["mcp", "remove", "relay", "--scope", "user"] });
+    assert.deepEqual(calls[2], { file: "claude", args: ["mcp", "remove", "relay", "--scope", "user"] });
 
     const failed = { ...ctx, runCommand: async () => ({ code: 2, stdout: "", stderr: "not logged in" }) };
     const result = await claudeCodeAdapter.install({ clientId: "claude-code", kind: "run-cli", target: "claude" }, failed);
