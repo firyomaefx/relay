@@ -61,8 +61,9 @@ export async function verifyMcp(
     params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "relay-verifier", version: "0.1.0" } },
   });
   if (init.body.error) throw new Error(init.body.error.message ?? "MCP initialize failed.");
+  // Stateless Streamable HTTP servers do not return a session id; keep the
+  // header when present so stateful servers still work.
   const sessionId = init.response.headers.get("mcp-session-id");
-  if (!sessionId) throw new Error("MCP server did not return a session id.");
 
   await rpc(fetchImpl, mcpUrl, token, sessionId, { jsonrpc: "2.0", method: "notifications/initialized" });
   const tools = await rpc(fetchImpl, mcpUrl, token, sessionId, { jsonrpc: "2.0", id: 2, method: "tools/list" });
