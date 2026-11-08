@@ -1461,7 +1461,7 @@
     </div>`;
   }
 
-  let connectMatrixLoaded = false;
+  let connectMatrixLoading = false;
 
   function connectTierBadge(tier) {
     const label = tier === "auto" ? "Auto" : tier === "guided" ? "Guided" : tier === "manual" ? "Manual" : "Unsupported";
@@ -1470,8 +1470,8 @@
 
   async function loadConnectMatrix() {
     const mount = $("#connectClientMatrix");
-    if (!mount || connectMatrixLoaded) return;
-    connectMatrixLoaded = true;
+    if (!mount || connectMatrixLoading) return;
+    connectMatrixLoading = true;
     try {
       const data = await api("/api/connect/clients");
       mount.innerHTML = data.clients.map((client) => `<article class="integration-card" data-client-row="${escapeAttr(client.id)}">
@@ -1488,8 +1488,9 @@
         </div>
       </article>`).join("");
     } catch (error) {
-      connectMatrixLoaded = false;
       mount.innerHTML = `<p class="list-excerpt">Client list unavailable: ${escapeHtml(error.message)}</p>`;
+    } finally {
+      connectMatrixLoading = false;
     }
   }
 

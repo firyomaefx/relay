@@ -26,7 +26,7 @@ function connectorContext(): AdapterContext {
     localAppDataDir: localAppData,
     homeDir: os.homedir(),
     backupDir: path.join(localAppData, "Relay", "backups"),
-    mcpUrl: process.env.RELAY_CONNECT_MCP_URL?.trim() || "https://mcp.duitpoket.fun/mcp",
+    mcpUrl: process.env.RELAY_CONNECT_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun/mcp",
     sessionToken: "",
     now: () => new Date(),
   };
