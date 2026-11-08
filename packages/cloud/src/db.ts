@@ -46,6 +46,30 @@ export interface CreatedConnectToken extends ConnectTokenRecord {
   token: string;
 }
 
+/** Short-lived, tenant-bound session used by one Relay Connector flow. */
+export interface ConnectSessionRecord {
+  id: string;
+  customerId: string;
+  requestedClients: string[];
+  status: "pending" | "consumed" | "expired";
+  createdAt: string;
+  expiresAt: string;
+  usedAt: string | null;
+}
+
+export interface CreatedConnectSession extends ConnectSessionRecord {
+  /** Returned exactly once. Only the SHA-256 hash is stored. */
+  token: string;
+}
+
+export interface ConnectVerificationRecord {
+  sessionId: string;
+  clientId: string;
+  status: "connected" | "failed";
+  detail: string;
+  checkedAt: string;
+}
+
 export interface WaitlistEntry {
   id: string;
   name: string;
@@ -93,6 +117,28 @@ function toKey(row: Record<string, unknown>): ApiKeyRecord {
     createdAt: String(row.created_at),
     revokedAt: row.revoked_at == null ? null : String(row.revoked_at),
     lastUsedAt: row.last_used_at == null ? null : String(row.last_used_at),
+  };
+}
+
+function toConnectSession(row: Record<string, unknown>): ConnectSessionRecord {
+  let requestedClients: string[] = [];
+  try {
+    const parsed = JSON.parse(String(row.requested_clients ?? "[]")) as unknown;
+    if (Array.isArray(parsed)) {
+      requestedClients = parsed.filter((value): value is string => typeof value === "string");
+    }
+  } catch {
+    requestedClients = [];
+  }
+  const status = String(row.status);
+  return {
+    id: String(row.id),
+    customerId: String(row.customer_id),
+    requestedClients,
+    status: status === "consumed" ? "consumed" : status === "expired" ? "expired" : "pending",
+    createdAt: String(row.created_at),
+    expiresAt: String(row.expires_at),
+    usedAt: row.used_at == null ? null : String(row.used_at),
   };
 }
 
@@ -212,6 +258,25 @@ export class CloudStore {
         last_used_at TEXT
       );
       CREATE INDEX IF NOT EXISTS connect_tokens_customer ON connect_tokens(customer_id);
+      CREATE TABLE IF NOT EXISTS connect_verifications (
+        session_id TEXT NOT NULL,
+        client_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        detail TEXT NOT NULL,
+        checked_at TEXT NOT NULL,
+        PRIMARY KEY (session_id, client_id)
+      );
+      CREATE TABLE IF NOT EXISTS connect_sessions (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES customers(id),
+        token_hash TEXT NOT NULL UNIQUE,
+        requested_clients TEXT NOT NULL DEFAULT '[]',
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS connect_sessions_customer ON connect_sessions(customer_id);
       CREATE TABLE IF NOT EXISTS oauth_states (
         state TEXT PRIMARY KEY,
         customer_id TEXT NOT NULL REFERENCES customers(id),
@@ -345,6 +410,33 @@ export class CloudStore {
     return { id, customerId, prefix, label: label?.trim() || null, status: "active", createdAt, revokedAt: null, lastUsedAt: null, token: raw };
   }
 
+  revokeConnectToken(id: string): ConnectTokenRecord {
+    const current = this.db.prepare("SELECT * FROM connect_tokens WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    if (!current) throw new RelayError("Connect token not found.", "cloud_connect_token_not_found", undefined, 404);
+    if (String(current.status) !== "revoked") {
+      this.db.prepare("UPDATE connect_tokens SET status = 'revoked', revoked_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+    }
+    return this.listConnectTokens().find((token) => token.id === id)!;
+  }
+
+  saveConnectVerification(record: ConnectVerificationRecord): void {
+    this.db.prepare(
+      `INSERT INTO connect_verifications (session_id, client_id, status, detail, checked_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(session_id, client_id) DO UPDATE SET status = excluded.status, detail = excluded.detail, checked_at = excluded.checked_at`,
+    ).run(record.sessionId, record.clientId, record.status, record.detail, record.checkedAt);
+  }
+
+  listConnectVerifications(sessionId: string): ConnectVerificationRecord[] {
+    return (this.db.prepare("SELECT * FROM connect_verifications WHERE session_id = ? ORDER BY client_id ASC").all(sessionId) as Record<string, unknown>[]).map((row) => ({
+      sessionId: String(row.session_id),
+      clientId: String(row.client_id),
+      status: String(row.status) === "connected" ? "connected" : "failed",
+      detail: String(row.detail),
+      checkedAt: String(row.checked_at),
+    }));
+  }
+
   listConnectTokens(customerId?: string): ConnectTokenRecord[] {
     const rows = customerId
       ? (this.db.prepare("SELECT * FROM connect_tokens WHERE customer_id = ? ORDER BY created_at ASC").all(customerId) as Record<string, unknown>[])
@@ -388,6 +480,94 @@ export class CloudStore {
         status: "active", createdAt: String(row.created_at), revokedAt: null, lastUsedAt: null,
       },
     };
+  }
+
+  /** Create one short-lived, tenant-bound session for a Connector flow. */
+  // REQ-002, REQ-003
+  createConnectSession(
+    customerId: string,
+    requestedClients: string[] = [],
+    ttlMs = 15 * 60 * 1000,
+  ): CreatedConnectSession {
+    const customer = this.getCustomer(customerId);
+    if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+    if (customer.status !== "active") throw new RelayError("Customer is disabled.", "cloud_customer_disabled", undefined, 409);
+    if (!Number.isFinite(ttlMs) || ttlMs <= 0 || ttlMs > 15 * 60 * 1000) {
+      throw new RelayError("Connect session lifetime must be at most 15 minutes.", "cloud_connect_session_ttl_invalid", undefined, 400);
+    }
+    const clients = Array.from(
+      new Set(
+        requestedClients
+          .filter((value): value is string => typeof value === "string")
+          .map((value) => value.trim().slice(0, 64))
+          .filter((value) => value.length > 0),
+      ),
+    ).slice(0, 32);
+    const prefix = randomBytes(5).toString("hex");
+    const secret = randomBytes(32).toString("base64url");
+    const token = `rcs_${prefix}_${secret}`;
+    const id = `cs_${randomUUID()}`;
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + ttlMs);
+    this.db.prepare(
+      "INSERT INTO connect_sessions (id, customer_id, token_hash, requested_clients, status, created_at, expires_at) VALUES (?, ?, ?, ?, 'pending', ?, ?)",
+    ).run(
+      id,
+      customerId,
+      hashKey(token),
+      JSON.stringify(clients),
+      createdAt.toISOString(),
+      expiresAt.toISOString(),
+    );
+    return {
+      id,
+      customerId,
+      requestedClients: clients,
+      status: "pending",
+      createdAt: createdAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      usedAt: null,
+      token,
+    };
+  }
+
+  /** Resolve a scoped session token without consuming it. */
+  // REQ-002, REQ-030
+  getConnectSession(rawToken: string, sessionId?: string): ConnectSessionRecord {
+    if (!rawToken || !rawToken.startsWith("rcs_")) {
+      throw new RelayError("Invalid connect session.", "cloud_connect_session_invalid", undefined, 401);
+    }
+    const row = this.db.prepare(
+      `SELECT s.*, c.status AS customer_status
+       FROM connect_sessions s JOIN customers c ON c.id = s.customer_id
+       WHERE s.token_hash = ? AND (? IS NULL OR s.id = ?)`,
+    ).get(hashKey(rawToken), sessionId ?? null, sessionId ?? null) as Record<string, unknown> | undefined;
+    if (!row) throw new RelayError("Invalid connect session.", "cloud_connect_session_invalid", undefined, 401);
+    if (String(row.customer_status) !== "active") {
+      throw new RelayError("Customer is disabled.", "cloud_customer_disabled", undefined, 403);
+    }
+    const session = toConnectSession(row);
+    if (session.status === "consumed") {
+      throw new RelayError("Connect session already used.", "cloud_connect_session_used", undefined, 409);
+    }
+    if (session.status === "expired" || Date.parse(session.expiresAt) <= Date.now()) {
+      if (session.status !== "expired") {
+        this.db.prepare("UPDATE connect_sessions SET status = 'expired' WHERE id = ?").run(session.id);
+      }
+      throw new RelayError("Connect session expired.", "cloud_connect_session_expired", undefined, 410);
+    }
+    return session;
+  }
+
+  /** Consume a session after the Connector reports its final state. */
+  // REQ-002, REQ-030
+  consumeConnectSession(rawToken: string, sessionId: string): ConnectSessionRecord {
+    const session = this.getConnectSession(rawToken, sessionId);
+    const usedAt = new Date().toISOString();
+    this.db.prepare(
+      "UPDATE connect_sessions SET status = 'consumed', used_at = ? WHERE id = ? AND status = 'pending'",
+    ).run(usedAt, session.id);
+    return { ...session, status: "consumed", usedAt };
   }
 
   /** Resolve a raw API key to exactly one active customer. */

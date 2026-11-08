@@ -1441,27 +1441,115 @@
   }
 
   function integrationCards() {
-    const cards = [
-      { id: "claude", name: "Claude Desktop", note: "Recommended · local MCP", install: "https://claude.ai/download", copy: "claude", badge: "Recommended" },
-      { id: "claude-code", name: "Claude Code", note: "CLI agent", install: "https://docs.anthropic.com/en/docs/claude-code", copy: "claude-code" },
-      { id: "codex", name: "Codex", note: "OpenAI coding agent", install: "https://openai.com/codex/", copy: "codex" },
-      { id: "chatgpt", name: "ChatGPT", note: "Desktop MCP", install: "https://chatgpt.com/", copy: "chatgpt" },
-      { id: "cursor", name: "Cursor", note: "AI editor", install: "https://cursor.com/", copy: "cursor" },
-      { id: "grok", name: "Grok Bot", note: "xAI agent", install: "https://grok.com/", copy: "grok" },
-      { id: "vscode", name: "VS Code", note: "MCP extension", install: "https://code.visualstudio.com/", copy: "vscode" },
-      { id: "n8n", name: "n8n", note: "Workflow automation", install: "https://n8n.io/", copy: "n8n" },
-    ];
-    return cards.map((card) => `<article class="integration-card${card.badge ? " is-recommended" : ""}">
-      <div class="integration-mark" aria-hidden="true">${escapeHtml(card.name.slice(0, 1))}</div>
-      <div class="integration-copy">
-        <div class="integration-title"><strong>${escapeHtml(card.name)}</strong>${card.badge ? `<span class="status-badge" data-tone="live">${escapeHtml(card.badge)}</span>` : ""}</div>
-        <p>${escapeHtml(card.note)}</p>
+    return `<div class="connect-relay-wrap">
+    <div class="connect-relay-hero">
+      <div>
+        <p class="eyebrow">One connector</p>
+        <h3>Connect Relay once.</h3>
+        <p class="dash-copy">Relay opens a local Connector, finds your installed MCP clients, and configures the supported ones. Nothing is installed until you approve it.</p>
       </div>
-      <div class="integration-actions">
-        <button class="ghost-btn small" type="button" data-integration-setup="${escapeAttr(card.id)}">Connect</button>
-        <button class="ghost-btn small" type="button" data-dashboard-copy="${escapeAttr(card.copy)}">Copy config</button>
+      <div class="connect-relay-actions">
+        <button class="primary-btn" type="button" data-connect-relay id="connectRelayButton">Connect Relay</button>
+        <a class="ghost-btn" href="https://relay.duitpoket.fun/connect" target="_blank" rel="noreferrer noopener">Get the Connector</a>
       </div>
-    </article>`).join("");
+      <p class="connect-relay-status" id="connectRelayStatus" role="status" aria-live="polite"></p>
+      <div class="connect-relay-manual" id="connectRelayManual" hidden></div>
+    </div>
+    <div class="connect-client-list" id="connectClientMatrix" aria-live="polite">
+      <p class="list-excerpt">Loading supported clients…</p>
+    </div>
+    </div>`;
+  }
+
+  let connectMatrixLoaded = false;
+
+  function connectTierBadge(tier) {
+    const label = tier === "auto" ? "Auto" : tier === "guided" ? "Guided" : tier === "manual" ? "Manual" : "Unsupported";
+    return `<span class="status-badge" data-tone="${tier === "auto" ? "live" : "pending"}">${label}</span>`;
+  }
+
+  async function loadConnectMatrix() {
+    const mount = $("#connectClientMatrix");
+    if (!mount || connectMatrixLoaded) return;
+    connectMatrixLoaded = true;
+    try {
+      const data = await api("/api/connect/clients");
+      mount.innerHTML = data.clients.map((client) => `<article class="integration-card" data-client-row="${escapeAttr(client.id)}">
+        <div class="integration-mark" aria-hidden="true">${escapeHtml(client.displayName.slice(0, 1))}</div>
+        <div class="integration-copy">
+          <div class="integration-title"><strong>${escapeHtml(client.displayName)}</strong>${connectTierBadge(client.tier)}<span class="status-badge" data-client-status="${escapeAttr(client.id)}" hidden></span></div>
+          <p>${escapeHtml(client.mechanism)}</p>
+        </div>
+        <div class="integration-actions">
+          ${client.tier === "auto"
+            ? `<button class="ghost-btn small" type="button" data-manage-client="${escapeAttr(client.id)}" data-manage-action="repair">Repair</button><button class="ghost-btn small" type="button" data-manage-client="${escapeAttr(client.id)}" data-manage-action="disconnect">Disconnect</button>`
+            : `<button class="ghost-btn small" type="button" data-copy-artifact="${escapeAttr(client.id)}">Copy setup</button>`}
+          ${client.officialUrl ? `<a class="ghost-btn small" href="${escapeAttr(client.officialUrl)}" target="_blank" rel="noreferrer noopener">Open app</a>` : ""}
+        </div>
+      </article>`).join("");
+    } catch (error) {
+      connectMatrixLoaded = false;
+      mount.innerHTML = `<p class="list-excerpt">Client list unavailable: ${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  async function copyConnectArtifact(clientId) {
+    try {
+      const artifact = await api(`/api/connect/artifact/${encodeURIComponent(clientId)}`);
+      await navigator.clipboard.writeText(artifact.body);
+      toast({ tone: "success", title: "Setup copied", text: `Paste it into ${clientId.replace(/-/g, " ")}.` });
+    } catch (error) {
+      toast({ tone: "error", title: "Copy failed", text: error.message });
+    }
+  }
+
+  function applyConnectStatus(results) {
+    for (const result of results) {
+      const badge = document.querySelector(`[data-client-status="${result.clientId}"]`);
+      if (!badge) continue;
+      badge.hidden = false;
+      badge.textContent = result.status === "connected" ? "Connected" : "Failed";
+      badge.dataset.tone = result.status === "connected" ? "live" : "error";
+      badge.title = result.detail || "";
+    }
+  }
+
+  async function pollConnectStatus(sessionId) {
+    const status = $("#connectRelayStatus");
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      try {
+        const data = await api(`/api/connect/status/${encodeURIComponent(sessionId)}`);
+        if (data.results?.length) {
+          applyConnectStatus(data.results);
+          const connected = data.results.filter((result) => result.status === "connected").length;
+          if (status) status.textContent = `${connected}/${data.results.length} client(s) verified.`;
+          if (connected === data.results.length) return;
+        }
+      } catch {
+        // The Connector may still be open; keep the last visible state.
+      }
+    }
+  }
+
+  async function connectRelay() {
+    const status = $("#connectRelayStatus");
+    const manual = $("#connectRelayManual");
+    if (status) status.textContent = "Creating a short-lived Connector session…";
+    if (manual) manual.hidden = true;
+    try {
+      const session = await api("/api/connect/session", { method: "POST", body: { clients: [] } });
+      if (status) status.textContent = "Connector session ready. Opening the local app…";
+      if (manual) {
+        manual.hidden = false;
+        manual.innerHTML = `<p class="list-excerpt">If the Connector did not open, copy this code into the Connector:</p><code>${escapeHtml(session.manualCode)}</code><button class="ghost-btn small" type="button" data-copy-manual="${escapeAttr(session.manualCode)}">Copy code</button>`;
+      }
+      try { sessionStorage.setItem("relay.connectSession", session.sessionId); } catch { /* storage can be disabled */ }
+      void pollConnectStatus(session.sessionId);
+      window.location.href = session.deepLink;
+    } catch (error) {
+      if (status) status.textContent = error.message;
+    }
   }
 
   const INTEGRATION_SETUP = {
@@ -1619,6 +1707,7 @@
     els.dashTop.textContent = topPlatform ? PLATFORM_META[topPlatform]?.name ?? topPlatform : "—";
     els.dashAccounts.textContent = String(state.accounts.length);
     els.dashIntegrations.innerHTML = integrationCards();
+    void loadConnectMatrix();
   }
 
   async function copyDashboardConfig(kind) {
@@ -2578,6 +2667,34 @@
         return;
       }
 
+      const connectRelayButton = event.target.closest("[data-connect-relay]");
+      if (connectRelayButton) {
+        void connectRelay();
+        return;
+      }
+
+      const manageClient = event.target.closest("[data-manage-client]");
+      if (manageClient) {
+        const status = $("#connectRelayStatus");
+        if (status) status.textContent = "Opening the Relay Connector to confirm removal…";
+        window.location.href = `relay://manage?action=${encodeURIComponent(manageClient.dataset.manageAction || "disconnect")}&client=${encodeURIComponent(manageClient.dataset.manageClient)}`;
+        return;
+      }
+
+      const copyArtifact = event.target.closest("[data-copy-artifact]");
+      if (copyArtifact) {
+        void copyConnectArtifact(copyArtifact.dataset.copyArtifact);
+        return;
+      }
+
+      const copyManual = event.target.closest("[data-copy-manual]");
+      if (copyManual) {
+        void navigator.clipboard.writeText(copyManual.dataset.copyManual)
+          .then(() => toast({ tone: "success", title: "Code copied", text: "Paste it into the Relay Connector." }))
+          .catch(() => toast({ tone: "error", title: "Copy failed", text: "Select the code manually." }));
+        return;
+      }
+
       const integrationSetup = event.target.closest("[data-integration-setup]");
       if (integrationSetup) {
         openIntegrationWizard(integrationSetup.dataset.integrationSetup);
@@ -2859,6 +2976,10 @@
       observeReveals();
       scheduleValidation();
       pollTimer = window.setInterval(() => void poll(), 20000);
+      try {
+        const pendingSession = sessionStorage.getItem("relay.connectSession");
+        if (pendingSession) void pollConnectStatus(pendingSession);
+      } catch { /* storage can be disabled */ }
     } catch (error) {
       toast({ tone: "error", title: "Console unavailable", text: error.message });
       if (error.status === 401) window.location.replace("/login");

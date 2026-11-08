@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Unit tests for the scheduler: queued posts fire exactly once with mock results,
  * validation failures at execution time end the job as failed, and the single

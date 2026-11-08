@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import assert from "node:assert/strict";
 import { access, mkdir, utimes, writeFile } from "node:fs/promises";
 import path from "node:path";

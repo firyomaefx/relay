@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * End-to-end test for the MCP server: spawns `node apps/mcp/dist/index.js` over
  * stdio with a temporary data directory, performs the initialize handshake, lists

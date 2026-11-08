@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Unit tests for draft validation and per-platform normalization.
  *

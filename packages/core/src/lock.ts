@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 

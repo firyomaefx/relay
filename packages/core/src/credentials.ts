@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import { readFile, writeFile } from "node:fs/promises";
 import { RelayError } from "./errors.js";
 import { SecretBox } from "./secret-box.js";

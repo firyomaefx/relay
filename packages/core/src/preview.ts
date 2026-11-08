@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Draft previews: show how one draft will land on each selected platform.
  *

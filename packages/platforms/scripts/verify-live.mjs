@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Exercises the live (non-mock) code paths of the X, Threads and TikTok
  * adapters with an injected fake fetch. Run after building:

@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Unit tests for the draft source label ("Claude", "Grokbot"): stored with
  * queued jobs, shown in queue/history text, never sent to a platform.

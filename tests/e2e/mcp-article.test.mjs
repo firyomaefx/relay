@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * MCP end-to-end test for relay_article_validate, relay_article and relay_delete.
  * The server runs in forced mock mode, so nothing is posted, deleted or pinned

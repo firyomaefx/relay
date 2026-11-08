@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import { randomUUID } from "node:crypto";
 import { ConfigurationError, RelayError } from "@relay/core";
 import type {

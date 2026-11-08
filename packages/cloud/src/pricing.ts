@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { RelayError, type PlatformId, type PostDraft, type ThreadPartDraft } from "@relay/core";

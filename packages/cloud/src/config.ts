@@ -1,3 +1,4 @@
+// Traceability: REQ-002
 import path from "node:path";
 import { RelayError } from "@relay/core";
 

@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";

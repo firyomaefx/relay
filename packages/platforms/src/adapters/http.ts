@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import { createHash } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import { join } from "node:path";

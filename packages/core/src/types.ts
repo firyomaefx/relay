@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Shared contracts for Relay: platforms, drafts, accounts, adapters, results.
  * This file is the integration surface between core, platforms, MCP and the web app.

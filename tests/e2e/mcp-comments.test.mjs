@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * MCP end-to-end test for relay_comments_new and relay_reply.
  * The server runs in forced mock mode: no real API is called and nothing is posted.

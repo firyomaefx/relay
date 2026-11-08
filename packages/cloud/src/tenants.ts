@@ -1,3 +1,4 @@
+// Traceability: REQ-002, REQ-030
 import { createHmac } from "node:crypto";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";

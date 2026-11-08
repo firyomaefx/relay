@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Traceability: REQ-016
 /**
  * Relay smoke test (`npm run smoke`):
  *   1. runs `npm run build` from the repo root,

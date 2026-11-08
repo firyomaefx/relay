@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 export * from "./types.js";
 export * from "./errors.js";
 export * from "./secret-box.js";

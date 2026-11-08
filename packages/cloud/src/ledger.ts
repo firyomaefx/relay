@@ -1,3 +1,4 @@
+// Traceability: REQ-019
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import { RelayError } from "@relay/core";

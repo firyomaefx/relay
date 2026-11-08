@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Unit tests for the blocked-link guard (RELAY_BLOCKED_LINKS*), used to keep
  * affiliate shop links out of posts during a reputation phase.

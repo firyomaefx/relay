@@ -12,7 +12,7 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w @relay/core && npm run build -w @relay/platforms && npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "start": "npm run build && npm run start -w @relay/web",
     "dev": "npm run build && npm run start -w @relay/web",
@@ -29,9 +29,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.0",
+    "esbuild": "^0.25.0",
+    "postject": "^1.0.0-alpha.6",
     "typescript": "^5.9.3"
   }
 }
-
-
-

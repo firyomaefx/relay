@@ -1,3 +1,4 @@
+// Traceability: REQ-020
 import { readdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import type { CloudConfig } from "./config.js";

@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdir, stat } from "node:fs/promises";

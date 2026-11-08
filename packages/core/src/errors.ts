@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 export class RelayError extends Error {
   readonly code: string;
   readonly details?: unknown;

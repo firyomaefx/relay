@@ -1,0 +1,5 @@
+{
+  "main": "dist/relay-connector.cjs",
+  "output": "dist/relay-connector.blob",
+  "disableExperimentalSEAWarning": true
+}

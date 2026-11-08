@@ -4985,3 +4985,16 @@ body { font-size: 17px; }
 .topup-custom { display: inline-flex; align-items: center; gap: 6px; }
 .topup-custom .input { height: 38px; }
 
+
+/* ---------- Relay Connector entry ---------- */
+.connect-relay-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 24px; align-items: center; padding: 18px; border: 1px solid var(--hairline); border-radius: 16px; background: linear-gradient(135deg, rgba(232,248,237,.75), rgba(255,255,255,.35)); }
+.connect-relay-hero h3 { margin: 0 0 6px; font-family: "Sora", sans-serif; font-size: 18px; }
+.connect-relay-hero .dash-copy { margin: 0; max-width: 62ch; }
+.connect-relay-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.connect-relay-status { grid-column: 1 / -1; margin: 0; color: var(--text-mute); font-size: 12px; min-height: 16px; }
+.connect-relay-manual { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px; border: 1px dashed var(--hairline); border-radius: 10px; background: var(--shell); }
+.connect-relay-manual code { font-size: 11px; word-break: break-all; }
+.connect-client-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.integration-auto-note { color: var(--text-mute); font-size: 11px; }
+@media (max-width: 720px) { .connect-relay-hero { grid-template-columns: 1fr; } .connect-relay-actions { justify-content: flex-start; } .connect-client-list { grid-template-columns: 1fr; } }
+.connect-relay-wrap { grid-column: 1 / -1; }

@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import path from "node:path";

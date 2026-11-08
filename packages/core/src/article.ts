@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { imageDimensions, inspectMedia, resolveMediaPath } from "./media.js";

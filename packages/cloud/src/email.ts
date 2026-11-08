@@ -1,3 +1,4 @@
+// Traceability: REQ-002, REQ-030
 /**
  * Small, dependency-free transactional email client.
  *

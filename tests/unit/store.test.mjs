@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Unit tests for on-disk state: encrypted secrets at rest, credential storage,
  * and two service instances sharing one data directory.

@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * X reply support: replyToId validation, adapter payload, and schedule_at.
  * Fully mocked; no network calls are made.

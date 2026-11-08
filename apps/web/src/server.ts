@@ -18,7 +18,9 @@ import {
 } from "@relay/core";
 import { createRelay } from "@relay/platforms";
 import { PriceTable, defaultPricePath, type CloudPrices } from "@relay/cloud";
+import { CLIENT_MATRIX, generateArtifact, type ClientId } from "@relay/connector";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
+import { createConnectSession, lookupConnectSession, verifyConnectSession } from "./connect-session.js";
 import { createCheckoutSession, loadStripeConfig, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
 import { sendEmail, waitlistConfirmationEmail } from "@relay/cloud";
@@ -450,6 +452,33 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
     return;
   }
 
+  // The Connector authenticates this lookup with a one-time scoped token, not
+  // the console cookie. It must stay reachable before the console session gate.
+  // REQ-003, REQ-030
+  if (isGet && segments.length === 4 && segments[0] === "api" && segments[1] === "connect" && segments[2] === "session") {
+    if (!deps.cloudAdmin) {
+      throw new RelayError("Cloud connections are not configured yet.", "cloud_unavailable", undefined, 503);
+    }
+    await lookupConnectSession(req, res, segments[3], { store: deps.cloudAdmin.store });
+    return;
+  }
+
+  // The Connector authenticates verification with the scoped session token.
+  // REQ-016, REQ-030
+  if (method === "POST" && segments.length === 3 && segments[0] === "api" && segments[1] === "connect" && segments[2] === "verify") {
+    if (!deps.cloudAdmin) {
+      throw new RelayError("Cloud connections are not configured yet.", "cloud_unavailable", undefined, 503);
+    }
+    const body = asRecord(await readJsonBody(req, 16 * 1024));
+    const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+    if (!sessionId) throw new RelayError("sessionId is required.", "cloud_connect_session_required", undefined, 400);
+    await verifyConnectSession(req, res, sessionId, {
+      store: deps.cloudAdmin.store,
+      mcpUrl: process.env.RELAY_CLOUD_MCP_URL?.trim() || publicMcpUrl(deps.relay()),
+    });
+    return;
+  }
+
   // Everything else requires a session when RELAY_CONSOLE_PASSWORD is set.
   if (deps.session.enabled && !deps.session.authenticated(req)) {
     if (pathname.startsWith("/api/")) {
@@ -482,6 +511,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   throw new RelayError("Not found", "not_found", undefined, 404);
 }
 
+function publicMcpUrl(relay: RelayService): string {
+  return relay.consoleUrl.includes("//relay.")
+    ? relay.consoleUrl.replace("//relay.", "//mcp.").replace(/\/+$/, "") + "/mcp"
+    : "https://mcp.duitpoket.fun/mcp";
+}
+
 async function handleApi(
   req: IncomingMessage,
   res: ServerResponse,
@@ -490,6 +525,43 @@ async function handleApi(
   url: URL,
   deps: HandlerDeps,
 ): Promise<void> {
+  // REQ-001, REQ-022, REQ-023
+  if (segments[1] === "connect" && segments[2] === "clients" && segments.length === 3) {
+    if (method !== "GET") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
+    sendJson(res, 200, { clients: CLIENT_MATRIX, mcpUrl: publicMcpUrl(deps.relay()) });
+    return;
+  }
+
+  // REQ-009 to REQ-015
+  if (segments[1] === "connect" && segments[2] === "artifact" && segments.length === 4) {
+    if (method !== "GET") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
+    const clientId = decodeURIComponent(segments[3] ?? "") as ClientId;
+    try {
+      sendJson(res, 200, generateArtifact({ clientId, mcpUrl: publicMcpUrl(deps.relay()) }));
+    } catch (error) {
+      throw new RelayError(errorMessage(error), "connect_artifact_unavailable", undefined, 404);
+    }
+    return;
+  }
+
+  // REQ-017: console-authenticated read of the Connector's stored result.
+  if (segments[1] === "connect" && segments[2] === "status" && segments.length === 4) {
+    if (method !== "GET") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
+    if (!deps.cloudAdmin) throw new RelayError("Cloud connections are not configured yet.", "cloud_unavailable", undefined, 503);
+    sendJson(res, 200, { results: deps.cloudAdmin.store.listConnectVerifications(decodeURIComponent(segments[3] ?? "")) });
+    return;
+  }
+
+  // REQ-002
+  if (segments[1] === "connect" && segments[2] === "session" && segments.length === 3) {
+    if (method !== "POST") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
+    if (!deps.cloudAdmin) {
+      throw new RelayError("Cloud connections are not configured yet.", "cloud_unavailable", undefined, 503);
+    }
+    await createConnectSession(req, res, { store: deps.cloudAdmin.store });
+    return;
+  }
+
   if (segments[1] === "billing" && segments[2] === "stripe-checkout") {
     if (method !== "POST") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
     if (!deps.billing?.webhookSecret || !deps.cloudAdmin) {

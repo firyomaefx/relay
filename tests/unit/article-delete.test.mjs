@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * X Articles + relay_delete tests. Everything is mocked: adapters get a fake
  * fetch, the service runs in forced mock mode with a fetch that throws. No real

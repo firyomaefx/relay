@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Traceability: REQ-002, REQ-030
 import { loadCloudConfig } from "./config.js";
 import { CloudStore } from "./db.js";
 import { CloudLedger } from "./ledger.js";

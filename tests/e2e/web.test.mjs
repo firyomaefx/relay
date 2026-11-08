@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * End-to-end test for the web console: spawns `node apps/web/dist/index.js` on a
  * fixed test port with a temporary data directory and drives every documented

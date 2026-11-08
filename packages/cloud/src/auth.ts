@@ -1,3 +1,4 @@
+// Traceability: REQ-030
 import type { IncomingMessage } from "node:http";
 import { RelayError } from "@relay/core";
 import type { CloudStore } from "./db.js";

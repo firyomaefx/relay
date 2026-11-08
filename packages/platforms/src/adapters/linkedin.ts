@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 import { AuthError, RelayError } from "@relay/core";
 import type {
   AdapterContext,

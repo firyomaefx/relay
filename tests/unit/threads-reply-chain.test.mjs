@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Threads reply-chain regression tests (incident 2026-10-23 19:28 MYT: part 2
  * publish failed with code 24 / subcode 4279009). Fully mocked Graph API; no

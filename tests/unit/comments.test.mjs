@@ -1,3 +1,4 @@
+// Traceability: REQ-016
 /**
  * Unit tests for relay_comments_new / relay_reply (service level).
  * All platform adapters are fakes; nothing talks to a real API and no LLM is involved.

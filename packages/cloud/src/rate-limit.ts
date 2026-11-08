@@ -1,3 +1,4 @@
+// Traceability: REQ-002
 import { DatabaseSync } from "node:sqlite";
 import { RelayError } from "@relay/core";
 
