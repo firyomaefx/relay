@@ -1462,6 +1462,7 @@
   }
 
   let connectMatrixLoading = false;
+  let connectResults = [];
 
   function connectTierBadge(tier) {
     const label = tier === "auto" ? "Auto" : tier === "guided" ? "Guided" : tier === "manual" ? "Manual" : "Unsupported";
@@ -1488,6 +1489,7 @@
           ${client.officialUrl ? `<a class="ghost-btn small" href="${escapeAttr(client.officialUrl)}" target="_blank" rel="noreferrer noopener">Open app</a>` : ""}
         </div>
       </article>`).join("");
+      applyConnectStatus(connectResults);
     } catch (error) {
       const target = document.querySelector("#connectClientMatrix") ?? mount;
       target.innerHTML = `<p class="list-excerpt">Client list unavailable: ${escapeHtml(error.message)}</p>`;
@@ -1507,6 +1509,7 @@
   }
 
   function applyConnectStatus(results) {
+    connectResults = results;
     for (const result of results) {
       const badge = document.querySelector(`[data-client-status="${result.clientId}"]`);
       if (!badge) continue;
