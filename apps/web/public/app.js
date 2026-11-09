@@ -2032,12 +2032,13 @@
           <span class="access-chip" title="TikTok comment scopes are not granted to this app yet.">TikTok · access needed</span>
         </div>
         <div class="deepseek-key">
-          <label class="field-label" for="deepseekKey">DeepSeek API key <span class="key-status ${autoReplyConfigured ? "is-on" : ""}">${autoReplyConfigured ? "Configured" : "Not configured"}</span></label>
+          <label class="field-label" for="deepseekKey">DeepSeek API key <span class="key-status ${autoReplyConfigured ? "is-on" : ""}" id="deepseekKeyStatus">${autoReplyConfigured ? "Configured" : "Not configured"}</span></label>
           <div class="deepseek-row">
             <input class="input" id="deepseekKey" type="password" autocomplete="off" placeholder="${autoReplyConfigured ? "•••••••• saved" : "sk-..."}" />
+            <button class="ghost-btn" id="testDeepseekKey" type="button">Test</button>
             <button class="ghost-btn" id="saveDeepseekKey" type="button">Save</button>
           </div>
-          <p class="autoreply-remark">${autoReplyConfigured ? "Configured. Replies use deepseek-chat." : "Not configured. Auto-reply will skip comments until a key is saved."}</p>
+          <p class="autoreply-remark" id="deepseekKeyRemark">${autoReplyConfigured ? "Configured. Replies use deepseek-chat. Test the key to confirm it is accepted." : "Not configured. Auto-reply will skip comments until a key is saved."}</p>
         </div>
       </div>
     `;
@@ -2635,6 +2636,35 @@
     });
 
     document.addEventListener("click", (event) => {
+      const testDeepseek = event.target.closest("#testDeepseekKey");
+      if (testDeepseek) {
+        testDeepseek.disabled = true;
+        const status = document.getElementById("deepseekKeyStatus");
+        const remark = document.getElementById("deepseekKeyRemark");
+        if (status) {
+          status.textContent = "Testing…";
+          status.classList.remove("is-on");
+        }
+        void api("/api/settings/deepseek/test", { method: "POST", body: {} })
+          .then((result) => {
+            if (status) {
+              status.textContent = result.ok ? "Working" : "Check failed";
+              status.classList.toggle("is-on", Boolean(result.ok));
+            }
+            if (remark) remark.textContent = result.detail;
+            toast({
+              tone: result.ok ? "success" : "error",
+              title: result.ok ? "DeepSeek key works" : "DeepSeek key check failed",
+              text: result.detail,
+            });
+          })
+          .catch((error) => toast({ tone: "error", title: "Could not test the key", text: error.message }))
+          .finally(() => {
+            testDeepseek.disabled = false;
+          });
+        return;
+      }
+
       const saveDeepseek = event.target.closest("#saveDeepseekKey");
       if (saveDeepseek) {
         const input = document.getElementById("deepseekKey");

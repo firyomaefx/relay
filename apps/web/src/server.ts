@@ -722,6 +722,12 @@ async function handleApi(
     return;
   }
 
+  // Live DeepSeek key check. Never returns the key.
+  if (segments.length === 4 && resource === "settings" && segments[2] === "deepseek" && segments[3] === "test" && method === "POST") {
+    sendJson(res, 200, await relay.testDeepSeekKey());
+    return;
+  }
+
   // READ-ONLY Threads comments endpoint. It never posts replies or publishes.
   if (segments.length === 3 && resource === "threads" && segments[2] === "comments" && method === "GET") {
     const rawLimit = url.searchParams.get("limit_posts");

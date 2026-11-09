@@ -362,6 +362,26 @@ export class RelayService {
     }
   }
 
+  /** Live check against DeepSeek; the key itself is never returned. */
+  async testDeepSeekKey(): Promise<{ ok: boolean; detail: string }> {
+    const key = this.getDeepSeekApiKey();
+    if (!key) return { ok: false, detail: "No DeepSeek API key is configured." };
+    try {
+      const response = await this.fetchImpl("https://api.deepseek.com/models", {
+        headers: { authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        return { ok: false, detail: `DeepSeek returned HTTP ${response.status}.` };
+      }
+      const body = (await response.json()) as { data?: unknown[] };
+      const count = Array.isArray(body.data) ? body.data.length : 0;
+      return { ok: true, detail: `DeepSeek accepted the key (${count} models available).` };
+    } catch (error) {
+      return { ok: false, detail: errorMessage(error) };
+    }
+  }
+
   /** Save or clear the DeepSeek key. The key is encrypted at rest. */
   async setDeepSeekApiKey(apiKey: string | null): Promise<boolean> {
     const trimmed = apiKey?.trim() ?? "";
