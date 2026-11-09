@@ -195,7 +195,7 @@
                   <p class="eyebrow">Activity</p>
                   <h2>Publishing pulse</h2>
                 </div>
-                <div class="dash-big"><strong id="dashActions">0</strong><span>actions</span></div>
+                <div class="dash-big"><strong id="dashActions">0</strong><span>all actions</span></div>
               </div>
               <div class="heatmap-wrap">
                 <div class="heatmap" id="dashHeatmap" aria-label="Activity by day"></div>
@@ -205,6 +205,20 @@
                 <div><span>Current streak</span><strong id="dashStreak">0 days</strong></div>
                 <div><span>Most used</span><strong id="dashTop">—</strong></div>
                 <div><span>Accounts</span><strong id="dashAccounts">0</strong></div>
+              </div>
+              <div class="dash-breakdown" aria-label="All actions by status">
+                <div class="breakdown-donut" id="dashDonut" role="img" aria-label="Actions by status">
+                  <span id="dashDonutTotal">0</span>
+                </div>
+                <div class="breakdown-copy">
+                  <p class="breakdown-title">All actions by status</p>
+                  <ul class="breakdown-list">
+                    <li><i class="breakdown-dot" data-tone="done"></i><span>Published</span><strong id="dashDone">0</strong></li>
+                    <li><i class="breakdown-dot" data-tone="pending"></i><span>Pending</span><strong id="dashPending">0</strong></li>
+                    <li><i class="breakdown-dot" data-tone="failed"></i><span>Failed</span><strong id="dashFailed">0</strong></li>
+                    <li><i class="breakdown-dot" data-tone="canceled"></i><span>Canceled</span><strong id="dashCanceled">0</strong></li>
+                  </ul>
+                </div>
               </div>
             </section>
             <aside class="panel dash-card dash-recommend" aria-label="Connect Relay">

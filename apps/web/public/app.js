@@ -1659,10 +1659,6 @@
     if (!els.dashHeatmap) return;
     const history = Array.isArray(state.history) ? state.history : [];
     const queue = Array.isArray(state.queue) ? state.queue : [];
-    const actionRecords = [
-      ...history,
-      ...queue.filter((job) => job.status === "pending"),
-    ];
     const counts = new Map();
     const addDate = (value) => {
       if (!value) return;
@@ -1709,7 +1705,27 @@
     }
     const topPlatform = [...platformCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 
-    els.dashActions.textContent = String(actionRecords.length);
+    const pendingJobs = queue.filter((job) => job.status === "pending" || job.status === "running");
+    const doneJobs = queue.filter((job) => job.status === "done");
+    const failedJobs = queue.filter((job) => job.status === "failed");
+    const canceledJobs = queue.filter((job) => job.status === "canceled");
+    const totalActions = queue.length;
+    const pct = (count) => (totalActions ? (count / totalActions) * 100 : 0);
+    const doneEnd = pct(doneJobs.length);
+    const pendingEnd = doneEnd + pct(pendingJobs.length);
+    const failedEnd = pendingEnd + pct(failedJobs.length);
+    if (els.dashDonut) {
+      els.dashDonut.style.background = totalActions
+        ? `conic-gradient(var(--live) 0 ${doneEnd}%, var(--accent) ${doneEnd}% ${pendingEnd}%, var(--danger) ${pendingEnd}% ${failedEnd}%, var(--text-mute) ${failedEnd}% 100%)`
+        : "var(--shell)";
+    }
+    if (els.dashDonutTotal) els.dashDonutTotal.textContent = String(totalActions);
+    if (els.dashDone) els.dashDone.textContent = String(doneJobs.length);
+    if (els.dashPending) els.dashPending.textContent = String(pendingJobs.length);
+    if (els.dashFailed) els.dashFailed.textContent = String(failedJobs.length);
+    if (els.dashCanceled) els.dashCanceled.textContent = String(canceledJobs.length);
+
+    els.dashActions.textContent = String(totalActions);
     els.dashStreak.textContent = `${streak} day${streak === 1 ? "" : "s"}`;
     els.dashTop.textContent = topPlatform ? PLATFORM_META[topPlatform]?.name ?? topPlatform : "—";
     els.dashAccounts.textContent = String(state.accounts.length);
@@ -2562,6 +2578,12 @@
       dashTop: $("#dashTop"),
       dashAccounts: $("#dashAccounts"),
       dashHeatmap: $("#dashHeatmap"),
+      dashDonut: $("#dashDonut"),
+      dashDonutTotal: $("#dashDonutTotal"),
+      dashDone: $("#dashDone"),
+      dashPending: $("#dashPending"),
+      dashFailed: $("#dashFailed"),
+      dashCanceled: $("#dashCanceled"),
       dashIntegrations: $("#dashIntegrations"),
       integrationWizard: $("#integrationWizard"),
       integrationEyebrow: $("#integrationEyebrow"),
