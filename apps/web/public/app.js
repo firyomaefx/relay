@@ -1341,12 +1341,13 @@
         .map((job) => {
           const recurring = Boolean(job.draft?.recurrence);
           const tone = job.status === "done" ? "done" : job.status === "failed" ? "failed" : job.status === "canceled" ? "canceled" : "pending";
+          const statusLabel = tone === "done" ? "Done" : tone === "failed" ? "Failed" : tone === "canceled" ? "Canceled" : recurring ? "Scheduled ↻" : "Scheduled";
           const platforms = (job.draft?.platforms ?? []).map((platform) => PLATFORM_META[platform]?.name ?? platform).join(" · ");
           const text = draftText(job.draft) || (job.kind === "article" ? job.article?.title : "") || "Media-only post";
           const time = new Date(job.scheduleAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
           const label = draftLabel(job.draft);
-          return `<div class="calendar-event" data-tone="${recurring ? "recurring" : tone}" title="${escapeAttr(`${time} · ${label ? `${label} · ` : ""}${platforms} · ${text}`)}">
-            <span class="calendar-event-time">${labelBadge(job.draft)}${escapeHtml(time)}${recurring ? " ↻" : ""}</span>
+          return `<div class="calendar-event" data-tone="${tone}" data-recurring="${recurring ? "true" : "false"}" title="${escapeAttr(`${statusLabel} · ${time} · ${label ? `${label} · ` : ""}${platforms} · ${text}`)}">
+            <span class="calendar-event-time"><span class="calendar-event-status">${escapeHtml(statusLabel)}</span>${labelBadge(job.draft)}${escapeHtml(time)}</span>
             <span class="calendar-event-title">${escapeHtml(text)}</span>
           </div>`;
         });

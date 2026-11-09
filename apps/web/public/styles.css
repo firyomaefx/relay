@@ -3790,18 +3790,43 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   overflow: hidden;
 }
 
-.calendar-event[data-tone="pending"],
-.calendar-event[data-tone="recurring"] {
+.calendar-event[data-tone="pending"] {
   border-left-color: var(--accent);
 }
 
 .calendar-event[data-tone="done"] {
   border-left-color: var(--live);
+  opacity: .62;
+}
+
+.calendar-event[data-tone="done"] .calendar-event-title {
+  text-decoration: line-through;
+  text-decoration-thickness: .5px;
 }
 
 .calendar-event[data-tone="failed"] {
   border-left-color: var(--danger);
+  background: var(--danger-soft);
 }
+
+.calendar-event[data-tone="canceled"] {
+  border-left-color: var(--text-mute);
+  opacity: .55;
+}
+
+.calendar-event-status {
+  display: inline-block;
+  margin-right: 4px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+.calendar-event[data-tone="done"] .calendar-event-status { color: var(--live); }
+.calendar-event[data-tone="failed"] .calendar-event-status { color: var(--danger); }
+.calendar-event[data-tone="pending"] .calendar-event-status { color: var(--accent); }
 
 .calendar-event-time {
   display: block;
@@ -3848,6 +3873,8 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 
 .legend-dot[data-tone="recurring"] { background: var(--mock); }
 .legend-dot[data-tone="done"] { background: var(--live); }
+.legend-dot[data-tone="failed"] { background: var(--danger); }
+.legend-dot[data-tone="canceled"] { background: var(--text-mute); }
 
 @media (max-width: 760px) {
   .calendar-day { min-height: 76px; }
