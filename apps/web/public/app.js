@@ -2001,6 +2001,7 @@
     const protectedMode = Boolean(state.session.protected);
 
     const autoReplyOn = Boolean(settings.threadsAutoReplyEnabled);
+    const autoReplyEnvOn = settings.threadsAutoReplyEnvEnabled !== false;
     const autoReplyConfigured = Boolean(settings.threadsAutoReplyConfigured);
     els.settingsEnv.innerHTML = `
       <div class="kv-row"><span class="kv-key">Mode</span><span class="kv-value"><strong>${settings.mock ? "Simulated" : "Live"}</strong>${settings.mock ? " — RELAY_MOCK=1, no network calls" : " — real API calls when credentials are configured"}</span></div>
@@ -2012,14 +2013,18 @@
         <div class="autoreply-head">
           <div>
             <p class="kv-key">Auto-reply comments</p>
-            <p class="kv-value">${autoReplyOn ? "On" : "Off"}</p>
+            <p class="kv-value">${autoReplyOn ? "On" : "Off"}${autoReplyEnvOn ? "" : " · locked by server config"}</p>
           </div>
           <label class="switch-row" for="autoReplyToggle">
-            <input class="switch-input" type="checkbox" id="autoReplyToggle" data-toggle-autoreply="${autoReplyOn ? "false" : "true"}" ${autoReplyOn ? "checked" : ""} />
+            <input class="switch-input" type="checkbox" id="autoReplyToggle" data-toggle-autoreply="${autoReplyOn ? "false" : "true"}" ${autoReplyOn ? "checked" : ""} ${autoReplyEnvOn ? "" : "disabled"} />
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
           </label>
         </div>
-        <p class="autoreply-remark ${autoReplyOn ? "is-on" : ""}">${autoReplyOn ? "Replies to genuine comments in a 30-minute window. Spam and hostile comments are flagged, not answered." : "Off. New comments are left untouched."}</p>
+        <p class="autoreply-remark ${autoReplyOn ? "is-on" : ""}">${!autoReplyEnvOn
+          ? "Disabled by THREADS_AUTOREPLY_ENABLED=false on the server. Change the environment setting to enable it."
+          : autoReplyOn
+            ? "Replies to genuine comments in a 30-minute window. Spam and hostile comments are flagged, not answered."
+            : "Off. New comments are left untouched."}</p>
         <div class="autoreply-platforms">
           <span class="access-chip is-live" title="Auto-reply is enabled on Threads.">Threads · live</span>
           <span class="access-chip is-ready" title="Instagram comments permission is present; the auto-reply loop still needs to be enabled.">Instagram · scope ready</span>
@@ -2027,7 +2032,7 @@
           <span class="access-chip" title="TikTok comment scopes are not granted to this app yet.">TikTok · access needed</span>
         </div>
         <div class="deepseek-key">
-          <label class="field-label" for="deepseekKey">DeepSeek API key</label>
+          <label class="field-label" for="deepseekKey">DeepSeek API key <span class="key-status ${autoReplyConfigured ? "is-on" : ""}">${autoReplyConfigured ? "Configured" : "Not configured"}</span></label>
           <div class="deepseek-row">
             <input class="input" id="deepseekKey" type="password" autocomplete="off" placeholder="${autoReplyConfigured ? "•••••••• saved" : "sk-..."}" />
             <button class="ghost-btn" id="saveDeepseekKey" type="button">Save</button>
@@ -2114,8 +2119,16 @@
 
   async function toggleAutoReply(enabled) {
     try {
-      await api("/api/threads/autoreply", { method: "POST", body: { enabled } });
+      const result = await api("/api/threads/autoreply", { method: "POST", body: { enabled } });
       await refreshAll();
+      if (result?.enabled !== enabled) {
+        toast({
+          tone: "error",
+          title: "Auto-reply is locked",
+          text: "The server environment has THREADS_AUTOREPLY_ENABLED=false. Change it before enabling the switch.",
+        });
+        return;
+      }
       toast({
         tone: "success",
         title: enabled ? "Threads auto-reply enabled" : "Threads auto-reply disabled",

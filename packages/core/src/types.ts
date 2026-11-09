@@ -694,6 +694,8 @@ export interface SettingsView {
   passwordProtected: boolean;
   /** Effective local Threads auto-reply switch (env toggle AND the settings flag). */
   threadsAutoReplyEnabled: boolean;
+  /** False when THREADS_AUTOREPLY_ENABLED blocks the saved setting. */
+  threadsAutoReplyEnvEnabled: boolean;
   /** True when DEEPSEEK_API_KEY is present; without it auto-replies are skipped. */
   threadsAutoReplyConfigured: boolean;
 }

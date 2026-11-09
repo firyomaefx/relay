@@ -344,6 +344,7 @@ export class RelayService {
       passwordProtected: Boolean(this.env.RELAY_CONSOLE_PASSWORD),
       platforms: await this.platformStatuses(),
       threadsAutoReplyEnabled: this.autoReply.isEnabled(),
+      threadsAutoReplyEnvEnabled: threadsAutoReplyEnvEnabled(this.env),
       threadsAutoReplyConfigured: Boolean(this.getDeepSeekApiKey()),
     };
   }
