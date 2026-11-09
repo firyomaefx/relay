@@ -1,4 +1,9 @@
 // Traceability: REQ-016
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import { ConfigurationError, RelayError } from "@relay/core";
 import type {
   AdapterContext,
@@ -46,6 +51,99 @@ const MAX_SINGLE_CHUNK_BYTES = 64 * 1024 * 1024;
 const MULTI_CHUNK_BYTES = 10 * 1024 * 1024;
 const PUBLISH_POLL_LIMIT = 90;
 const PUBLISH_POLL_INTERVAL_MS = 2000;
+const run = promisify(execFile);
+
+function captionLines(caption: string): string {
+  const words = caption.replace(/\s+/g, " ").trim().slice(0, 120).split(" ");
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    if (!line) line = word;
+    else if (`${line} ${word}`.length <= 30) line += ` ${word}`;
+    else { lines.push(line); line = word; }
+  }
+  if (line) lines.push(line);
+  return lines.join("\n");
+}
+
+/**
+ * TikTok has no music-picker field in the Content Posting API, and inbox
+ * drafts carry no caption. For a silent video, mix a quiet generated bed and
+ * burn the first caption lines onto the video before upload so a draft is
+ * never a silent, textless clip. A video that already has audio is unchanged.
+ */
+async function prepareTikTokVideo(
+  ctx: AdapterContext,
+  video: MediaItem,
+  caption: string,
+  addMusic: boolean,
+): Promise<{ buffer: Buffer; mimeType: string }> {
+  const original = await ctx.readMedia(video);
+  if (!addMusic) return original;
+  const dir = await mkdtemp(path.join(tmpdir(), "relay-tiktok-"));
+  const input = path.join(dir, "input");
+  const output = path.join(dir, "output.mp4");
+  try {
+    await writeFile(input, original.buffer);
+    let audio = "";
+    try {
+      const probe = await run("ffprobe", [
+        "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
+        "-of", "csv=p=0", input,
+      ]);
+      audio = String(probe.stdout ?? "").trim();
+    } catch (error) {
+      const missing = typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT";
+      if (missing) {
+        ctx.logger("TikTok audio preparation skipped: ffmpeg/ffprobe is not installed on this host.");
+        return original;
+      }
+      throw new RelayError(
+        `Could not inspect the TikTok video audio: ${error instanceof Error ? error.message : String(error)}`,
+        "tiktok_ffmpeg_error",
+        undefined,
+        500,
+      );
+    }
+    if (audio) return original;
+
+    const durationProbe = await run("ffprobe", [
+      "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", input,
+    ]);
+    const duration = Math.max(1, Number(String(durationProbe.stdout ?? "").trim()) || 0);
+    const text = captionLines(caption);
+    const textFile = path.join(dir, "caption.txt");
+    const font = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
+    await writeFile(textFile, text || " ", "utf8");
+
+    // A generated, royalty-free bed. Chords change by post text so drafts do
+    // not all sound identical; it is intentionally quiet under the clip.
+    const root = 196 + (caption.length % 4) * 24.5;
+    const frequencies = [root, root * 1.25, root * 1.5];
+    const inputs = frequencies.flatMap((frequency) => [
+      "-f", "lavfi", "-i", `sine=frequency=${frequency.toFixed(2)}:sample_rate=44100:duration=${duration.toFixed(3)}`,
+    ]);
+    const audioFilter = [
+      "[1:a]volume=0.045[a1]",
+      "[2:a]volume=0.032[a2]",
+      "[3:a]volume=0.024[a3]",
+      `[a1][a2][a3]amix=inputs=3:duration=longest:normalize=0,afade=t=in:st=0:d=0.6,afade=t=out:st=${Math.max(0, duration - 0.8).toFixed(3)}:d=0.8[a]`,
+    ].join(";");
+    const captionFilter = text
+      ? `[0:v]drawtext=fontfile='${font}':textfile='${textFile}':expansion=none:fontcolor=white:fontsize=28:line_spacing=6:box=1:boxcolor=black@0.55:boxborderw=12:x=(w-text_w)/2:y=h-text_h-56:enable='between(t,0,8)'[v]`
+      : "[0:v]null[v]";
+    await run("ffmpeg", [
+      "-y", "-i", input, ...inputs,
+      "-filter_complex", `${audioFilter};${captionFilter}`,
+      "-map", "[v]", "-map", "[a]",
+      "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+      "-c:a", "aac", "-b:a", "128k", "-shortest", "-movflags", "+faststart", output,
+    ]);
+    return { buffer: await readFile(output), mimeType: "video/mp4" };
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
 
 type TikTokPrivacy = "PUBLIC_TO_EVERYONE" | "MUTUAL_FOLLOW_FRIENDS" | "SELF_ONLY";
 
@@ -230,13 +328,13 @@ export class TikTokAdapter implements PlatformAdapter {
     let draftFallback = false;
     if (videos.length > 0) {
       try {
-        publishId = await this.publishVideo(ctx, tokens, videos[0]!, draft ? null : videoPostInfo);
+        publishId = await this.publishVideo(ctx, tokens, videos[0]!, draft ? null : videoPostInfo, caption, autoAddMusic);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         // TikTok blocks public Direct Posts until the app passes its audit.
         // Send the video to the creator's inbox instead of losing the upload.
         if (!draft && /unaudited_client_can_only_post_to_private_accounts/i.test(message)) {
-          publishId = await this.publishVideo(ctx, tokens, videos[0]!, null);
+          publishId = await this.publishVideo(ctx, tokens, videos[0]!, null, caption, autoAddMusic);
           draftFallback = true;
         } else {
           throw error;
@@ -319,8 +417,10 @@ export class TikTokAdapter implements PlatformAdapter {
       brand_content_toggle: boolean;
       brand_organic_toggle: boolean;
     } | null,
+    caption: string,
+    addMusic: boolean,
   ): Promise<string> {
-    const blob = await ctx.readMedia(video);
+    const blob = await prepareTikTokVideo(ctx, video, caption, addMusic);
     if (blob.buffer.length === 0) throw new RelayError("Cannot upload an empty video to TikTok", "tiktok_media_empty");
     const plan = planChunks(blob.buffer.length);
     const draft = postInfo === null;
