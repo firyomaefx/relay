@@ -1711,19 +1711,28 @@
     const canceledJobs = queue.filter((job) => job.status === "canceled");
     const totalActions = queue.length;
     const pct = (count) => (totalActions ? (count / totalActions) * 100 : 0);
-    const doneEnd = pct(doneJobs.length);
-    const pendingEnd = doneEnd + pct(pendingJobs.length);
-    const failedEnd = pendingEnd + pct(failedJobs.length);
-    if (els.dashDonut) {
-      els.dashDonut.style.background = totalActions
-        ? `conic-gradient(var(--live) 0 ${doneEnd}%, var(--accent) ${doneEnd}% ${pendingEnd}%, var(--danger) ${pendingEnd}% ${failedEnd}%, var(--text-mute) ${failedEnd}% 100%)`
-        : "var(--shell)";
+    const setWidth = (element, count) => {
+      if (element) element.style.width = `${pct(count).toFixed(2)}%`;
+    };
+    setWidth(els.dashBarDone, doneJobs.length);
+    setWidth(els.dashBarPending, pendingJobs.length);
+    setWidth(els.dashBarFailed, failedJobs.length);
+    setWidth(els.dashBarCanceled, canceledJobs.length);
+    if (els.dashBreakdownBar) {
+      els.dashBreakdownBar.setAttribute(
+        "aria-label",
+        `${doneJobs.length} published, ${pendingJobs.length} pending, ${failedJobs.length} failed, ${canceledJobs.length} canceled`,
+      );
     }
-    if (els.dashDonutTotal) els.dashDonutTotal.textContent = String(totalActions);
+    if (els.dashBreakdownTotal) els.dashBreakdownTotal.textContent = String(totalActions);
     if (els.dashDone) els.dashDone.textContent = String(doneJobs.length);
     if (els.dashPending) els.dashPending.textContent = String(pendingJobs.length);
     if (els.dashFailed) els.dashFailed.textContent = String(failedJobs.length);
     if (els.dashCanceled) els.dashCanceled.textContent = String(canceledJobs.length);
+    if (els.dashDonePct) els.dashDonePct.textContent = `${pct(doneJobs.length).toFixed(1)}%`;
+    if (els.dashPendingPct) els.dashPendingPct.textContent = `${pct(pendingJobs.length).toFixed(1)}%`;
+    if (els.dashFailedPct) els.dashFailedPct.textContent = `${pct(failedJobs.length).toFixed(1)}%`;
+    if (els.dashCanceledPct) els.dashCanceledPct.textContent = `${pct(canceledJobs.length).toFixed(1)}%`;
 
     els.dashActions.textContent = String(totalActions);
     els.dashStreak.textContent = `${streak} day${streak === 1 ? "" : "s"}`;
@@ -2578,12 +2587,20 @@
       dashTop: $("#dashTop"),
       dashAccounts: $("#dashAccounts"),
       dashHeatmap: $("#dashHeatmap"),
-      dashDonut: $("#dashDonut"),
-      dashDonutTotal: $("#dashDonutTotal"),
+      dashBreakdownTotal: $("#dashBreakdownTotal"),
+      dashBreakdownBar: $("#dashBreakdownBar"),
+      dashBarDone: $("#dashBarDone"),
+      dashBarPending: $("#dashBarPending"),
+      dashBarFailed: $("#dashBarFailed"),
+      dashBarCanceled: $("#dashBarCanceled"),
       dashDone: $("#dashDone"),
       dashPending: $("#dashPending"),
       dashFailed: $("#dashFailed"),
       dashCanceled: $("#dashCanceled"),
+      dashDonePct: $("#dashDonePct"),
+      dashPendingPct: $("#dashPendingPct"),
+      dashFailedPct: $("#dashFailedPct"),
+      dashCanceledPct: $("#dashCanceledPct"),
       dashIntegrations: $("#dashIntegrations"),
       integrationWizard: $("#integrationWizard"),
       integrationEyebrow: $("#integrationEyebrow"),

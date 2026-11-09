@@ -207,17 +207,40 @@
                 <div><span>Accounts</span><strong id="dashAccounts">0</strong></div>
               </div>
               <div class="dash-breakdown" aria-label="All actions by status">
-                <div class="breakdown-donut" id="dashDonut" role="img" aria-label="Actions by status">
-                  <span id="dashDonutTotal">0</span>
+                <div class="breakdown-head">
+                  <div>
+                    <p class="breakdown-eyebrow">All actions by status</p>
+                    <p class="breakdown-total"><strong id="dashBreakdownTotal">0</strong> total</p>
+                  </div>
+                  <span class="breakdown-note">Lifetime</span>
                 </div>
-                <div class="breakdown-copy">
-                  <p class="breakdown-title">All actions by status</p>
-                  <ul class="breakdown-list">
-                    <li><i class="breakdown-dot" data-tone="done"></i><span>Published</span><strong id="dashDone">0</strong></li>
-                    <li><i class="breakdown-dot" data-tone="pending"></i><span>Pending</span><strong id="dashPending">0</strong></li>
-                    <li><i class="breakdown-dot" data-tone="failed"></i><span>Failed</span><strong id="dashFailed">0</strong></li>
-                    <li><i class="breakdown-dot" data-tone="canceled"></i><span>Canceled</span><strong id="dashCanceled">0</strong></li>
-                  </ul>
+                <div class="breakdown-bar" id="dashBreakdownBar" role="img" aria-label="Actions by status">
+                  <span class="breakdown-segment" data-tone="done" id="dashBarDone"></span>
+                  <span class="breakdown-segment" data-tone="pending" id="dashBarPending"></span>
+                  <span class="breakdown-segment" data-tone="failed" id="dashBarFailed"></span>
+                  <span class="breakdown-segment" data-tone="canceled" id="dashBarCanceled"></span>
+                </div>
+                <div class="breakdown-legend">
+                  <div class="breakdown-stat">
+                    <span class="breakdown-dot" data-tone="done"></span>
+                    <div><strong id="dashDone">0</strong><span>Published</span></div>
+                    <em id="dashDonePct">0%</em>
+                  </div>
+                  <div class="breakdown-stat">
+                    <span class="breakdown-dot" data-tone="pending"></span>
+                    <div><strong id="dashPending">0</strong><span>Pending</span></div>
+                    <em id="dashPendingPct">0%</em>
+                  </div>
+                  <div class="breakdown-stat">
+                    <span class="breakdown-dot" data-tone="failed"></span>
+                    <div><strong id="dashFailed">0</strong><span>Failed</span></div>
+                    <em id="dashFailedPct">0%</em>
+                  </div>
+                  <div class="breakdown-stat">
+                    <span class="breakdown-dot" data-tone="canceled"></span>
+                    <div><strong id="dashCanceled">0</strong><span>Canceled</span></div>
+                    <em id="dashCanceledPct">0%</em>
+                  </div>
                 </div>
               </div>
             </section>
