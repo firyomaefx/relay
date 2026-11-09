@@ -3,8 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Relay Cloud — pricing</title>
+<title>Pricing · Relay Cloud</title>
 <meta name="description" content="Prepaid Relay Cloud pricing. One API for X, Threads, TikTok, YouTube, Instagram and LinkedIn. Pay only for successful posts.">
+<link rel="canonical" href="https://relay.duitpoket.fun/pricing">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Relay Cloud">
+<meta property="og:title" content="Pricing · Relay Cloud">
+<meta property="og:description" content="Post to X, Threads, TikTok, YouTube, Instagram and LinkedIn from your AI agent over MCP. Pay per post, no monthly fee, failed posts are free.">
+<meta property="og:url" content="https://relay.duitpoket.fun/pricing">
+<meta property="og:image" content="https://relay.duitpoket.fun/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -226,7 +241,7 @@
       <aside class="hero-side">
         <p>Every charge is written to an append-only ledger. No charge for a failed post.</p>
         <div class="stat"><b id="freeStat">$0.50</b><span>free credit to start</span></div>
-        <div class="stat"><b>5</b><span>networks in one API</span></div>
+        <div class="stat"><b>6</b><span>networks in one API</span></div>
         <div class="stat"><b>0</b><span>monthly platform fee</span></div>
         <div class="stat"><b>24/7</b><span>cloud scheduler</span></div>
       </aside>
@@ -312,17 +327,17 @@
     <div class="example-grid example">
       <div class="bezel"><div class="core">
         <div class="label">All text · $0.02</div>
-        <div class="big" id="exText">—</div>
+        <div class="big" id="exText">...</div>
         <div class="small">text posts from a $10 top-up</div>
       </div></div>
       <div class="bezel"><div class="core">
         <div class="label">All video · $0.04</div>
-        <div class="big" id="exVideo">—</div>
+        <div class="big" id="exVideo">...</div>
         <div class="small">video posts from a $10 top-up</div>
       </div></div>
       <div class="bezel"><div class="core">
         <div class="label">2 text + 1 video</div>
-        <div class="big" id="exMix">—</div>
+        <div class="big" id="exMix">...</div>
         <div class="small" id="exMixSub">posts in a repeatable 3-post marketing set</div>
       </div></div>
     </div>
@@ -386,14 +401,14 @@
         <details><summary>Is there a monthly subscription?</summary><p>No. The default model is prepaid pay-as-you-go credits with a free-post allowance. Agency arrangements are separate.</p></details>
         <details><summary>How many social accounts can I connect?</summary><p>Each platform gets <strong>3 account slots after a single $9.90 paid top-up</strong>, and <strong>10 account slots after a single $49.90 top-up</strong>. Smaller top-ups do not accumulate toward the unlock. The first account on a platform is the baseline. Free starter credit does not count.</p></details>
         <details><summary>Does Relay Cloud include automatic replies?</summary><p>Threads auto-reply unlocks after a single <strong>$9.90 paid top-up</strong>, your own DeepSeek API key, and a connected Threads account with read and reply permissions. The key is encrypted per customer; spam and hostile comments are skipped. Agent-called replies work without the unlock.</p></details>
-        <details><summary>How do I access the cloud MCP?</summary><p>A customer-specific API key is required. Cloud access is currently operator-provisioned while Stripe card checkout is being completed. Use the console or contact Relay for access.</p></details>
+        <details><summary>How do I access the cloud MCP?</summary><p>A customer-specific API key is required. Join the waitlist, and once you're approved your key arrives with your private connection link. Top up by card any time at <a href="/topup">/topup</a>. See the <a href="/docs">quickstart</a>.</p></details>
         <details><summary>Why does the MCP URL show an error in my browser?</summary><p><span class="mono">/mcp</span> speaks Streamable HTTP MCP, not HTML. A browser request without an API key returns 401. It is working as intended; use an MCP client.</p></details>
         <details><summary>Can I cancel a scheduled post?</summary><p>Yes, while it is still pending. The reserved amount is released and the post is not published.</p></details>
       </div>
     </div>
     <div class="cta">
       <div class="cta-inner">
-        <div><h2>One API. Five networks. Pay for what ships.</h2><p>Open the console to request access, or read the rates above. No monthly platform fee.</p></div>
+        <div><h2>One API. Six networks. Pay for what ships.</h2><p>Open the console to request access, or read the rates above. No monthly platform fee.</p></div>
         <div class="actions" style="margin-top:0"><a class="btn btn-primary" href="/waitlist">Join the waitlist <span class="arrow">↗</span></a></div>
       </div>
     </div>
@@ -402,12 +417,12 @@
 
 <footer class="wrap">
   <span>Relay Cloud · prepaid publishing infrastructure</span>
-  <span><a href="/pricing">Pricing</a> · <a href="/login">Console</a> · <a href="https://cloud-mcp.duitpoket.fun/health">Status</a></span>
+  <span><a href="/pricing">Pricing</a> · <a href="/docs">Docs</a> · <a href="/topup">Top up</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/refund">Refunds</a> · <a href="/contact">Contact</a> · <a href="/login">Log in</a> · <a href="https://cloud-mcp.duitpoket.fun/health">Status</a></span>
 </footer>
 
 <script id="priceData" type="application/json">__PRICE_DATA__</script>
 <script>
-const labels={x:"X",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",instagram:"Instagram"};
+const labels={x:"X",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",instagram:"Instagram",linkedin:"LinkedIn"};
 const kindLabels={text:"Text",link:"Link",image:"Image",carousel:"Carousel",video:"Video",article:"Article"};
 const $=(id)=>document.getElementById(id);
 const money=(amount,currency="USD",unit="milliUSD")=>{
@@ -463,7 +478,7 @@ async function load(){
     renderPricing(d);
   }catch(e){
     if(seeded){renderPricing(seeded);}
-    else{$("platformGrid").innerHTML=`<div class="error-box" style="grid-column:1/-1">${e.message}</div>`;$("freeStat").textContent="—";}
+    else{$("platformGrid").innerHTML=`<div class="error-box" style="grid-column:1/-1">${e.message}</div>`;$("freeStat").textContent="...";}
   }
 }
 

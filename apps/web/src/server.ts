@@ -17,11 +17,11 @@ import {
   type RelayService,
 } from "@relay/core";
 import { createRelay } from "@relay/platforms";
-import { PriceTable, defaultPricePath, type CloudPrices } from "@relay/cloud";
+import { PriceTable, authenticateApiKey, defaultPricePath, type CloudPrices } from "@relay/cloud";
 import { CLIENT_MATRIX, generateArtifact, type ClientId } from "@relay/connector";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { createConnectSession, lookupConnectSession, verifyConnectSession } from "./connect-session.js";
-import { createCheckoutSession, loadStripeConfig, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
+import { createCheckoutSession, loadStripeConfig, stripeReady, topupPlan, TOPUP_PLANS, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
 import { sendEmail, waitlistConfirmationEmail } from "@relay/cloud";
 import { SessionManager } from "./auth.js";
@@ -60,6 +60,21 @@ const STATIC_EXTENSIONS = new Set([
   ".txt",
   ".webmanifest",
 ]);
+
+// Public HTML pages served before the console session gate.
+const PUBLIC_PAGES: Record<string, string> = {
+  "/home": "landing.html",
+  "/docs": "docs.html",
+  "/docs.html": "docs.html",
+  "/terms": "terms.html",
+  "/terms.html": "terms.html",
+  "/privacy": "privacy.html",
+  "/privacy.html": "privacy.html",
+  "/refund": "refund.html",
+  "/refund.html": "refund.html",
+  "/topup": "topup.html",
+  "/topup.html": "topup.html",
+};
 
 // Only these file types are ever served publicly from the media folder.
 const PUBLIC_MEDIA_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov"]);
@@ -223,12 +238,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       throw new RelayError("Invalid Stripe payload.", "stripe_payload_invalid", undefined, 400);
     }
     const session = event.data?.object as
-      | { id?: string; payment_status?: string; metadata?: Record<string, string> }
+      | { id?: string; payment_status?: string; amount_total?: number; currency?: string; metadata?: Record<string, string> }
       | undefined;
-    if (event.type === "checkout.session.completed" && session?.id && session.payment_status === "paid") {
+    const paidEvent = event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded";
+    if (paidEvent && session?.id && session.payment_status === "paid") {
       const customerId = String(session.metadata?.customer_id ?? "");
       const amount = Number(session.metadata?.amount_milli ?? 0);
-      if (deps.cloudAdmin.store.getCustomer(customerId) && Number.isInteger(amount) && amount > 0) {
+      // When Stripe reports the charged total, it must match the credit we are about to grant.
+      const totalMatches = session.amount_total === undefined || session.amount_total === null || Number(session.amount_total) * 10 === amount;
+      const currencyMatches = !session.currency || session.currency.toLowerCase() === deps.billing.currency;
+      if (!totalMatches || !currencyMatches) {
+        deps.logger(`stripe webhook: session ${session.id} amount or currency mismatch; not credited`);
+      } else if (deps.cloudAdmin.store.getCustomer(customerId) && Number.isInteger(amount) && amount > 0) {
         deps.cloudAdmin.ledger.recordTopup({
           customerId,
           amount,
@@ -333,6 +354,42 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       });
       return;
     }
+    // Self-serve card top-up for Relay Cloud customers. Authenticated by the
+    // customer's own API key (never stored by the page), credited by the webhook.
+    if (segments.length === 3 && segments[1] === "billing" && segments[2] === "topup") {
+      const ready = stripeReady(deps.billing) && Boolean(deps.cloudAdmin);
+      if (isGet) {
+        sendJson(res, 200, {
+          available: ready,
+          currency: "USD",
+          plans: Object.entries(TOPUP_PLANS).map(([id, plan]) => ({ id, amountMilli: plan.amountMilli, label: plan.label })),
+        });
+        return;
+      }
+      if (method !== "POST") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
+      if (!ready || !deps.billing || !deps.cloudAdmin) {
+        throw new RelayError("Card payments are not configured yet.", "stripe_unavailable", undefined, 503);
+      }
+      const identity = authenticateApiKey(deps.cloudAdmin.store, req);
+      const body = asRecord(await readJsonBody(req, 4 * 1024));
+      const plan = topupPlan(body.plan);
+      if (!plan) throw new RelayError("Choose the US$9.90 or US$49.90 top-up.", "stripe_plan_invalid", undefined, 400);
+      let session: { id: string; url: string };
+      try {
+        session = await createCheckoutSession(deps.billing, {
+          customerId: identity.customer.id,
+          amount: plan.amountMilli,
+          baseUrl: process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun",
+          productName: plan.label,
+          plan: plan.id,
+        });
+      } catch (error) {
+        deps.logger(`stripe checkout failed: ${errorMessage(error)}`);
+        throw new RelayError("Could not start card checkout. Please try again shortly.", "stripe_checkout_failed", undefined, 502);
+      }
+      sendJson(res, 200, { id: session.id, url: session.url });
+      return;
+    }
     if (isGet && segments.length === 2 && segments[1] === "health") {
       sendJson(res, 200, {
         ok: true,
@@ -431,6 +488,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
     return;
   }
 
+  // Public marketing, docs and policy pages. No console session needed.
+  const publicPage = PUBLIC_PAGES[pathname];
+  if (isGet && publicPage) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, publicPage), { html: true });
+    if (!served) throw new RelayError("This page is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
   // Public waitlist page for the first 100 customers.
   if (isGet && (pathname === "/waitlist" || pathname === "/waitlist.html")) {
     const served = await sendFile(req, res, path.join(deps.publicDir, "waitlist.html"), { html: true });
@@ -481,6 +546,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
 
   // Everything else requires a session when RELAY_CONSOLE_PASSWORD is set.
   if (deps.session.enabled && !deps.session.authenticated(req)) {
+    // Visitors get the public landing page at /; signed-in users still get the console.
+    if (isGet && (pathname === "/" || pathname === "/index.html")) {
+      const served = await sendFile(req, res, path.join(deps.publicDir, "landing.html"), { html: true });
+      if (!served) throw new RelayError("The landing page is missing", "console_assets_missing", undefined, 500);
+      return;
+    }
     if (pathname.startsWith("/api/")) {
       throw new RelayError("Sign in to the Relay console first", "unauthorized", undefined, 401);
     }

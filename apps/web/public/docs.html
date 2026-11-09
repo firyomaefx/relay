@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay Cloud docs · Quickstart, first post and limits</title>
+<meta name="description" content="Connect your AI agent to Relay Cloud over MCP, send a first post, and check the posting limits for X, Threads, TikTok, YouTube, Instagram and LinkedIn.">
+<link rel="canonical" href="https://relay.duitpoket.fun/docs">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#050706">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Relay Cloud">
+<meta property="og:title" content="Relay Cloud docs · Quickstart, first post and limits">
+<meta property="og:description" content="Connect your AI agent to Relay Cloud over MCP, send a first post, and check the posting limits for X, Threads, TikTok, YouTube, Instagram and LinkedIn.">
+<meta property="og:url" content="https://relay.duitpoket.fun/docs">
+<meta property="og:image" content="https://relay.duitpoket.fun/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Relay Cloud docs · Quickstart, first post and limits">
+<meta name="twitter:description" content="Connect your AI agent to Relay Cloud over MCP, send a first post, and check the posting limits for X, Threads, TikTok, YouTube, Instagram and LinkedIn.">
+<meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="/"><img src="/favicon-32.png" alt="" width="28" height="28">Relay Cloud</a>
+  <div class="nav-links">
+    <a href="/pricing">Pricing</a>
+    <a href="/docs" class="hide-sm">Docs</a>
+    <a href="/login" class="login">Log in</a>
+  </div>
+</nav>
+</div>
+<main class="wrap doc">
+<h1>Quickstart</h1>
+<p class="updated">Connect your AI agent to Relay Cloud over MCP and send your first post.</p>
+
+<h2>1. Get your API key</h2>
+<p>Join the <a href="/waitlist">waitlist</a>. When you're approved, you get a private connection link by email. It shows your Relay API key once. The key starts with <code>rly_</code>. Keep it secret, it works like a password.</p>
+
+<h2>2. Add Relay to your MCP client</h2>
+<p>Relay Cloud speaks Streamable HTTP MCP at this URL:</p>
+<pre><code>https://cloud-mcp.duitpoket.fun/mcp</code></pre>
+<p>Send your key in the <code>Authorization</code> header. For Cursor, Claude Desktop and most clients that read a JSON config:</p>
+<pre><code>{
+  "mcpServers": {
+    "relay-cloud": {
+      "url": "https://cloud-mcp.duitpoket.fun/mcp",
+      "headers": { "Authorization": "Bearer rly_your_key_here" }
+    }
+  }
+}</code></pre>
+<p>For Claude Code:</p>
+<pre><code>claude mcp add --transport http relay-cloud https://cloud-mcp.duitpoket.fun/mcp \
+  --header "Authorization: Bearer rly_your_key_here"</code></pre>
+<p>Opening the MCP URL in a browser returns 401. That's expected, it only answers MCP clients with a key. The <a href="/connect">connection guide</a> has configs for more clients.</p>
+
+<h2>3. Connect your social accounts</h2>
+<p>Ask your agent to run <code>relay_accounts</code> to see what's connected, then <code>relay_connect</code> with a platform name (<code>x</code>, <code>threads</code>, <code>tiktok</code>, <code>youtube</code>, <code>instagram</code> or <code>linkedin</code>). It returns a link you open to approve access on that platform.</p>
+
+<h2>4. Your first post</h2>
+<p>You can just tell your agent: "Post this to Threads and LinkedIn tomorrow at 9am Malaysia time." Under the hood it validates first, then posts or schedules. The tool calls look like this:</p>
+<pre><code>relay_validate
+{
+  "platforms": ["threads", "linkedin"],
+  "text": "Hello from my agent. First post through Relay."
+}
+
+relay_post
+{
+  "platforms": ["threads", "linkedin"],
+  "text": "Hello from my agent. First post through Relay.",
+  "schedule_at": "2026-12-01T09:00:00+08:00"
+}</code></pre>
+<p>Leave out <code>schedule_at</code> to post right away. Use <code>relay_queue</code> to see scheduled posts and <code>relay_cancel</code> to cancel one before it runs. Cancelling releases the held amount.</p>
+
+<h2>Limits</h2>
+<p>Relay checks these before anything is published, so a draft that breaks a limit is rejected by <code>relay_validate</code> and never charged.</p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Platform</th><th>Max characters per part</th><th>Max parts (thread)</th><th>Max media per post</th><th>Max image size</th><th>Max video size</th><th>Media required</th></tr></thead>
+    <tbody>
+      <tr><td>X</td><td>280</td><td>25</td><td>4</td><td>5 MB</td><td>512 MB</td><td>No</td></tr>
+      <tr><td>Threads</td><td>500</td><td>20</td><td>20</td><td>8 MB</td><td>500 MB</td><td>No</td></tr>
+      <tr><td>Instagram</td><td>2,200</td><td>1</td><td>10</td><td>8 MB</td><td>1 GB</td><td>Yes</td></tr>
+      <tr><td>TikTok</td><td>2,200</td><td>1</td><td>35</td><td>20 MB</td><td>4 GB</td><td>Yes</td></tr>
+      <tr><td>YouTube</td><td>5,000</td><td>1</td><td>1</td><td>n/a (video only)</td><td>256 MB</td><td>Yes, a video</td></tr>
+      <tr><td>LinkedIn</td><td>3,000</td><td>1</td><td>1</td><td>20 MB</td><td>500 MB</td><td>No</td></tr>
+    </tbody>
+  </table>
+</div>
+<ul class="plain">
+  <li>One video per post on every platform except Threads.</li>
+  <li>YouTube titles are limited to 100 characters.</li>
+  <li>Threads, Instagram and TikTok photo posts fetch media from a public URL, so media you upload to Relay is served from a public link.</li>
+  <li>Rate limits per customer: 120 MCP requests per minute and 60 posts per hour.</li>
+  <li>Your agent can call <code>relay_limits</code> for the current limits at any time.</li>
+</ul>
+
+<h2>Billing</h2>
+<p>Relay is prepaid. Each post part on each platform is priced in advance, held when you post or schedule, and charged only when the platform accepts it. See <a href="/pricing">pricing</a> for rates, and <a href="/topup">top up</a> by card when you need more credit.</p>
+</main>
+<footer class="site">
+<div class="wrap row">
+  <span>Relay Cloud · pay-per-post publishing for AI agents</span>
+  <nav aria-label="Footer">
+    <a href="/pricing">Pricing</a>
+    <a href="/docs">Docs</a>
+    <a href="/topup">Top up</a>
+    <a href="/terms">Terms</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/refund">Refunds</a>
+    <a href="/contact">Contact</a>
+    <a href="/login">Log in</a>
+  </nav>
+</div>
+</footer>
+</body>
+</html>

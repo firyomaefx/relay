@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Top up · Relay Cloud</title>
+<meta name="description" content="Top up your Relay Cloud balance by card. US$9.90 or US$49.90, no monthly fee.">
+<link rel="canonical" href="https://relay.duitpoket.fun/topup">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#050706">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Relay Cloud">
+<meta property="og:title" content="Top up · Relay Cloud">
+<meta property="og:description" content="Top up your Relay Cloud balance by card. US$9.90 or US$49.90, no monthly fee.">
+<meta property="og:url" content="https://relay.duitpoket.fun/topup">
+<meta property="og:image" content="https://relay.duitpoket.fun/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Top up · Relay Cloud">
+<meta name="twitter:description" content="Top up your Relay Cloud balance by card. US$9.90 or US$49.90, no monthly fee.">
+<meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="/"><img src="/favicon-32.png" alt="" width="28" height="28">Relay Cloud</a>
+  <div class="nav-links">
+    <a href="/pricing">Pricing</a>
+    <a href="/docs" class="hide-sm">Docs</a>
+    <a href="/login" class="login">Log in</a>
+  </div>
+</nav>
+</div>
+<main class="wrap doc">
+<h1>Top up your balance</h1>
+<p class="updated">Pay by card through Stripe. Credit is added to your Relay Cloud balance as soon as Stripe confirms the payment.</p>
+<form class="topup" id="topupForm" autocomplete="off">
+  <div>
+    <label for="apiKey">Your Relay API key</label>
+    <input type="password" id="apiKey" name="apiKey" placeholder="rly_..." required spellcheck="false" autocomplete="off">
+    <p class="note">Used once to find your account. It isn't saved in your browser or sent to Stripe.</p>
+  </div>
+  <fieldset class="plans" style="border:0;padding:0;margin:0">
+    <legend class="sr-only" style="position:absolute;left:-9999px">Choose a top-up</legend>
+    <label class="plan"><input type="radio" name="plan" value="starter" checked><b>US$9.90</b><br><span class="muted">3 accounts per platform and Threads auto-reply</span></label>
+    <label class="plan"><input type="radio" name="plan" value="scale"><b>US$49.90</b><br><span class="muted">10 accounts per platform</span></label>
+  </fieldset>
+  <button class="btn btn-primary" type="submit" id="payButton">Continue to payment</button>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+</form>
+<p class="note">No account yet? <a href="/waitlist">Join the waitlist</a>. Payments are covered by our <a href="/refund">refund policy</a>.</p>
+</main>
+<footer class="site">
+<div class="wrap row">
+  <span>Relay Cloud · pay-per-post publishing for AI agents</span>
+  <nav aria-label="Footer">
+    <a href="/pricing">Pricing</a>
+    <a href="/docs">Docs</a>
+    <a href="/topup">Top up</a>
+    <a href="/terms">Terms</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/refund">Refunds</a>
+    <a href="/contact">Contact</a>
+    <a href="/login">Log in</a>
+  </nav>
+</div>
+</footer>
+<script src="/topup.js"></script>
+</body>
+</html>
