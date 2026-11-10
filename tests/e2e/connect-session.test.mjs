@@ -109,7 +109,7 @@ test("connect session API creates a scoped session and authenticates the Connect
 
     const clients = await httpJson(server.baseUrl, "/api/connect/clients", { headers: { cookie } });
     assert.equal(clients.status, 200, requestSummary(clients));
-    assert.equal(clients.json.clients.length, 11);
+    assert.equal(clients.json.clients.length, 12);
     assert.equal(clients.json.clients.filter((entry) => entry.tier === "auto").length, 3);
     assert.match(clients.json.mcpUrl, /\/mcp$/);
 

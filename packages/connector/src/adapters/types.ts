@@ -1,5 +1,5 @@
 /** REQ-006, REQ-007, REQ-008: adapter contract shared by all clients. */
-export type ClientId = "claude-desktop" | "cursor" | "claude-code" | "codex" | "vscode" | "deepseek-harness" | "grok" | "grok-bot" | "chatgpt" | "n8n" | "other";
+export type ClientId = "claude-web" | "claude-desktop" | "cursor" | "claude-code" | "codex" | "vscode" | "deepseek-harness" | "grok" | "grok-bot" | "chatgpt" | "n8n" | "other";
 export type ClientTier = "auto" | "guided" | "manual" | "unsupported";
 export type TerminalState = "connected" | "guided" | "copied" | "not-installed" | "failed" | "unsupported";
 

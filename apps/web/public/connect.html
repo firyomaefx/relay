@@ -43,6 +43,7 @@
   .install.disabled{opacity:.45;pointer-events:none}
   .note{border:1px solid rgba(223,189,122,.22);background:rgba(223,189,122,.05);color:#d9c69e;border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.65;margin-top:18px}
   .key{color:var(--gold)}.url{color:var(--mint)}
+  .phone-steps{margin:12px 0 0;padding-left:20px;color:var(--muted);font-size:13px;line-height:1.65}.phone-steps li{margin:0 0 6px}
   .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:32px 0 0}@media(max-width:720px){.steps{grid-template-columns:1fr}}
   .step{border-top:1px solid var(--line);padding:14px 0;color:var(--muted);font-size:12px}.step b{display:block;color:var(--ink);font-size:12px;margin-bottom:4px}
   footer{border-top:1px solid var(--line);margin-top:54px;padding-top:18px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;color:var(--dim);font-size:11px}
@@ -100,7 +101,7 @@
     <div class="row"><button class="copy" id="personalCopy" type="button">Copy URL</button><a class="install" id="personalCursor" href="/connect">Install in Cursor <span>↗</span></a></div>
   </div>
   <div class="keybar" id="keybar">
-    <div><label for="apiKey">Your Relay Cloud API key</label><input id="apiKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="relay_sk_..." spellcheck="false"><p>Stays in this browser. Fills every snippet below; never sent to this page.</p></div>
+    <div><label for="apiKey">Your Relay Cloud API key</label><input id="apiKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="rly_..." spellcheck="false"><p>Stays in this browser. Fills every snippet below; never sent to this page.</p></div>
     <a id="cursorInstall" class="install disabled" href="/connect" aria-disabled="true">Install in Cursor <span>↗</span></a>
   </div>
 
@@ -113,9 +114,15 @@
     </div></article>
 
     <article class="bezel"><div class="core">
-      <h2>Claude Desktop &amp; Web</h2><p class="sub">Settings → Connectors → Add custom connector</p>
+      <h2>Claude (web and phone app)</h2><p class="sub">Works on claude.ai, Claude Desktop, and the Claude iPhone and Android apps</p>
+      <ol class="phone-steps">
+        <li>Add it once on claude.ai. A phone browser works. Open Customize, then Connectors, then Add custom connector.</li>
+        <li>Paste this URL and leave the OAuth fields empty.</li>
+        <li>Tap Connect and sign in with your Relay Cloud API key.</li>
+        <li>In the Claude iPhone or Android app, tap +, then Connectors, and turn Relay on.</li>
+      </ol>
       <div class="code"><button class="copy">Copy</button><code><span class="url">https://cloud-mcp.duitpoket.fun/mcp</span></code></div>
-      <p class="sub" style="margin:10px 0 0">Choose OAuth if prompted. The authorization page asks for your Relay Cloud API key.</p>
+      <p class="sub" style="margin:10px 0 0">The phone apps can use the connector but cannot add it, so do step 1 on claude.ai. Free Claude plans allow one custom connector.</p>
     </div></article>
 
     <article class="bezel"><div class="core">

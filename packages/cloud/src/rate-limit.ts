@@ -61,6 +61,15 @@ export class RateLimiter {
     }
   }
 
+  /** Read-only: true when this key has already used up its limit in the current window. */
+  exceeded(customerId: string, bucket: string, limit: number, windowMs: number): boolean {
+    const windowStart = Math.floor(Date.now() / windowMs) * windowMs;
+    const row = this.db.prepare(
+      "SELECT count FROM rate_limits WHERE customer_id = ? AND bucket = ? AND window_start = ?",
+    ).get(customerId, bucket, windowStart) as { count: number } | undefined;
+    return Number(row?.count ?? 0) >= limit;
+  }
+
   close(): void {
     this.db.close();
   }

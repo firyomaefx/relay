@@ -1,6 +1,7 @@
 // Traceability: REQ-016
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import test from "node:test";
 import { CloudStore } from "../../packages/cloud/dist/index.js";
@@ -8,6 +9,8 @@ import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helper
 
 const TOKEN_KEY = Buffer.alloc(32, 41).toString("base64");
 const PORT = 44996;
+const VERIFIER = "relay-test-verifier-0123456789-abcdefghijklmnopqrstuvwxyz";
+const CHALLENGE = createHash("sha256").update(VERIFIER).digest("base64url");
 const BASE = `http://127.0.0.1:${PORT}`;
 
 test("cloud MCP supports OAuth discovery, registration and API-key authorization", async () => {
@@ -59,8 +62,8 @@ test("cloud MCP supports OAuth discovery, registration and API-key authorization
     authorizeUrl.searchParams.set("redirect_uri", redirectUri);
     authorizeUrl.searchParams.set("response_type", "code");
     authorizeUrl.searchParams.set("state", "state-1");
-    authorizeUrl.searchParams.set("code_challenge", "challenge");
-    authorizeUrl.searchParams.set("code_challenge_method", "plain");
+    authorizeUrl.searchParams.set("code_challenge", CHALLENGE);
+    authorizeUrl.searchParams.set("code_challenge_method", "S256");
     const page = await fetch(authorizeUrl);
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Relay Cloud API key/);
@@ -70,8 +73,8 @@ test("cloud MCP supports OAuth discovery, registration and API-key authorization
       redirect_uri: redirectUri,
       response_type: "code",
       state: "state-1",
-      code_challenge: "challenge",
-      code_challenge_method: "plain",
+      code_challenge: CHALLENGE,
+      code_challenge_method: "S256",
       password: key.key,
     });
     const authorize = await fetch(`${BASE}/authorize`, {
@@ -94,7 +97,7 @@ test("cloud MCP supports OAuth discovery, registration and API-key authorization
         code,
         client_id: client.client_id,
         redirect_uri: redirectUri,
-        code_verifier: "challenge",
+        code_verifier: VERIFIER,
       }),
     });
     assert.equal(tokenResponse.status, 200);

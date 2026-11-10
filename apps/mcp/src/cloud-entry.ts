@@ -24,6 +24,9 @@ import { prepareAccountConnect, registerCloudAccountsTool } from "./cloud-accoun
 import { registerOwnerWaitlistTools } from "./cloud-waitlist.js";
 import { registerOwnerBonusTools } from "./cloud-bonus.js";
 
+const OAUTH_FAILURES_PER_WINDOW = 8;
+const OAUTH_FAILURE_WINDOW_MS = 15 * 60 * 1000;
+
 function log(message: string): void {
   process.stderr.write(`[relay-cloud-mcp] ${message}\n`);
 }
@@ -62,13 +65,29 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
     publicBaseUrl: process.env.RELAY_CLOUD_PUBLIC_URL?.trim() || "https://cloud-mcp.duitpoket.fun",
     secret: oauthSecret,
     credentialLabel: "Relay Cloud API key",
+    credentialHelp: "Your key starts with rly_. You were given it when your Relay Cloud access was set up. Lost it? Ask at relay.duitpoket.fun/contact.",
     authenticate: async (credential) => {
       try {
         const resolved = store.resolveApiKey(credential);
-        return { subject: resolved.customer.id };
+        return { subject: resolved.customer.id, keyId: resolved.key.id };
       } catch {
         return null;
       }
+    },
+    // Checked on every OAuth request and on refresh: a revoked key or a disabled customer stops at once.
+    validate: (identity) => {
+      if (identity.keyId) return store.isApiKeyActive(identity.keyId, identity.subject);
+      return store.getCustomer(identity.subject)?.status === "active";
+    },
+    failureGate: {
+      blocked: (ip) => limiter.exceeded(`ip:${ip}`, "oauth_key_fail", OAUTH_FAILURES_PER_WINDOW, OAUTH_FAILURE_WINDOW_MS),
+      record: (ip) => {
+        try {
+          limiter.check(`ip:${ip}`, "oauth_key_fail", OAUTH_FAILURES_PER_WINDOW, OAUTH_FAILURE_WINDOW_MS);
+        } catch {
+          // Already at the limit; the gate stays closed until the window ends.
+        }
+      },
     },
   });
 
@@ -80,7 +99,13 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
     oauthProvider: cloudOAuth,
     authorize: async (req) => {
       const identity = customerFromRequest(store, req);
-      if (!identity) return false;
+      if (!identity) {
+        // OAuth callers (Claude, ChatGPT) are rate limited like API-key callers.
+        const oauthSubject = cloudOAuth.subject(req);
+        if (!oauthSubject) return false;
+        limiter.check(oauthSubject, "mcp", rateConfig.mcpPerMinute, 60_000);
+        return false;
+      }
       limiter.check(identity.customer.id, "mcp", rateConfig.mcpPerMinute, 60_000);
       return true;
     },
@@ -109,8 +134,10 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       server.registerTool(
         "relay_cloud_whoami",
         {
+          title: "Who am I",
           description: "Return the authenticated Relay Cloud customer.",
           inputSchema: z.object({}),
+          annotations: { readOnlyHint: true },
         },
         async () => ({
           content: [
@@ -128,6 +155,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       server.registerTool(
         "relay_balance",
         {
+          title: "Show balance",
           description: "Show the authenticated Relay Cloud customer's balance, held funds and available balance.",
           inputSchema: z.object({}),
           annotations: { readOnlyHint: true },
@@ -147,6 +175,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       server.registerTool(
         "relay_usage",
         {
+          title: "Show usage history",
           description: "Show recent Relay Cloud ledger entries for the authenticated customer.",
           inputSchema: z.object({ limit: z.number().int().min(1).max(200).optional() }),
           annotations: { readOnlyHint: true },
@@ -167,6 +196,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       server.registerTool(
         "relay_prices",
         {
+          title: "Show prices",
           description: "Show the Relay Cloud price table.",
           inputSchema: z.object({}),
           annotations: { readOnlyHint: true },

@@ -470,6 +470,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
       description:
         "Sign in a social account. In simulated/mock mode the account is connected immediately with a demo handle. In live mode this returns a sign-in URL: open it in a browser, and the Relay console must be running at the console URL to receive the OAuth callback. Call relay_accounts afterwards to confirm.",
       inputSchema: connectInputSchema.shape,
+      annotations: { destructiveHint: false, openWorldHint: true },
     },
     async (args) =>
       safely(async () => {
@@ -522,6 +523,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
       description:
         "Remove the stored account and tokens for one platform. Scheduled jobs for that platform will fail until an account is connected again. Safe to call when no account is connected.",
       inputSchema: disconnectInputSchema.shape,
+      annotations: { destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (args) =>
       safely(async () => {
@@ -727,6 +729,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
       description:
         'Cancel a still-pending scheduled job by id. Jobs that are already running, done, failed or canceled cannot be canceled. Use relay_queue to find job ids.',
       inputSchema: cancelInputSchema.shape,
+      annotations: { destructiveHint: true, openWorldHint: false },
     },
     async (args) =>
       safely(async () => {

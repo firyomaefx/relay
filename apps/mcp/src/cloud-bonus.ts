@@ -117,6 +117,8 @@ export function registerOwnerBonusTools(server: McpServer, deps: BonusDeps & { c
   server.registerTool(
     "relay_grant_bonus_credit",
     {
+      title: "Grant bonus credit (owner)",
+      annotations: { destructiveHint: false, idempotentHint: true, openWorldHint: false },
       description:
         `Owner only: add bonus credit to a customer as an append-only ledger entry of type bonus (not a payment, no Stripe, never counts toward top-up unlocks). Amount is in US dollars, capped at ${BONUS_MAX_USD} per grant. A reason is required. Pass idempotency_key to make retries safe.`,
       inputSchema: z.object({
@@ -132,6 +134,7 @@ export function registerOwnerBonusTools(server: McpServer, deps: BonusDeps & { c
   server.registerTool(
     "relay_list_bonus_grants",
     {
+      title: "List bonus credit grants (owner)",
       description:
         "Owner only: list bonus credit grants with customer, amount, reason, time and entry id. Returns count and total across all matches, so founding spots can be counted. Optional filters: customer_id, from/to (YYYY-MM-DD or ISO time), reason_contains.",
       inputSchema: z.object({

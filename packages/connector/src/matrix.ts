@@ -11,6 +11,7 @@ export interface MatrixEntry {
 }
 
 export const CLIENT_MATRIX: readonly MatrixEntry[] = [
+  { id: "claude-web", displayName: "Claude (web and phone app)", tier: "guided", mechanism: "Add once on claude.ai, then use it in Claude Desktop and the iPhone and Android apps", officialUrl: "https://claude.ai/" },
   { id: "claude-desktop", displayName: "Claude Desktop", tier: "auto", mechanism: "Claude Desktop MCP config", officialUrl: "https://www.anthropic.com/engineering/desktop-extensions" },
   { id: "cursor", displayName: "Cursor", tier: "auto", mechanism: "Cursor global mcp.json", officialUrl: "https://cursor.com/docs/mcp" },
   { id: "claude-code", displayName: "Claude Code", tier: "auto", mechanism: "claude mcp add --transport http", officialUrl: "https://code.claude.com/docs/en/mcp" },

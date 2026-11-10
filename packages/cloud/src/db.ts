@@ -386,6 +386,16 @@ export class CloudStore {
     return rows.map(toKey);
   }
 
+  /** True when the key exists, is not revoked, and its customer is active. */
+  isApiKeyActive(keyId: string, customerId: string): boolean {
+    const row = this.db.prepare(
+      `SELECT k.status AS key_status, c.status AS customer_status
+       FROM api_keys k JOIN customers c ON c.id = k.customer_id
+       WHERE k.id = ? AND k.customer_id = ?`,
+    ).get(keyId, customerId) as { key_status: string; customer_status: string } | undefined;
+    return !!row && row.key_status === "active" && row.customer_status === "active";
+  }
+
   revokeApiKey(id: string): ApiKeyRecord {
     const current = this.db.prepare("SELECT * FROM api_keys WHERE id = ?").get(id) as Record<string, unknown> | undefined;
     if (!current) throw new RelayError("API key not found.", "cloud_api_key_not_found", undefined, 404);

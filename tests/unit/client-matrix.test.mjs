@@ -9,7 +9,7 @@ test("matrix is complete, unique and has exactly three Auto clients", () => {
   const ids = CLIENT_MATRIX.map((entry) => entry.id);
   assert.equal(new Set(ids).size, ids.length);
   assert.deepEqual(autoClientIds().sort(), ["claude-code", "claude-desktop", "cursor"]);
-  for (const id of ["codex", "vscode", "deepseek-harness", "grok", "grok-bot", "chatgpt", "n8n", "other"]) {
+  for (const id of ["claude-web", "codex", "vscode", "deepseek-harness", "grok", "grok-bot", "chatgpt", "n8n", "other"]) {
     assert.ok(getMatrixEntry(id), `missing ${id}`);
   }
   assert.equal(CLIENT_MATRIX.every((entry) => entry.tier !== "unsupported"), true);

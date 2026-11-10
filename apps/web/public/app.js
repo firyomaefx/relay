@@ -1559,7 +1559,15 @@
     }
   }
 
+  const RELAY_CLOUD_MCP_URL = "https://cloud-mcp.duitpoket.fun/mcp";
   const INTEGRATION_SETUP = {
+    "claude-web": {
+      title: "Connect Claude (web and phone app)",
+      desc: "Add Relay once on claude.ai. It then works in Claude Desktop and the Claude iPhone and Android apps. The phone apps cannot add a custom connector themselves.",
+      steps: ["On claude.ai (a phone browser works), open Customize, then Connectors, then Add custom connector.", "Paste the URL below and leave the OAuth fields empty.", "Tap Connect and sign in with your Relay Cloud API key.", "In the Claude iPhone or Android app, tap +, then Connectors, and turn Relay on."],
+      install: "https://claude.ai/",
+      kind: "claude-web",
+    },
     claude: {
       title: "Connect Claude Desktop",
       desc: "Connect Claude Desktop to Relay as a local MCP server, then ask it to post, schedule and read your accounts.",
@@ -1619,6 +1627,7 @@
   };
 
   function setupConfig(kind) {
+    if (kind === "claude-web") return RELAY_CLOUD_MCP_URL;
     if (kind === "claude-code") {
       return `claude mcp add relay -- node ${state.settings?.dataDir ? `${state.settings.dataDir}/` : ""}apps/mcp/dist/index.js`;
     }

@@ -42,6 +42,7 @@ export function registerOwnerWaitlistTools(
   server.registerTool(
     "relay_waitlist_list",
     {
+      title: "List waitlist requests (owner)",
       description: "Owner only: list waitlist requests, optionally filtered by pending, invited, active or rejected.",
       inputSchema: z.object({
         status: z.enum(["pending", "invited", "active", "rejected"]).optional(),
@@ -62,9 +63,11 @@ export function registerOwnerWaitlistTools(
   server.registerTool(
     "relay_waitlist_approve",
     {
+      title: "Approve waitlist request (owner)",
       description:
         "Owner only: approve a pending waitlist request. Creates the customer, creates a private connect token, sends the invite email when configured, and returns the private connect URL.",
       inputSchema: z.object({ id: z.string().min(1).describe("Waitlist entry id, for example wl_...") }),
+      annotations: { destructiveHint: false, openWorldHint: true },
     },
     async (args) => {
       const entry = deps.store.getWaitlist(args.id);
@@ -101,11 +104,13 @@ export function registerOwnerWaitlistTools(
   server.registerTool(
     "relay_waitlist_reject",
     {
+      title: "Reject waitlist request (owner)",
       description: "Owner only: reject a pending waitlist request with an optional internal note.",
       inputSchema: z.object({
         id: z.string().min(1),
         note: z.string().max(500).optional(),
       }),
+      annotations: { destructiveHint: true, openWorldHint: false },
     },
     async (args) => {
       const entry = deps.store.getWaitlist(args.id);
