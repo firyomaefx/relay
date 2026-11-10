@@ -1,5 +1,5 @@
 // Traceability: REQ-016
-import { ConfigurationError, RelayError } from "@relay/core";
+import { ConfigurationError, RelayError, errorMessage } from "@relay/core";
 import type {
   AdapterContext,
   AuthorizeRequest,
@@ -45,8 +45,39 @@ const SCOPES = [
 ] as const;
 const MAX_COMMENT_REPLY = 2200;
 
-const CONTAINER_POLL_LIMIT = 60;
-const CONTAINER_POLL_INTERVAL_MS = 2000;
+// Container wait: Instagram needs a moment after a container is created, even
+// for a single image. Wait INITIAL, then poll status_code every INTERVAL until
+// FINISHED. Images: up to 40 polls x 3 s (about 2 min). Video: up to 60 polls
+// x 5 s (about 5 min).
+const CONTAINER_INITIAL_WAIT_MS = 3000;
+const IMAGE_POLL_INTERVAL_MS = 3000;
+const IMAGE_POLL_LIMIT = 40;
+const VIDEO_POLL_INTERVAL_MS = 5000;
+const VIDEO_POLL_LIMIT = 60;
+const POLL_NETWORK_ERROR_LIMIT = 3;
+// media_publish can still answer 9007 / 2207027 ("media is not ready") after
+// the container reports FINISHED. That answer means nothing was posted, so it
+// is safe to retry the same container: 5, 10, 20, 40 s (5 tries, 75 s).
+const PUBLISH_RETRY_BASE_MS = 5000;
+const PUBLISH_MAX_ATTEMPTS = 5;
+
+function envMs(ctx: AdapterContext, name: string, fallback: number): number {
+  const raw = ctx.env?.[name];
+  if (raw === undefined || raw === "") return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+/**
+ * Instagram's "media is not ready to be published" (code 9007 / subcode 2207027).
+ * Meta tags it type OAuthException, so providerFetch reports it as an AuthError
+ * (code auth_error), not a provider_error. Match on the Meta codes, not the class.
+ */
+function isMediaNotReady(error: unknown): boolean {
+  if (!(error instanceof RelayError) || (error.code !== "provider_error" && error.code !== "auth_error")) return false;
+  const provider = asObject(asObject(error.details)?.provider);
+  return Number(provider?.code) === 9007 || Number(provider?.error_subcode) === 2207027;
+}
 
 /**
  * Instagram (Meta) adapter using "Instagram API with Instagram Login".
@@ -56,8 +87,9 @@ const CONTAINER_POLL_INTERVAL_MS = 2000;
  * must be reachable from the internet (Relay serves local media through the
  * configured public media base URL).
  *
- * Publishing is a two-step container flow: create a media container, wait for
- * video processing to finish, then publish the container.
+ * Publishing is a two-step container flow: create a media container (every
+ * carousel child too), wait until Instagram reports it FINISHED, then publish
+ * the container. A "not ready" answer from media_publish is retried with backoff.
  */
 export class InstagramAdapter implements PlatformAdapter {
   readonly platform = "instagram" as const;
@@ -237,6 +269,7 @@ export class InstagramAdapter implements PlatformAdapter {
         if (!childId) throw new RelayError("Instagram did not return a carousel item id", "instagram_container_id_missing", child, 502);
         childIds.push(childId);
       }
+      await this.waitForContainers(ctx, tokens, childIds, "image");
       const created = await providerFetch(ctx, "Instagram carousel container", `${GRAPH_URL}/${userId}/media`, {
         method: "POST",
         headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
@@ -248,7 +281,7 @@ export class InstagramAdapter implements PlatformAdapter {
       });
       containerId = getString(asObject(created), "id") ?? "";
       if (!containerId) throw new RelayError("Instagram did not return a carousel container id", "instagram_container_id_missing", created, 502);
-      await this.waitForContainer(ctx, tokens, containerId);
+      await this.waitForContainers(ctx, tokens, [containerId], "image");
     } else {
       const item = media[0]!;
       if (item.kind === "video") {
@@ -267,7 +300,7 @@ export class InstagramAdapter implements PlatformAdapter {
         if (!containerId) {
           throw new RelayError("Instagram did not return a Reels container id", "instagram_container_id_missing", created, 502);
         }
-        await this.waitForContainer(ctx, tokens, containerId);
+        await this.waitForContainers(ctx, tokens, [containerId], "video");
       } else {
         const params: Record<string, string | undefined> = {
           image_url: publicMediaUrl(ctx, item, "Instagram"),
@@ -283,19 +316,11 @@ export class InstagramAdapter implements PlatformAdapter {
         if (!containerId) {
           throw new RelayError("Instagram did not return an image container id", "instagram_container_id_missing", created, 502);
         }
+        await this.waitForContainers(ctx, tokens, [containerId], "image");
       }
     }
 
-    const published = await providerFetch(
-      ctx,
-      "Instagram publish",
-      `${GRAPH_URL}/${userId}/media_publish`,
-      {
-        method: "POST",
-        headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
-        body: formBody({ creation_id: containerId }),
-      },
-    );
+    const published = await this.publishContainer(ctx, tokens, userId, containerId);
     const mediaId = getString(asObject(published), "id") ?? "";
     if (!mediaId) {
       throw new RelayError("Instagram did not return a published media id", "instagram_media_id_missing", published, 502);
@@ -488,33 +513,98 @@ export class InstagramAdapter implements PlatformAdapter {
     };
   }
 
-  /** Polls a media container until Instagram reports FINISHED (or fails). */
-  private async waitForContainer(ctx: AdapterContext, tokens: OAuthTokens, containerId: string): Promise<void> {
-    for (let attempt = 0; attempt < CONTAINER_POLL_LIMIT; attempt += 1) {
-      const json = await providerFetch(
-        ctx,
-        "Instagram container status",
-        `${GRAPH_URL}/${containerId}?fields=status_code,status`,
-        { headers: authHeaders(tokens.accessToken) },
-      );
-      const data = asObject(json);
-      const status = getString(data, "status_code") ?? getString(data, "status");
-      if (status === "FINISHED" || status === "PUBLISHED") return;
-      if (status === "ERROR" || status === "EXPIRED") {
+  /**
+   * Waits for every container to report FINISHED. Waits once up front (Instagram
+   * is never ready instantly), then polls each container's status_code. Fails
+   * clearly on ERROR or EXPIRED, and on timeout. Never creates a new container.
+   */
+  private async waitForContainers(
+    ctx: AdapterContext,
+    tokens: OAuthTokens,
+    containerIds: string[],
+    kind: "image" | "video",
+  ): Promise<void> {
+    const intervalMs = envMs(ctx, "RELAY_INSTAGRAM_POLL_INTERVAL_MS", kind === "video" ? VIDEO_POLL_INTERVAL_MS : IMAGE_POLL_INTERVAL_MS);
+    const initialMs = envMs(ctx, "RELAY_INSTAGRAM_INITIAL_WAIT_MS", CONTAINER_INITIAL_WAIT_MS);
+    const limit = kind === "video" ? VIDEO_POLL_LIMIT : IMAGE_POLL_LIMIT;
+    await sleep(initialMs);
+    for (const containerId of containerIds) {
+      let networkErrors = 0;
+      let finished = false;
+      for (let attempt = 0; attempt < limit && !finished; attempt += 1) {
+        let data: ReturnType<typeof asObject>;
+        try {
+          const json = await providerFetch(
+            ctx,
+            "Instagram container status",
+            `${GRAPH_URL}/${containerId}?fields=status_code,status`,
+            { headers: authHeaders(tokens.accessToken) },
+          );
+          data = asObject(json);
+        } catch (error) {
+          // A dropped status request says nothing about the container; keep waiting.
+          if (error instanceof RelayError && error.code === "provider_network_error" && (networkErrors += 1) < POLL_NETWORK_ERROR_LIMIT) {
+            await sleep(intervalMs);
+            continue;
+          }
+          throw error;
+        }
+        networkErrors = 0;
+        const status = getString(data, "status_code") ?? getString(data, "status");
+        if (status === "FINISHED" || status === "PUBLISHED") {
+          finished = true;
+        } else if (status === "ERROR" || status === "EXPIRED") {
+          throw new RelayError(
+            `Instagram could not process the media (container ${containerId}): ${status}`,
+            "instagram_media_processing_failed",
+            data,
+            502,
+          );
+        } else {
+          await sleep(intervalMs);
+        }
+      }
+      if (!finished) {
         throw new RelayError(
-          `Instagram could not process the Reel: ${status}`,
-          "instagram_media_processing_failed",
-          data,
-          502,
+          `Instagram is still processing container ${containerId}; try again later`,
+          "instagram_media_processing_timeout",
+          { containerId },
+          504,
         );
       }
-      await sleep(CONTAINER_POLL_INTERVAL_MS);
     }
-    throw new RelayError(
-      `Instagram is still processing container ${containerId}; try again later`,
-      "instagram_media_processing_timeout",
-      { containerId },
-      504,
-    );
+  }
+
+  /**
+   * POST media_publish for one container. Retries ONLY Instagram's explicit
+   * "media is not ready" answer (9007 / 2207027), which means nothing was
+   * posted, so the same container id is reused and a retry cannot double-post.
+   * Any other error (network, auth, 5xx) is thrown at once: those could have
+   * succeeded on Instagram's side, and replaying them is not provably safe.
+   */
+  private async publishContainer(ctx: AdapterContext, tokens: OAuthTokens, userId: string, containerId: string): Promise<unknown> {
+    const baseMs = envMs(ctx, "RELAY_INSTAGRAM_PUBLISH_RETRY_BASE_MS", PUBLISH_RETRY_BASE_MS);
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await providerFetch(ctx, "Instagram publish", `${GRAPH_URL}/${userId}/media_publish`, {
+          method: "POST",
+          headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
+          body: formBody({ creation_id: containerId }),
+        });
+      } catch (error) {
+        if (!isMediaNotReady(error)) throw error;
+        if (attempt >= PUBLISH_MAX_ATTEMPTS) {
+          // Not an AuthError on purpose: the core would refresh the token and replay the whole publish.
+          throw new RelayError(
+            `Instagram still reported container ${containerId} as not ready after ${PUBLISH_MAX_ATTEMPTS} publish attempts: ${errorMessage(error)}`,
+            "instagram_media_not_ready",
+            { containerId, attempts: attempt, last: (error as RelayError).details },
+            504,
+          );
+        }
+        ctx.logger(`[instagram] container ${containerId} not ready to publish (attempt ${attempt} of ${PUBLISH_MAX_ATTEMPTS}); retrying`);
+        await sleep(baseMs * 2 ** (attempt - 1));
+      }
+    }
   }
 }
