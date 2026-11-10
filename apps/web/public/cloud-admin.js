@@ -58,7 +58,7 @@ async function waitlistAction(id, action) {
   if (!r.ok) { alert(data.error || 'Could not update this request'); return; }
   const inviteUrl = data.connectUrl || '';
   const subject = encodeURIComponent('Your Relay Cloud invite');
-  const body = encodeURIComponent(`Hi ${entry.name},\n\nYour Relay Cloud place is ready. Use this private connection link:\n\n${inviteUrl}\n\nTreat this link like a password.\n\n— Relay`);
+  const body = encodeURIComponent(`Hi ${entry.name},\n\nYour Relay Cloud place is ready. Use this private connection link:\n\n${inviteUrl}\n\nTreat this link like a password.\n\nRelay`);
   $('waitlistInvite').innerHTML = `<div class="invite-box">
     <strong>Invite ready for ${esc(entry.name)} <${esc(entry.email)}></strong>
     <div class="muted" style="margin-top:4px">${data.emailSent ? 'The invite email was sent automatically. You can resend the link below.' : 'Automatic email is not configured. Copy this private link or open an email draft.'} It acts as their account; do not post it publicly.</div>
@@ -82,7 +82,7 @@ async function loadCustomers() {
   if (!r.ok) throw new Error(data.error || 'Unable to load customers');
   customers = data.customers || [];
   $('customer').innerHTML = customers.map(c =>
-    `<option value="${c.id}">${c.displayName} — available ${money(c.available)}</option>`
+    `<option value="${c.id}">${c.displayName}, available ${money(c.available)}</option>`
   ).join('');
   renderSummary();
   if (customers[0]) { loadDetails(customers[0].id); loadPayments(customers[0].id); }
@@ -208,7 +208,7 @@ $('connect').addEventListener('click', async () => {
     $('connectLink').innerHTML = `<div class="muted">Share this connect page with the customer. It contains a private URL that acts as this customer.</div><input readonly style="width:100%;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:12px monospace" value="${data.connectUrl.replace(/"/g, '&quot;')}">
       <div class="muted" style="margin-top:12px">MCP URL for Grokbot or another MCP client (Streamable HTTP):</div>
       <input readonly style="width:100%;margin-top:6px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:12px monospace" value="${mcpUrl.replace(/"/g, '&quot;')}">
-      <div class="muted" style="margin-top:6px">Keep this URL private — it can act as this customer.</div>`;
+      <div class="muted" style="margin-top:6px">Keep this URL private. It can act as this customer.</div>`;
   } catch (error) { $('connectLink').textContent = error.message; }
 });
 

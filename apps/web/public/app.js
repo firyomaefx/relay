@@ -893,7 +893,7 @@
     } else if (isFutureSchedule(iso)) {
       els.scheduleHint.textContent = `Queued for ${formatDateTime(iso)} (${timeUntil(iso)}).`;
     } else {
-      els.scheduleHint.textContent = "That time has passed — this will publish immediately.";
+      els.scheduleHint.textContent = "That time has passed, so this will publish immediately.";
     }
     if (els.recurrenceHint) {
       const repeating = state.recurrence !== "none";
@@ -981,7 +981,7 @@
     }
     const hasContent = state.parts.some((part) => part.text.trim() || part.media.length);
     if (!hasContent && !scheduleIso()) {
-      els.preflight.innerHTML = `<div class="preflight-idle">${ICONS.clock}<span>Start writing or attach media — validation updates as you type.</span></div>`;
+      els.preflight.innerHTML = `<div class="preflight-idle">${ICONS.clock}<span>Start writing or attach media. Validation updates as you type.</span></div>`;
       return;
     }
     if (!state.validation) {
@@ -2029,7 +2029,7 @@
     const autoReplyEnvOn = settings.threadsAutoReplyEnvEnabled !== false;
     const autoReplyConfigured = Boolean(settings.threadsAutoReplyConfigured);
     els.settingsEnv.innerHTML = `
-      <div class="kv-row"><span class="kv-key">Mode</span><span class="kv-value"><strong>${settings.mock ? "Simulated" : "Live"}</strong>${settings.mock ? " — RELAY_MOCK=1, no network calls" : " — real API calls when credentials are configured"}</span></div>
+      <div class="kv-row"><span class="kv-key">Mode</span><span class="kv-value"><strong>${settings.mock ? "Simulated" : "Live"}</strong>${settings.mock ? ", RELAY_MOCK=1, no network calls" : ", real API calls when credentials are configured"}</span></div>
       <div class="kv-row"><span class="kv-key">Scheduler</span><span class="kv-value">${running ? `Active · checking every ${intervalSeconds}s${scheduler.ownedByThisProcess ? "" : " (another process owns the lock)"}` : "Paused"}</span></div>
       <div class="kv-row"><span class="kv-key">Console URL</span><span class="kv-value mono">${escapeHtml(settings.consoleUrl)}</span></div>
       <div class="kv-row"><span class="kv-key">Data directory</span><span class="kv-value mono">${escapeHtml(settings.dataDir)}</span></div>

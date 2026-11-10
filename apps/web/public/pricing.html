@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pricing · Relay Cloud</title>
 <meta name="description" content="Prepaid Relay Cloud pricing. One API for X, Threads, TikTok, YouTube, Instagram and LinkedIn. Pay only for successful posts.">
 <link rel="canonical" href="https://relay.duitpoket.fun/pricing">
@@ -20,6 +20,8 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -208,6 +210,70 @@
   .reveal{opacity:1;transform:none}
   .error-box{border:1px solid rgba(255,157,138,.25);background:rgba(255,157,138,.06);color:var(--danger);padding:14px 16px;border-radius:12px;font-size:12px;line-height:1.6}
   @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto}.reveal{opacity:1;transform:none}}
+  /* ---- Mobile and touch pass ---- */
+  a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+  .wrap{width:min(1180px,calc(100% - 40px))}
+  .foot-links{display:flex;flex-wrap:wrap;gap:0 4px}
+  .sticky-cta{display:none}
+  .menu-btn{width:44px;height:44px;padding:0;flex-direction:column;align-items:center;justify-content:center}
+  .menu-btn span{height:2px;margin:3px 0}
+  @media(max-width:820px){
+    .menu-btn{display:flex}
+    .mobile-menu{overflow-y:auto;padding:100px 24px calc(40px + env(safe-area-inset-bottom))}
+    .mobile-menu a{font-size:26px;padding:12px 0;min-height:56px;display:flex;align-items:center}
+    .mobile-menu.open a:nth-child(n+6){transition-delay:.25s}
+    .brand{min-height:44px}
+    .eyebrow{font-size:12px}
+    .lede{font-size:16px}
+    .btn{font-size:15px;min-height:48px}
+    .trust{font-size:13px}
+    .hero-side p{font-size:14px;max-width:none}
+    .hero-side .stat span{font-size:13px;max-width:none}
+    .section-head p{font-size:15px}
+    .plan-label .tag{font-size:12px}
+    .plan-desc{font-size:14px;min-height:0}
+    .price small{font-size:13px}
+    .plan-sub{font-size:13px}
+    .plan-list li{font-size:14px}
+    .rate-intro p{font-size:14px;max-width:none}
+    .platform-head .pname{font-size:16px}
+    .rate-row{font-size:14px;padding:10px 0}
+    .loading{font-size:14px}
+    .example .label{font-size:12px}
+    .example .small{font-size:13px}
+    .example .rate-line{font-size:14px}
+    .step-num{font-size:12px}
+    .step p{font-size:15px}
+    .api-copy p{font-size:15px}
+    .api-link{font-size:15px;min-height:48px;padding:12px 0}
+    .api-link code{font-size:12px}
+    .code-top{font-size:12px}
+    .code pre{font-size:13px}
+    details{padding:0}
+    summary{font-size:16px;min-height:52px;align-items:center;padding:12px 0}
+    details p{font-size:15px;margin:0 0 16px}
+    .cta p{font-size:15px}
+    footer{font-size:14px;align-items:flex-start;flex-direction:column;padding-bottom:calc(38px + env(safe-area-inset-bottom))}
+    footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
+    .foot-links{margin:0 -6px}
+    .error-box{font-size:14px}
+  }
+
+  /* Founding deal */
+  .deal h2{font-family:"Sora",sans-serif;font-weight:400;font-size:clamp(26px,4vw,38px);letter-spacing:-.04em;line-height:1.08;margin:0 0 14px}
+  .deal p{color:var(--muted);font-size:15px;line-height:1.7;margin:0 0 14px;max-width:640px}
+  .deal-list{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:10px}
+  .deal-list li{border:1px solid rgba(184,245,208,.25);background:rgba(184,245,208,.05);border-radius:14px;padding:14px 16px;font-size:16px;color:var(--ink);line-height:1.45}
+  .deal-list b{color:var(--mint)}
+  .deal .actions{margin-top:18px}
+  .deal .deal-fine{font-size:14px;color:var(--dim);margin:18px 0 0}
+  .deal .deal-fine a{color:var(--mint);display:inline-block;padding:10px 2px;margin:-10px 0}
+  @media(max-width:720px){.deal .actions .btn{width:100%;justify-content:space-between}}
+  @media(max-width:720px){
+    .sticky-cta{display:flex;position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));z-index:45;min-height:52px;align-items:center;justify-content:center;border-radius:999px;background:linear-gradient(135deg,#d8ffe6,#8fe3ae);color:#06110a;font-weight:700;font-size:16px;text-decoration:none;box-shadow:0 10px 30px rgba(0,0,0,.5);transform:translateY(160%);transition:transform .25s ease;visibility:hidden}
+    .sticky-cta.show{transform:none;visibility:visible}
+    footer.wrap{margin-bottom:76px}
+  }
 </style>
 </head>
 <body>
@@ -222,7 +288,7 @@
   </nav>
 </div>
 <div class="mobile-menu" id="mobileMenu">
-  <a href="#plans">Plans</a><a href="#rates">Rates</a><a href="#how">How it works</a><a href="#developers">Developers</a><a href="/waitlist">Join waitlist ↗</a>
+  <a href="#plans">Plans</a><a href="#rates">Rates</a><a href="#how">How it works</a><a href="#developers">Developers</a><a href="/docs">Docs</a><a href="/topup">Top up</a><a href="/contact">Contact</a><a href="/login">Log in</a><a href="/waitlist">Join waitlist ↗</a>
 </div>
 
 <main>
@@ -247,6 +313,20 @@
       </aside>
     </div>
   </header>
+
+  <section class="section wrap reveal" id="founding-deal" data-hide-sticky>
+    <div class="bezel"><div class="core deal">
+    <h2>Founding deal, first 20 paying customers</h2>
+    <p>Top up before 31 Dec 2026 and we add bonus credit on top:</p>
+    <ul class="deal-list">
+      <li><b>US$9.90</b> top-up, get <b>+US$5</b> free credit</li>
+      <li><b>US$49.90</b> top-up, get <b>+US$25</b> free credit</li>
+    </ul>
+    <p>Your per-post rates stay locked until 30 Jun 2027. We also do a free 30-min setup call with you, connect your accounts and send your first post together. All we ask is 15 mins of honest feedback after 2 weeks.</p>
+    <div class="actions"><a class="btn btn-primary" href="/waitlist">Claim a founding spot</a></div>
+    <p class="deal-fine">Limited to the first 20 paying customers. Bonus credit is added after your top-up clears. Questions about the setup call: <a href="/contact">contact us</a>.</p>
+    </div></div>
+  </section>
 
   <section class="section wrap reveal" id="plans">
     <div class="section-head">
@@ -406,7 +486,7 @@
         <details><summary>Can I cancel a scheduled post?</summary><p>Yes, while it is still pending. The reserved amount is released and the post is not published.</p></details>
       </div>
     </div>
-    <div class="cta">
+    <div class="cta" data-hide-sticky>
       <div class="cta-inner">
         <div><h2>One API. Six networks. Pay for what ships.</h2><p>Open the console to request access, or read the rates above. No monthly platform fee.</p></div>
         <div class="actions" style="margin-top:0"><a class="btn btn-primary" href="/waitlist">Join the waitlist <span class="arrow">↗</span></a></div>
@@ -417,8 +497,10 @@
 
 <footer class="wrap">
   <span>Relay Cloud · prepaid publishing infrastructure</span>
-  <span><a href="/pricing">Pricing</a> · <a href="/docs">Docs</a> · <a href="/topup">Top up</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/refund">Refunds</a> · <a href="/contact">Contact</a> · <a href="/login">Log in</a> · <a href="https://cloud-mcp.duitpoket.fun/health">Status</a></span>
+  <nav class="foot-links" aria-label="Footer"><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/topup">Top up</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refunds</a><a href="/contact">Contact</a><a href="/login">Log in</a><a href="https://cloud-mcp.duitpoket.fun/health">Status</a></nav>
 </footer>
+
+<a class="sticky-cta" id="stickyCta" href="/waitlist">Join the waitlist</a>
 
 <script id="priceData" type="application/json">__PRICE_DATA__</script>
 <script>
@@ -488,6 +570,11 @@ document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
 const menuBtn=$("menuBtn"),mobile=$("mobileMenu");
 menuBtn?.addEventListener("click",()=>{const open=mobile.classList.toggle("open");menuBtn.setAttribute("aria-expanded",String(open));menuBtn.querySelectorAll("span").forEach((s,i)=>{if(open){s.style.transform=i===0?"translateY(5px) rotate(45deg)":i===1?"scaleX(0)":i===2?"translateY(-5px) rotate(-45deg)":"";s.style.opacity=i===1?"0":"1";}else{s.style.transform="";s.style.opacity="";}});});
 mobile?.querySelectorAll("a").forEach(a=>a.addEventListener("click",()=>{mobile.classList.remove("open");menuBtn.setAttribute("aria-expanded","false");}));
+
+const sticky=$("stickyCta");
+if(sticky){const hide=document.querySelectorAll("[data-hide-sticky],.plan-featured");let tick=false;
+  const upd=()=>{tick=false;let cov=false;hide.forEach(e=>{const r=e.getBoundingClientRect();if(r.top<innerHeight&&r.bottom>0)cov=true;});sticky.classList.toggle("show",scrollY>360&&!cov);};
+  addEventListener("scroll",()=>{if(!tick){tick=true;requestAnimationFrame(upd);}},{passive:true});addEventListener("resize",upd);upd();}
 
 if(seeded) renderPricing(seeded);
 load();

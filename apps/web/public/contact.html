@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Contact · Relay Cloud</title>
 <meta name="description" content="Contact Relay Cloud about access, agency plans, billing or your account.">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
@@ -15,7 +15,7 @@
 <meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
 
 <style>
-:root{--bg:#050706;--ink:#f2f5f1;--muted:#98a69d;--line:rgba(255,255,255,.12);--mint:#b8f5d0;--ease:cubic-bezier(.32,.72,0,1)}
+:root{--bg:#050706;--ink:#f2f5f1;--muted:#98a69d;--dim:#7f8c84;--line:rgba(255,255,255,.12);--mint:#b8f5d0;--ease:cubic-bezier(.32,.72,0,1)}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(800px 500px at 10% -10%,rgba(58,130,92,.22),transparent 65%),var(--bg);color:var(--ink);font:15px/1.6 "Manrope",ui-sans-serif,system-ui,sans-serif;display:grid;place-items:center;padding:24px}
 main{width:min(620px,100%);border:1px solid var(--line);border-radius:24px;padding:34px;background:linear-gradient(160deg,#101a14,#080d0a)}
 a{color:var(--mint)}.eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--mint);font-weight:700}
@@ -26,6 +26,18 @@ input,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);bac
 input:focus,textarea:focus{border-color:rgba(184,245,208,.45)}textarea{min-height:120px;resize:vertical}
 button{margin-top:18px;padding:11px 16px;border:0;border-radius:999px;background:var(--mint);color:#06110a;font:inherit;font-weight:700;cursor:pointer}
 button:disabled{opacity:.6;cursor:wait}.msg{font-size:13px;margin-top:14px;color:var(--mint)}.err{color:#ff9d8a}.back{display:inline-block;margin-top:22px;font-size:12px;text-decoration:none}
+
+/* ---- Mobile and touch pass ---- */
+body{padding:20px max(16px,env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));font-size:16px}
+.eyebrow{font-size:12px}
+label{font-size:12px}
+input,textarea{font-size:16px;min-height:48px;padding:12px 14px}
+textarea{min-height:140px}
+button{min-height:48px;font-size:16px;padding:12px 20px}
+.msg{font-size:15px}
+.back{display:inline-flex;align-items:center;min-height:44px;font-size:15px;margin-top:12px}
+a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+@media(max-width:560px){main{padding:24px 18px;border-radius:20px}h1{font-size:clamp(32px,10vw,38px)}button{width:100%}}
 </style>
 </head>
 <body><main>
@@ -34,11 +46,11 @@ button:disabled{opacity:.6;cursor:wait}.msg{font-size:13px;margin-top:14px;color
   <p>Agency plans, volume pricing, API access or a customer account. Leave a note and we will reply. Prefer the first-100 queue? <a href="/waitlist">Join the waitlist</a>.</p>
   <form id="contactForm">
     <label for="name">Name</label>
-    <input id="name" name="name" required maxlength="120" autocomplete="name">
+    <input id="name" name="name" type="text" required maxlength="120" autocomplete="name" autocapitalize="words">
     <label for="email">Email</label>
-    <input id="email" name="email" type="email" required maxlength="200" autocomplete="email">
+    <input id="email" name="email" type="email" inputmode="email" required maxlength="200" autocomplete="email" autocapitalize="off" spellcheck="false">
     <label for="message">What do you need?</label>
-    <textarea id="message" name="message" required maxlength="4000" placeholder="Brands, platforms, monthly volume, or the agent you want to connect."></textarea>
+    <textarea id="message" name="message" required maxlength="4000" rows="5" enterkeyhint="send" placeholder="Brands, platforms, monthly volume, or the agent you want to connect."></textarea>
     <button id="send" type="submit">Send request</button>
     <div class="msg" id="msg" role="status"></div>
   </form>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Connect your MCP client · Relay Cloud</title>
 <meta name="description" content="Connect Cursor, Claude or any MCP client to Relay Cloud with one URL and your API key.">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
@@ -47,6 +47,40 @@
   .step{border-top:1px solid var(--line);padding:14px 0;color:var(--muted);font-size:12px}.step b{display:block;color:var(--ink);font-size:12px;margin-bottom:4px}
   footer{border-top:1px solid var(--line);margin-top:54px;padding-top:18px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;color:var(--dim);font-size:11px}
   footer a{text-decoration:none;color:var(--muted)}
+
+  /* ---- Mobile and touch pass ---- */
+  a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+  .wrap{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+  .brand{min-height:44px}
+  .links a{display:inline-flex;align-items:center;min-height:44px;font-size:15px}
+  .eyebrow{font-size:12px}
+  .badge{font-size:13px}
+  .core h2{font-size:18px}
+  .sub{font-size:13px}
+  .code code{font-size:13px}
+  .copy{min-width:56px;min-height:44px;font-size:13px;padding:6px 12px}
+  .personal p{font-size:14px}
+  .personal code{font-size:13px}
+  .personal .copy{min-height:44px}
+  .keybar label{font-size:12px}
+  .keybar input{font-size:16px;min-height:48px;padding:10px 12px}
+  .keybar p{font-size:13px}
+  .install{min-height:48px;font-size:15px;padding:0 18px}
+  .note{font-size:15px}
+  .note a{display:inline-block;padding:12px 4px;margin:-12px 0}
+  .step,.step b{font-size:15px}
+  footer{font-size:14px}
+  footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
+  @media(max-width:760px){
+    .links{display:flex;flex-wrap:wrap;gap:0 4px;margin:0 -8px}
+    .links a{padding:0 8px}
+    .nav{flex-wrap:wrap;gap:0 12px;padding-bottom:18px}
+    .keybar input{width:100%}
+    .keybar>div{width:100%}
+    .install{width:100%;justify-content:center}
+    .code{padding-right:64px}
+    .core{padding:20px 16px}
+  }
 </style>
 </head>
 <body><div class="wrap">
@@ -66,13 +100,13 @@
     <div class="row"><button class="copy" id="personalCopy" type="button">Copy URL</button><a class="install" id="personalCursor" href="/connect">Install in Cursor <span>↗</span></a></div>
   </div>
   <div class="keybar" id="keybar">
-    <div><label for="apiKey">Your Relay Cloud API key</label><input id="apiKey" type="password" autocomplete="off" placeholder="relay_sk_..." spellcheck="false"><p>Stays in this browser. Fills every snippet below; never sent to this page.</p></div>
+    <div><label for="apiKey">Your Relay Cloud API key</label><input id="apiKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="relay_sk_..." spellcheck="false"><p>Stays in this browser. Fills every snippet below; never sent to this page.</p></div>
     <a id="cursorInstall" class="install disabled" href="/connect" aria-disabled="true">Install in Cursor <span>↗</span></a>
   </div>
 
   <div class="grid">
     <article class="bezel"><div class="core">
-      <h2>Claude Code</h2><p class="sub">CLI — HTTP transport</p>
+      <h2>Claude Code</h2><p class="sub">CLI, HTTP transport</p>
       <div class="code"><button class="copy">Copy</button><code>claude mcp add --transport http relay-cloud \
   <span class="url">https://cloud-mcp.duitpoket.fun/mcp</span> \
   --header "Authorization: Bearer <span class="key">&lt;customer-api-key&gt;</span>"</code></div>
@@ -91,7 +125,7 @@
     </div></article>
 
     <article class="bezel"><div class="core">
-      <h2>Cursor</h2><p class="sub">mcp.json — HTTP with headers</p>
+      <h2>Cursor</h2><p class="sub">mcp.json, HTTP with headers</p>
       <div class="code"><button class="copy">Copy</button><code>{ "mcpServers": { "relay-cloud": {
   "url": "<span class="url">https://cloud-mcp.duitpoket.fun/mcp</span>",
   "headers": { "Authorization": "Bearer <span class="key">&lt;customer-api-key&gt;</span>" }
@@ -99,7 +133,7 @@
     </div></article>
 
     <article class="bezel"><div class="core">
-      <h2>Codex</h2><p class="sub">config.toml — HTTP MCP server</p>
+      <h2>Codex</h2><p class="sub">config.toml, HTTP MCP server</p>
       <div class="code"><button class="copy">Copy</button><code>[mcp_servers.relay_cloud]
 url = "<span class="url">https://cloud-mcp.duitpoket.fun/mcp</span>"
 http_headers = { Authorization = "Bearer <span class="key">&lt;customer-api-key&gt;</span>" }</code></div>

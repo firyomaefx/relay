@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Top up · Relay Cloud</title>
 <meta name="description" content="Top up your Relay Cloud balance by card. US$9.90 or US$49.90, no monthly fee.">
 <link rel="canonical" href="https://relay.duitpoket.fun/topup">
@@ -24,15 +24,20 @@
 <meta name="twitter:description" content="Top up your Relay Cloud balance by card. US$9.90 or US$49.90, no monthly fee.">
 <meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
 <link rel="stylesheet" href="/site.css">
+<script src="/site.js"></script>
 </head>
 <body>
 <div class="wrap">
 <nav class="nav" aria-label="Main">
   <a class="brand" href="/"><img src="/favicon-32.png" alt="" width="28" height="28">Relay Cloud</a>
-  <div class="nav-links">
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Open menu"><span></span><span></span><span></span></button>
+  <div class="nav-links" id="navLinks">
     <a href="/pricing">Pricing</a>
-    <a href="/docs" class="hide-sm">Docs</a>
+    <a href="/docs">Docs</a>
+    <a href="/topup">Top up</a>
+    <a href="/contact" class="menu-only">Contact</a>
     <a href="/login" class="login">Log in</a>
+    <a href="/waitlist" class="menu-only menu-cta">Join the waitlist</a>
   </div>
 </nav>
 </div>
@@ -42,13 +47,13 @@
 <form class="topup" id="topupForm" autocomplete="off">
   <div>
     <label for="apiKey">Your Relay API key</label>
-    <input type="password" id="apiKey" name="apiKey" placeholder="rly_..." required spellcheck="false" autocomplete="off">
+    <input type="password" id="apiKey" name="apiKey" placeholder="rly_..." required spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" enterkeyhint="go">
     <p class="note">Used once to find your account. It isn't saved in your browser or sent to Stripe.</p>
   </div>
   <fieldset class="plans" style="border:0;padding:0;margin:0">
     <legend class="sr-only" style="position:absolute;left:-9999px">Choose a top-up</legend>
-    <label class="plan"><input type="radio" name="plan" value="starter" checked><b>US$9.90</b><br><span class="muted">3 accounts per platform and Threads auto-reply</span></label>
-    <label class="plan"><input type="radio" name="plan" value="scale"><b>US$49.90</b><br><span class="muted">10 accounts per platform</span></label>
+    <label class="plan"><input type="radio" name="plan" value="starter" checked><span class="plan-body"><b>US$9.90</b><br><span class="muted">3 accounts per platform and Threads auto-reply</span></span></label>
+    <label class="plan"><input type="radio" name="plan" value="scale"><span class="plan-body"><b>US$49.90</b><br><span class="muted">10 accounts per platform</span></span></label>
   </fieldset>
   <button class="btn btn-primary" type="submit" id="payButton">Continue to payment</button>
   <p class="status" id="status" role="status" aria-live="polite"></p>

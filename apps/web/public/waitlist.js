@@ -71,7 +71,7 @@ form.addEventListener('submit', async (event) => {
     successText.textContent = data.duplicate
       ? 'You were already on the list. We have your request.'
       : data.emailSent
-        ? 'Check your inbox — we sent a confirmation. We will email you when your access is ready.'
+        ? 'Check your inbox. We sent a confirmation. We will email you when your access is ready.'
         : 'We have your request. We will contact you when your Relay Cloud account is ready.';
   } catch (error) {
     message.textContent = error.message;

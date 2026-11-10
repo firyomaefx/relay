@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Privacy Policy · Relay Cloud</title>
 <meta name="description" content="What Relay Cloud collects, why, who it is shared with, and how to ask for your data to be deleted.">
 <link rel="canonical" href="https://relay.duitpoket.fun/privacy">
@@ -24,15 +24,20 @@
 <meta name="twitter:description" content="What Relay Cloud collects, why, who it is shared with, and how to ask for your data to be deleted.">
 <meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
 <link rel="stylesheet" href="/site.css">
+<script src="/site.js"></script>
 </head>
 <body>
 <div class="wrap">
 <nav class="nav" aria-label="Main">
   <a class="brand" href="/"><img src="/favicon-32.png" alt="" width="28" height="28">Relay Cloud</a>
-  <div class="nav-links">
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Open menu"><span></span><span></span><span></span></button>
+  <div class="nav-links" id="navLinks">
     <a href="/pricing">Pricing</a>
-    <a href="/docs" class="hide-sm">Docs</a>
+    <a href="/docs">Docs</a>
+    <a href="/topup">Top up</a>
+    <a href="/contact" class="menu-only">Contact</a>
     <a href="/login" class="login">Log in</a>
+    <a href="/waitlist" class="menu-only menu-cta">Join the waitlist</a>
   </div>
 </nav>
 </div>

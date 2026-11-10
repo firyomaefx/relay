@@ -5067,3 +5067,61 @@ body { font-size: 17px; }
 .integration-auto-note { color: var(--text-mute); font-size: 11px; }
 @media (max-width: 720px) { .connect-relay-hero { grid-template-columns: 1fr; } .connect-relay-actions { justify-content: flex-start; } .connect-client-list { grid-template-columns: 1fr; } }
 .connect-relay-wrap { grid-column: 1 / -1; }
+
+/* ==========================================================================
+   Mobile and touch pass
+   ========================================================================== */
+.skip-link:focus { min-height: 44px; }
+
+@media (max-width: 760px) {
+  /* Seven screens fit in one row of the bottom bar. */
+  .nav { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .sidebar-core { padding: 5px 2px; }
+  .nav-item { padding: 5px 0; min-height: 62px; }
+  .nav-label { font-size: 11px; letter-spacing: -0.02em; }
+  .nav-badge { right: calc(50% - 18px); font-size: 10px; }
+  .main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); padding-left: max(18px, env(safe-area-inset-left)); padding-right: max(18px, env(safe-area-inset-right)); }
+  .sidebar { padding-bottom: env(safe-area-inset-bottom); height: calc(74px + env(safe-area-inset-bottom)); }
+
+}
+
+@media (max-width: 940px), (pointer: coarse) {
+  /* Tap targets of at least 44px. */
+  .icon-btn, .icon-btn.small { width: 44px; height: 44px; }
+  .ghost-btn, .ghost-btn.small, .danger-btn { min-height: 44px; padding-left: 16px; padding-right: 16px; font-size: 14px; }
+  .link-btn { display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; }
+  .segmented-btn { min-height: 44px; padding: 8px 18px; font-size: 14px; }
+  .text-btn { min-height: 44px; }
+
+  /* Inputs at 16px so iOS Safari does not zoom. */
+  input, select, textarea, .input, .select, .part-text { font-size: 16px !important; }
+  input[type="datetime-local"] { min-height: 50px; }
+
+  /* Secondary text no smaller than 12px. */
+  .breakdown-eyebrow, .breakdown-total, .breakdown-note, .breakdown-legend em, .dash-note, .status-badge, .part-index,
+  .part-label, .counter, .media-hint, .field-label-dim, .summary-value, .count-badge, .empty-text, .note-num,
+  .kv-value.mono, .access-chip, .key-status, .cred-source, .list-excerpt, .list-meta, .code-block,
+  .cred-setup span, .cred-setup p, .integration-card p, .integration-card span, .toast-text {
+    font-size: 12px !important;
+  }
+  .part-index, .cred-source, .note-num, .breakdown-eyebrow, .counter { letter-spacing: 0.04em; }
+  .code-block { overflow-x: auto; max-width: 100%; }
+  pre, code { overflow-wrap: anywhere; }
+  .panel, .kv-value, .list-title, .account-name { overflow-wrap: anywhere; }
+  table { display: block; max-width: 100%; overflow-x: auto; }
+}
+
+@media (max-width: 380px) {
+  .nav-label { font-size: 10.5px; letter-spacing: -0.03em; }
+  .main { padding-left: 14px; padding-right: 14px; }
+}
+.skip-link { min-height: 44px; display: inline-flex; align-items: center; }
+@media (max-width: 940px), (pointer: coarse) {
+  .switch-row { min-height: 48px; }
+}
+@media (max-width: 940px), (pointer: coarse) {
+  .preflight-idle span, .account-empty span, .account-foot span { font-size: 13px !important; }
+  .dash-big span, .heatmap-legend span, .dash-stats span, .breakdown-stat span { font-size: 12px !important; }
+  .brand { min-height: 44px; }
+  .note-item p { font-size: 14px !important; line-height: 1.55; }
+}

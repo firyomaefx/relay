@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Relay Cloud · Let your AI agent post for you</title>
 <meta name="description" content="Post to X, Threads, TikTok, YouTube, Instagram and LinkedIn from your AI agent over MCP. Pay per post, no monthly fee, failed posts are free.">
 <link rel="canonical" href="https://relay.duitpoket.fun/">
@@ -24,15 +24,20 @@
 <meta name="twitter:description" content="Post to X, Threads, TikTok, YouTube, Instagram and LinkedIn from your AI agent over MCP. Pay per post, no monthly fee, failed posts are free.">
 <meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
 <link rel="stylesheet" href="/site.css">
+<script src="/site.js"></script>
 </head>
 <body>
 <div class="wrap">
 <nav class="nav" aria-label="Main">
   <a class="brand" href="/"><img src="/favicon-32.png" alt="" width="28" height="28">Relay Cloud</a>
-  <div class="nav-links">
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Open menu"><span></span><span></span><span></span></button>
+  <div class="nav-links" id="navLinks">
     <a href="/pricing">Pricing</a>
-    <a href="/docs" class="hide-sm">Docs</a>
+    <a href="/docs">Docs</a>
+    <a href="/topup">Top up</a>
+    <a href="/contact" class="menu-only">Contact</a>
     <a href="/login" class="login">Log in</a>
+    <a href="/waitlist" class="menu-only menu-cta">Join the waitlist</a>
   </div>
 </nav>
 </div>
@@ -85,7 +90,21 @@
   <p><a href="/pricing">See pricing</a></p>
 </section>
 
-<section class="section wrap" id="offer">
+<section class="section wrap" id="founding-deal" data-hide-sticky>
+  <div class="offer deal">
+    <h2>Founding deal, first 20 paying customers</h2>
+    <p>Top up before 31 Dec 2026 and we add bonus credit on top:</p>
+    <ul class="deal-list">
+      <li><b>US$9.90</b> top-up, get <b>+US$5</b> free credit</li>
+      <li><b>US$49.90</b> top-up, get <b>+US$25</b> free credit</li>
+    </ul>
+    <p>Your per-post rates stay locked until 30 Jun 2027. We also do a free 30-min setup call with you, connect your accounts and send your first post together. All we ask is 15 mins of honest feedback after 2 weeks.</p>
+    <div class="actions"><a class="btn btn-primary" href="/waitlist">Claim a founding spot</a></div>
+    <p class="deal-fine">Limited to the first 20 paying customers. Bonus credit is added after your top-up clears. Questions about the setup call: <a href="/contact">contact us</a>.</p>
+  </div>
+</section>
+
+<section class="section wrap" id="offer" data-hide-sticky>
   <div class="offer">
     <h2>First 100 builders</h2>
     <p>We're letting Relay Cloud in 100 users at a time, starting with Malaysian builders, agencies and creators. Join the waitlist, get approved, and start with US$0.50 free credit (not usable on X). Top up US$9.90 once to get 3 accounts per platform and Threads auto-reply. No monthly fee, and a post that fails doesn't cost you anything.</p>
@@ -114,5 +133,6 @@
   </nav>
 </div>
 </footer>
+<a class="sticky-cta" href="/waitlist">Join the waitlist</a>
 </body>
 </html>
