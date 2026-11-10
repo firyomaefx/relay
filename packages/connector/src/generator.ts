@@ -26,7 +26,7 @@ export function generateArtifact(input: GenerateInput): GeneratedArtifact {
         clientId: input.clientId,
         kind: "steps",
         title: "Claude (web and phone app) - add a custom connector once",
-        body: `1. On claude.ai (a phone browser works), open Customize, then Connectors, then Add custom connector.\n2. Name it Relay, paste this URL and leave the OAuth fields empty:\n\n${input.mcpUrl}\n\n3. Tap Connect and sign in with your Relay Cloud API key.\n4. In the Claude iPhone or Android app, tap +, then Connectors, and turn Relay on.\n\nThe phone apps can use the connector but cannot add it, so do step 1 on claude.ai. Free Claude plans allow one custom connector.`,
+        body: `1. On claude.ai (a phone browser works), open Customize, then Connectors, then Add custom connector.\n2. Name it Relay Cloud, paste this URL and leave the OAuth fields empty:\n\n${input.mcpUrl}\n\n3. Tap Connect, paste your Relay Cloud API key once, and approve.\n4. In the Claude iPhone or Android app, tap +, then Connectors, and turn Relay Cloud on.\n\nFaster: open https://relay.duitpoket.fun/connect and tap Add to Claude. The phone apps can use the connector but cannot add it. Free Claude plans allow one custom connector.`,
       };
     case "codex":
       return {

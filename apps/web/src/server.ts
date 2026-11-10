@@ -586,8 +586,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
 
 function publicMcpUrl(relay: RelayService): string {
   return relay.consoleUrl.includes("//relay.")
-    ? relay.consoleUrl.replace("//relay.", "//mcp.").replace(/\/+$/, "") + "/mcp"
-    : "https://mcp.duitpoket.fun/mcp";
+    ? "https://cloud-mcp.duitpoket.fun/mcp"
+    : "https://cloud-mcp.duitpoket.fun/mcp";
 }
 
 async function handleApi(
@@ -754,8 +754,8 @@ async function handleApi(
     }
     if (!token) throw new RelayError("MCP HTTP token is empty.", "mcp_token_missing", undefined, 404);
     const mcpUrl = relay.consoleUrl.includes("//relay.")
-      ? relay.consoleUrl.replace("//relay.", "//mcp.").replace(/\/+$/, "") + "/mcp"
-      : "https://mcp.duitpoket.fun/mcp";
+      ? "https://cloud-mcp.duitpoket.fun/mcp"
+      : "https://cloud-mcp.duitpoket.fun/mcp";
     sendJson(res, 200, { token, url: mcpUrl });
     return;
   }
