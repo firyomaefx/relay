@@ -1,0 +1,3 @@
+/* Shared brand lockup sizing for standalone public pages. */
+.brand .brand-lockup,.brand-lockup{display:block;width:auto;height:34px;max-width:100%;border-radius:0;object-fit:contain}
+@media(max-width:720px){.brand .brand-lockup,.brand-lockup{height:30px}}
