@@ -5125,3 +5125,7 @@ body { font-size: 17px; }
   .brand { min-height: 44px; }
   .note-item p { font-size: 14px !important; line-height: 1.55; }
 }
+
+/* Official brand lockup */
+.brand .brand-lockup,.brand-lockup{display:block;width:auto;height:30px;max-width:100%;border-radius:0;object-fit:contain}
+.auth-brand img{display:block;width:auto;height:48px;max-width:100%;object-fit:contain}

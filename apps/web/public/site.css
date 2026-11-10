@@ -161,3 +161,7 @@ footer.site nav a{display:inline-flex;align-items:center;min-height:44px;padding
 .proof span{display:block;margin-top:4px;font-size:13px;color:var(--dim)}
 .note{color:var(--dim);font-size:14px;line-height:1.65}
 @media (max-width:720px){.proof-strip,.proof-grid{grid-template-columns:1fr 1fr}}
+
+/* Official brand lockup: keep the supplied wordmark intact. */
+.brand .brand-lockup,.brand-lockup{width:auto;height:34px;max-width:100%;border-radius:0;object-fit:contain}
+@media (max-width:720px){.brand .brand-lockup,.brand-lockup{height:30px}}
