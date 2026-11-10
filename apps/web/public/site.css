@@ -149,3 +149,15 @@ footer.site nav a{display:inline-flex;align-items:center;min-height:44px;padding
 .deal-fine{font-size:14px;color:var(--dim);margin:18px 0 0}
 .deal-fine a{display:inline-block;padding:12px 2px;margin:-12px 0}
 @media (max-width:720px){.deal .actions .btn{flex:1 1 100%}}
+
+/* Public proof strip and about page */
+.proof-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:28px 0 0;padding-top:22px;border-top:1px solid rgba(184,245,208,.16)}
+.proof-strip div{display:flex;flex-direction:column;gap:4px}
+.proof-strip strong{font-size:22px;letter-spacing:-.03em;color:var(--mint)}
+.proof-strip span{font-size:13px;color:var(--dim)}
+.proof-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:22px 0}
+.proof{border:1px solid rgba(184,245,208,.18);background:rgba(184,245,208,.04);border-radius:16px;padding:18px}
+.proof strong{display:block;font-size:26px;letter-spacing:-.03em;color:var(--mint)}
+.proof span{display:block;margin-top:4px;font-size:13px;color:var(--dim)}
+.note{color:var(--dim);font-size:14px;line-height:1.65}
+@media (max-width:720px){.proof-strip,.proof-grid{grid-template-columns:1fr 1fr}}

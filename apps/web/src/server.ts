@@ -64,6 +64,8 @@ const STATIC_EXTENSIONS = new Set([
 // Public HTML pages served before the console session gate.
 const PUBLIC_PAGES: Record<string, string> = {
   "/home": "landing.html",
+  "/about": "about.html",
+  "/about.html": "about.html",
   "/docs": "docs.html",
   "/docs.html": "docs.html",
   "/terms": "terms.html",
