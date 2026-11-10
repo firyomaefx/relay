@@ -1,4 +1,10 @@
 // Traceability: REQ-016
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import { ConfigurationError, RelayError, errorMessage } from "@relay/core";
 import type {
   AdapterContext,
@@ -44,6 +50,109 @@ const SCOPES = [
   "instagram_business_manage_comments",
 ] as const;
 const MAX_COMMENT_REPLY = 2200;
+const run = promisify(execFile);
+
+const SEO_RULES: Array<[RegExp, string[]]> = [
+  [/kwsp|epf|caruman/i, ["#KWSP", "#EPF", "#simpanan"]],
+  [/aircond|tnb|bil api|bil elektrik/i, ["#bilapi", "#TNB", "#penjimatan"]],
+  [/hutang|kad kredit|ccris|pinjaman/i, ["#hutang", "#kadkredit", "#kewangan"]],
+  [/gaji|bonus|pendapatan|salary/i, ["#gaji", "#kewanganperibadi", "#duitpoket"]],
+  [/freelance|gig|kerja|side income/i, ["#freelancemalaysia", "#kerjaremote", "#sideincome"]],
+  [/pelaburan|saham|prs|emas|gold/i, ["#pelaburan", "#kewanganperibadi", "#emas"]],
+];
+const SEO_FALLBACK = ["#DuitPoket", "#KewanganPeribadi", "#Malaysia"];
+
+function hashtagsIn(text: string): string[] {
+  return [...text.matchAll(/#[\p{L}\p{N}_]+/gu)].map((match) => match[0]);
+}
+
+/** Keep the writer's voice; add only the missing discoverability tags. */
+function enrichInstagramCaption(caption: string): string {
+  const existing = hashtagsIn(caption);
+  const seen = new Set(existing.map((tag) => tag.toLowerCase()));
+  if (seen.size >= 3) return caption;
+  const extra: string[] = [];
+  for (const [pattern, tags] of SEO_RULES) {
+    if (!pattern.test(caption)) continue;
+    for (const tag of tags) {
+      const key = tag.toLowerCase();
+      if (!seen.has(key)) { seen.add(key); extra.push(tag); }
+    }
+  }
+  for (const tag of SEO_FALLBACK) {
+    if (extra.length >= 3) break;
+    const key = tag.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); extra.push(tag); }
+  }
+  if (extra.length === 0) return caption;
+  return `${caption.replace(/\s+$/, "")}\n\n${extra.slice(0, 5 - existing.length).join(" ")}`;
+}
+
+function instagramAltText(item: MediaItem, caption: string, index: number): string {
+  const existing = item.altText?.trim();
+  if (existing) return existing.slice(0, 1000);
+  const first = caption.split(/\n+/).map((line) => line.replace(/#[^\s]+/g, "").trim()).find(Boolean) ?? "";
+  return `${first || "Duit Poket"}${index > 0 ? ` \u2014 slide ${index + 1}` : ""}`.slice(0, 1000);
+}
+
+/**
+ * Instagram Login does not expose the Audio API, so music must be part of the
+ * video. Keep a Reel that already has audio; otherwise add a quiet generated
+ * bed and serve the result from Relay's public media directory.
+ */
+async function prepareInstagramReel(ctx: AdapterContext, item: MediaItem): Promise<string> {
+  if (!item.url) return item.url ?? "";
+  let source: string | undefined;
+  let dir: string | undefined;
+  try {
+    dir = await mkdtemp(path.join(tmpdir(), "relay-instagram-"));
+    source = path.join(dir, "source.mp4");
+    if (item.path) {
+      await writeFile(source, await readFile(item.path));
+    } else {
+      const response = await ctx.fetch(item.url);
+      if (!response.ok) return item.url;
+      await writeFile(source, Buffer.from(await response.arrayBuffer()));
+    }
+    let hasAudio = "";
+    try {
+      const probe = await run("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", source]);
+      hasAudio = String(probe.stdout ?? "").trim();
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT") {
+        ctx.logger("Instagram Reel music skipped: ffmpeg/ffprobe is not installed on this host.");
+        return item.url;
+      }
+      throw error;
+    }
+    if (hasAudio) return item.url;
+
+    const durationProbe = await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", source]);
+    const duration = Math.max(1, Number(String(durationProbe.stdout ?? "").trim()) || 0);
+    const output = path.join(dir, "output.mp4");
+    const root = 196 + (item.url.length % 4) * 24.5;
+    const frequencies = [root, root * 1.25, root * 1.5];
+    const inputs = frequencies.flatMap((frequency) => ["-f", "lavfi", "-i", `sine=frequency=${frequency.toFixed(2)}:sample_rate=44100:duration=${duration.toFixed(3)}`]);
+    const filter = [
+      "[1:a]volume=0.045[a1]", "[2:a]volume=0.032[a2]", "[3:a]volume=0.024[a3]",
+      `[a1][a2][a3]amix=inputs=3:duration=longest:normalize=0,afade=t=in:st=0:d=0.6,afade=t=out:st=${Math.max(0, duration - 0.8).toFixed(3)}:d=0.8[a]`,
+    ].join(";");
+    await run("ffmpeg", ["-y", "-i", source, ...inputs, "-filter_complex", filter, "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-shortest", "-movflags", "+faststart", output]);
+    const bytes = await readFile(output);
+    const mediaDir = path.join(ctx.dataDir, "media");
+    await mkdir(mediaDir, { recursive: true });
+    const name = `instagram-audio-${createHash("sha256").update(bytes).digest("hex").slice(0, 16)}.mp4`;
+    const target = path.join(mediaDir, name);
+    await writeFile(target, bytes);
+    const publicUrl = ctx.mediaPublicUrl({ path: target, kind: "video" });
+    return publicUrl ?? item.url;
+  } catch (error) {
+    ctx.logger(`Instagram Reel music skipped: ${error instanceof Error ? error.message : String(error)}`);
+    return item.url;
+  } finally {
+    if (dir) await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
 
 // Container wait: Instagram needs a moment after a container is created, even
 // for a single image. Wait INITIAL, then poll status_code every INTERVAL until
@@ -249,20 +358,20 @@ export class InstagramAdapter implements PlatformAdapter {
     }
 
     const userId = await this.resolveUserId(ctx, input.account, tokens);
-    const caption = part.text.trim();
+    const caption = enrichInstagramCaption(part.text.trim());
     const options = input.post.options;
 
     let containerId: string;
     if (media.length > 1) {
       const childIds: string[] = [];
-      for (const item of media) {
+      for (const [index, item] of media.entries()) {
         const child = await providerFetch(ctx, "Instagram carousel item", `${GRAPH_URL}/${userId}/media`, {
           method: "POST",
           headers: { ...authHeaders(tokens.accessToken), "Content-Type": "application/x-www-form-urlencoded" },
           body: formBody({
             image_url: publicMediaUrl(ctx, item, "Instagram"),
             is_carousel_item: "true",
-            alt_text: options.instagramAltText,
+            alt_text: instagramAltText(item, caption, index),
           }),
         });
         const childId = getString(asObject(child), "id") ?? "";
@@ -287,7 +396,7 @@ export class InstagramAdapter implements PlatformAdapter {
       if (item.kind === "video") {
         const params: Record<string, string | undefined> = {
           media_type: "REELS",
-          video_url: publicMediaUrl(ctx, item, "Instagram"),
+          video_url: await prepareInstagramReel(ctx, item),
           caption: caption || undefined,
           share_to_feed: options.instagramShareToFeed === false ? "false" : "true",
         };
@@ -305,7 +414,7 @@ export class InstagramAdapter implements PlatformAdapter {
         const params: Record<string, string | undefined> = {
           image_url: publicMediaUrl(ctx, item, "Instagram"),
           caption: caption || undefined,
-          alt_text: options.instagramAltText,
+          alt_text: instagramAltText(item, caption, 0),
         };
         const created = await providerFetch(ctx, "Instagram image container", `${GRAPH_URL}/${userId}/media`, {
           method: "POST",
