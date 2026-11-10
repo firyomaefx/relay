@@ -3,7 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import { RelayError } from "@relay/core";
 
-export type LedgerType = "topup" | "charge" | "refund" | "adjustment";
+export type LedgerType = "topup" | "charge" | "refund" | "adjustment" | "bonus";
 export type ReservationStatus = "held" | "committed" | "released";
 
 export interface LedgerEntry {
@@ -184,7 +184,7 @@ export class CloudLedger {
   credit(input: {
     customerId: string;
     amount: number;
-    type: Extract<LedgerType, "topup" | "refund" | "adjustment">;
+    type: Extract<LedgerType, "topup" | "refund" | "adjustment" | "bonus">;
     idempotencyKey: string;
     reason?: string;
     postId?: string;
@@ -193,6 +193,72 @@ export class CloudLedger {
       throw new RelayError("Credit amount must be a positive whole number.", "cloud_amount_invalid");
     }
     return this.insertLedger({ ...input, amount: input.amount });
+  }
+
+  /**
+   * Owner-granted bonus credit. Written as an append-only ledger entry of type
+   * "bonus". It adds to the spendable balance but is not a payment: it never
+   * touches payment_events, so it cannot count toward top-up unlocks or tiers
+   * (those read payment_events), nor toward totalTopups (type = 'topup').
+   */
+  grantBonus(input: { customerId: string; amount: number; reason: string; idempotencyKey?: string }): { entry: LedgerEntry; replayed: boolean } {
+    const reason = input.reason.trim();
+    if (!reason) throw new RelayError("A reason is required for a bonus grant.", "cloud_bonus_reason_required");
+    if (!Number.isInteger(input.amount) || input.amount <= 0) {
+      throw new RelayError("Bonus amount must be a positive whole number of milli-USD.", "cloud_amount_invalid");
+    }
+    const key = input.idempotencyKey?.trim() ? `bonus:${input.idempotencyKey.trim()}` : `bonus:${randomUUID()}`;
+    const existing = this.db.prepare("SELECT * FROM ledger WHERE idempotency_key = ?").get(key) as Record<string, unknown> | undefined;
+    if (existing) {
+      if (String(existing.type) !== "bonus" || String(existing.customer_id) !== input.customerId || Number(existing.amount) !== input.amount) {
+        throw new RelayError("This idempotency key was already used for a different grant.", "cloud_bonus_idempotency_conflict", undefined, 409);
+      }
+      return { entry: this.insertLedger({ customerId: input.customerId, amount: input.amount, type: "bonus", idempotencyKey: key, reason }), replayed: true };
+    }
+    return { entry: this.insertLedger({ customerId: input.customerId, amount: input.amount, type: "bonus", idempotencyKey: key, reason }), replayed: false };
+  }
+
+  /** Bonus grants across all customers, newest first. */
+  listBonusGrants(filter: { customerId?: string; from?: string; to?: string; reasonContains?: string; limit?: number } = {}): {
+    entries: LedgerEntry[];
+    count: number;
+    totalAmount: number;
+  } {
+    const where: string[] = ["type = 'bonus'"];
+    const args: Array<string | number> = [];
+    if (filter.customerId) {
+      where.push("customer_id = ?");
+      args.push(filter.customerId);
+    }
+    if (filter.from) {
+      where.push("created_at >= ?");
+      args.push(filter.from);
+    }
+    if (filter.to) {
+      where.push("created_at <= ?");
+      args.push(filter.to);
+    }
+    if (filter.reasonContains) {
+      where.push("LOWER(COALESCE(reason, '')) LIKE ? ESCAPE '\\'");
+      args.push(`%${filter.reasonContains.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    }
+    const clause = where.join(" AND ");
+    const totals = this.db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM ledger WHERE ${clause}`).get(...args) as { n: number; total: number };
+    const rows = this.db.prepare(`SELECT * FROM ledger WHERE ${clause} ORDER BY created_at DESC LIMIT ?`).all(...args, Math.max(1, Math.min(filter.limit ?? 100, 500))) as Record<string, unknown>[];
+    return {
+      count: Number(totals.n),
+      totalAmount: Number(totals.total),
+      entries: rows.map((row) => ({
+        id: String(row.id),
+        customerId: String(row.customer_id),
+        amount: Number(row.amount),
+        type: String(row.type) as LedgerType,
+        postId: row.post_id == null ? null : String(row.post_id),
+        idempotencyKey: String(row.idempotency_key),
+        reason: row.reason == null ? null : String(row.reason),
+        createdAt: String(row.created_at),
+      })),
+    };
   }
 
   reserve(input: {
