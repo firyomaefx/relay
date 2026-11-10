@@ -172,7 +172,7 @@ async function main(): Promise<void> {
   const settings = await relay.getSettings();
   const createMcpServer = (): McpServer => {
     const mcp = new McpServer(
-      { name: SERVER_NAME, version: SERVER_VERSION, title: "Relay" },
+      { name: SERVER_NAME, version: SERVER_VERSION, title: "Relay Cloud", websiteUrl: "https://relay.duitpoket.fun", icons: [{ src: "https://relay.duitpoket.fun/brand/relay-cloud-mark.png", mimeType: "image/png", sizes: ["512x512"] }] },
       { instructions: buildInstructions(relay, settings.mock) },
     );
     registerTools(mcp, { relay, entryPath: process.argv[1] });

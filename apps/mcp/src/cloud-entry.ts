@@ -96,7 +96,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       }
       if (!customer) throw new Error("Cloud customer authentication failed.");
       const relay = await tenants.get(customer);
-      const server = new McpServer({ name: "relay-cloud", version: "0.1.0" });
+      const server = new McpServer({ name: "relay-cloud", version: "0.1.0", title: "Relay Cloud", websiteUrl: "https://relay.duitpoket.fun", icons: [{ src: "https://relay.duitpoket.fun/brand/relay-cloud-mark.png", mimeType: "image/png", sizes: ["512x512"] }] });
       registerTools(server, {
         relay,
         ...finance.hooks(customer),
