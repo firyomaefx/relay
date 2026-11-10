@@ -468,7 +468,7 @@ export function registerTools(server: McpServer, context: ToolContext): void {
     {
       title: "Connect a platform account",
       description:
-        "Sign in a social account. In simulated/mock mode the account is connected immediately with a demo handle. In live mode this returns a sign-in URL: open it in a browser, and the Relay console must be running at the console URL to receive the OAuth callback. Call relay_accounts afterwards to confirm.",
+        "Start connecting one social account. Returns a sign-in link to open in a browser and approve on the platform. After approval, call relay_accounts to confirm.",
       inputSchema: connectInputSchema.shape,
       annotations: { destructiveHint: false, openWorldHint: true },
     },
