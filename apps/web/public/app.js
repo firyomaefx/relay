@@ -3246,6 +3246,10 @@
           openPosts("published");
           return;
         }
+        if (item.dataset.nav === "queue") {
+          state.queueView = "list";
+          setQueueTab("scheduled", { render: false });
+        }
         setScreen(item.dataset.nav);
         if (window.location.hash !== `#${item.dataset.nav}`) {
           window.history.replaceState(null, "", `#${item.dataset.nav}`);

@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Account, PlatformId, RelayService } from "@relay/core";
-import { PLATFORM_IDS } from "@relay/core";
 import type { CloudLedger, Customer } from "@relay/cloud";
 
 export const ACCOUNT_TIERS = [
@@ -32,8 +31,9 @@ export async function accountSummary(customer: Customer, relay: RelayService, le
   const lifetimePaidMilliUsd = ledger.totalTopups(customer.id);
   const tier = accountTierFor(largestTopupMilliUsd);
   const accounts = await relay.accounts();
+  const statuses = await relay.platformStatuses();
   const platforms = Object.fromEntries(
-    PLATFORM_IDS.map((platform) => {
+    statuses.map(({ platform }) => {
       const used = accounts.filter((account) => account.platform === platform).length;
       return [platform, { used, limit: tier.perPlatform, remaining: Math.max(0, tier.perPlatform - used) }];
     }),
