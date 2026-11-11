@@ -16,6 +16,8 @@ export function mockProfile(platform: PlatformId): { externalId: string; handle:
       return { externalId: "mock-instagram-1", handle: "relay.demo", displayName: "Relay Demo (Instagram)" };
     case "linkedin":
       return { externalId: "mock-linkedin-1", handle: "relay-demo", displayName: "Relay Demo (LinkedIn)" };
+    case "facebook":
+      return { externalId: "mock-facebook-page-1", handle: "relay-demo-page", displayName: "Relay Demo Page" };
   }
 }
 
@@ -37,6 +39,8 @@ export function mockScopes(platform: PlatformId): string[] {
       return ["instagram_business_basic", "instagram_business_content_publish", "instagram_business_manage_comments"];
     case "linkedin":
       return ["openid", "profile", "w_member_social"];
+    case "facebook":
+      return ["pages_show_list", "pages_read_engagement", "pages_manage_posts"];
   }
 }
 

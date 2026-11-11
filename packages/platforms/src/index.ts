@@ -10,8 +10,9 @@ import { TikTokAdapter } from "./adapters/tiktok.js";
 import { YouTubeAdapter } from "./adapters/youtube.js";
 import { InstagramAdapter } from "./adapters/instagram.js";
 import { LinkedInAdapter } from "./adapters/linkedin.js";
+import { FacebookAdapter } from "./adapters/facebook.js";
 
-export { XAdapter, ThreadsAdapter, TikTokAdapter, YouTubeAdapter, InstagramAdapter, LinkedInAdapter };
+export { XAdapter, ThreadsAdapter, TikTokAdapter, YouTubeAdapter, InstagramAdapter, LinkedInAdapter, FacebookAdapter };
 export { isAuthFailure } from "./adapters/http.js";
 export { mockProfile, mockPublish, mockScopes, requireMediaUrl } from "./mock.js";
 
@@ -20,8 +21,20 @@ export interface CreateAdaptersOptions {
   forceMock?: boolean;
 }
 
-export function createAdapters(_options: CreateAdaptersOptions = {}): PlatformAdapter[] {
-  return [new XAdapter(), new ThreadsAdapter(), new TikTokAdapter(), new YouTubeAdapter(), new InstagramAdapter(), new LinkedInAdapter()];
+export function createAdapters(options: CreateAdaptersOptions = {}): PlatformAdapter[] {
+  const env = options.env ?? process.env;
+  const adapters: PlatformAdapter[] = [
+    new XAdapter(),
+    new ThreadsAdapter(),
+    new TikTokAdapter(),
+    new YouTubeAdapter(),
+    new InstagramAdapter(),
+    new LinkedInAdapter(),
+  ];
+  // Facebook Pages stays out of the registry until the flag is on. This keeps
+  // the UI, MCP enum and pricing tables from advertising an unreviewed platform.
+  if (env.RELAY_ENABLE_FACEBOOK === "1") adapters.push(new FacebookAdapter());
+  return adapters;
 }
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");

@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { PLATFORM_IDS, RelayError, isPlatformId, type PlatformId } from "@relay/core";
+import { RelayError, isPlatformId, type PlatformId } from "@relay/core";
 import { authenticateApiKey } from "@relay/cloud";
 import type { CloudConfig, CloudStore, TenantManager, RateLimiter, CloudRateConfig } from "@relay/cloud";
 
@@ -105,17 +105,18 @@ export function createCloudApi(options: CloudApiOptions) {
       if (method === "GET" && parts.length === 2) {
         const accounts = await relay.accounts();
         const credentials = relay.credentialInfos();
+        const statuses = await relay.platformStatuses();
         await tenants.recordMappings(identity.customer, relay);
         const storedStates = new Map(store.listCustomerAccounts(identity.customer.id).map((entry) => [entry.platform, entry.status]));
         sendJson(res, 200, {
           customer: { id: identity.customer.id, displayName: identity.customer.displayName },
-          platforms: PLATFORM_IDS.map((platform) => ({
-            platform,
-            credentials: credentials.find((entry) => entry.platform === platform) ?? { configured: false },
-            account: accounts.find((entry) => entry.platform === platform) ?? null,
-            status: accounts.some((entry) => entry.platform === platform)
+          platforms: statuses.map((status) => ({
+            platform: status.platform,
+            credentials: credentials.find((entry) => entry.platform === status.platform) ?? { configured: false },
+            account: accounts.find((entry) => entry.platform === status.platform) ?? null,
+            status: accounts.some((entry) => entry.platform === status.platform)
               ? "ready"
-              : storedStates.get(platform) === "needs_reconnect"
+              : storedStates.get(status.platform) === "needs_reconnect"
                 ? "needs_reconnect"
                 : "not_connected",
           })),

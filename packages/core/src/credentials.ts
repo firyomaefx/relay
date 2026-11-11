@@ -27,6 +27,10 @@ const ENV_KEYS: Record<PlatformId, { id: string[]; secret: string[] }> = {
     id: ["LINKEDIN_CLIENT_ID"],
     secret: ["LINKEDIN_CLIENT_SECRET"],
   },
+  facebook: {
+    id: ["FACEBOOK_CLIENT_ID", "INSTAGRAM_CLIENT_ID", "INSTAGRAM_APP_ID"],
+    secret: ["FACEBOOK_CLIENT_SECRET", "INSTAGRAM_CLIENT_SECRET", "INSTAGRAM_APP_SECRET"],
+  },
 };
 
 function firstEnv(env: NodeJS.ProcessEnv, names: string[]): string | undefined {

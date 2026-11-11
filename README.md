@@ -110,9 +110,14 @@ Common variables:
 | `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` | TikTok content posting app |
 | `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` | Google/YouTube OAuth |
 | `INSTAGRAM_CLIENT_ID` / `INSTAGRAM_CLIENT_SECRET` | Meta/Instagram app |
+| `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook Login for Business Page app; falls back to the Instagram app keys when empty |
+| `RELAY_ENABLE_FACEBOOK=1` | Registers Facebook Pages. Keep it off until Meta review is complete and a real Page has been tested |
 | `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` | LinkedIn app with Sign In + Share on LinkedIn |
 
-See [.env.example](.env.example) for the full list and comments.
+See [.env.example](.env.example) for the full list and comments. Facebook Pages needs
+`pages_show_list`, `pages_read_engagement` and `pages_manage_posts`, and publishes as a
+Page, not a personal profile. Relay keeps its own scheduler and never uses Facebook's
+scheduled publish time.
 
 ---
 

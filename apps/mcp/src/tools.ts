@@ -36,7 +36,7 @@ import { openInBrowser } from "./open.js";
 
 const DEFAULT_HISTORY_LIMIT = 50;
 
-const platformEnum = z.enum(["x", "threads", "tiktok", "youtube", "instagram", "linkedin"]);
+const platformEnum = z.enum(["x", "threads", "tiktok", "youtube", "instagram", "linkedin", "facebook"]);
 
 const mediaSchema = z.object({
   path: z
@@ -148,13 +148,13 @@ const postInputSchema = z.object({
 });
 
 const connectInputSchema = z.object({
-  platform: platformEnum.describe('Platform to connect: "x", "threads", "tiktok", "youtube", "instagram" or "linkedin".'),
+  platform: platformEnum.describe('Platform to connect: "x", "threads", "tiktok", "youtube", "instagram", "linkedin" or "facebook" (when the Facebook Pages flag is enabled).'),
   account_id: z.string().min(1).optional().describe("Optional account id from a claimed cloud slot. Omit for a normal new account."),
   label: z.string().min(1).max(60).optional().describe("Optional visible label, e.g. Agency X."),
 });
 
 const disconnectInputSchema = z.object({
-  platform: platformEnum.describe('Platform to disconnect: "x", "threads", "tiktok", "youtube", "instagram" or "linkedin".'),
+  platform: platformEnum.describe('Platform to disconnect: "x", "threads", "tiktok", "youtube", "instagram", "linkedin" or "facebook".'),
   account_id: z.string().min(1).optional().describe("Optional account id; omit to disconnect all accounts on the platform."),
 });
 

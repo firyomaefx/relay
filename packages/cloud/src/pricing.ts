@@ -11,6 +11,12 @@ export interface CloudPrices {
   free_allowance_units?: number;
   free_allowance_posts?: number;
   free_excluded_platforms?: string[];
+  /** Display-only currency for the public pricing page. Billing remains USD. */
+  display_currency?: string;
+  /** Display-only exchange rate, e.g. 4.7 MYR per USD. */
+  usd_myr_rate?: number;
+  /** ISO date when the display rate was checked. */
+  rate_checked_at?: string;
   prices: Record<string, Record<string, number>>;
 }
 
@@ -44,6 +50,7 @@ const PLATFORM_TEXT_LIMITS: Record<string, number> = {
   youtube: 5000,
   instagram: 2200,
   linkedin: 3000,
+  facebook: 63206,
 };
 const PLATFORM_MAX_PARTS: Record<string, number> = {
   x: 25,
@@ -52,6 +59,7 @@ const PLATFORM_MAX_PARTS: Record<string, number> = {
   youtube: 1,
   instagram: 1,
   linkedin: 1,
+  facebook: 1,
 };
 
 function splitTextForLimit(text: string, limit: number): string[] {

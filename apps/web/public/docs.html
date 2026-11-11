@@ -97,19 +97,26 @@ relay_post
       <tr><td>TikTok</td><td>2,200</td><td>1</td><td>35</td><td>20 MB</td><td>4 GB</td><td>Yes</td></tr>
       <tr><td>YouTube</td><td>5,000</td><td>1</td><td>1</td><td>n/a (video only)</td><td>256 MB</td><td>Yes, a video</td></tr>
       <tr><td>LinkedIn</td><td>3,000</td><td>1</td><td>1</td><td>20 MB</td><td>500 MB</td><td>No</td></tr>
+      <tr><td>Facebook Page</td><td>63,206</td><td>1</td><td>10</td><td>10 MB</td><td>1 GB</td><td>No</td></tr>
     </tbody>
   </table>
 </div>
 <ul class="plain">
+  <li>Facebook Pages is built but stays off until Meta review and app keys are ready. Set <code>RELAY_ENABLE_FACEBOOK=1</code> to register it. A Page is required, not a personal profile.</li>
   <li>One video per post on every platform except Threads.</li>
   <li>YouTube titles are limited to 100 characters.</li>
-  <li>Threads, Instagram and TikTok photo posts fetch media from a public URL, so media you upload to Relay is served from a public link.</li>
+  <li>Threads, Instagram, Facebook Page and TikTok photo posts fetch media from a public URL, so media you upload to Relay is served from a public link.</li>
   <li>Rate limits per customer: 120 MCP requests per minute and 60 posts per hour.</li>
   <li>Your agent can call <code>relay_limits</code> for the current limits at any time.</li>
 </ul>
 
 <h2>Billing</h2>
 <p>Relay is prepaid. Each post part on each platform is priced in advance, held when you post or schedule, and charged only when the platform accepts it. See <a href="/pricing">pricing</a> for rates, and <a href="/topup">top up</a> by card when you need more credit.</p>
+
+<h2>Pricing for integrations</h2>
+<p>The billing API keeps integer milliUSD as its unit (1000 = US$1.00), so integrations never do floating-point money maths. <code>GET /api/pricing</code> returns the USD prices, the free allowance and a <code>display</code> object with the MYR estimate and the date its rate was checked. Billing stays in USD; the RM values are display estimates only.</p>
+<pre><code>curl https://relay.duitpoket.fun/api/pricing</code></pre>
+<p>Use <code>relay_validate</code> before <code>relay_post</code> and pass a future <code>schedule_at</code> to queue a post. The same tools are available from the MCP endpoint above.</p>
 </main>
 <footer class="site">
 <div class="wrap row">

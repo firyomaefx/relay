@@ -75,6 +75,7 @@ function emptyPerPlatform(): Record<PlatformId, PlatformIssues> {
     youtube: { ok: true, issues: [] },
     instagram: { ok: true, issues: [] },
     linkedin: { ok: true, issues: [] },
+    facebook: { ok: true, issues: [] },
   };
 }
 
