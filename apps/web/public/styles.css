@@ -5154,3 +5154,16 @@ body { font-size: 17px; }
 .profile-key-box code{display:block;margin:8px 0 10px;padding:10px;border-radius:9px;background:#fff;border:1px solid var(--hairline);font:12px/1.6 var(--font-mono);word-break:break-all;color:var(--text)}
 .profile-key-box .ghost-btn{width:auto}
 @media(max-width:640px){.profile-grid{grid-template-columns:1fr}}
+
+/* Profile & API keys */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.profile-actions{display:flex;justify-content:flex-end;margin-top:12px}
+.profile-key-section{margin-top:18px;padding-top:18px;border-top:1px solid var(--hairline)}
+.profile-key-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.profile-key-head .kv-value{overflow-wrap:anywhere}
+.profile-key-head .ghost-btn{flex:none}
+.profile-key-section .field-hint{margin:7px 0 0}
+.profile-key-box{margin-top:14px;padding:14px;border:1px solid var(--hairline);border-radius:14px;background:#fbfbfc}
+.profile-key-box code{display:block;margin:8px 0 10px;padding:10px;border-radius:9px;background:#fff;border:1px solid var(--hairline);font:12px/1.6 var(--font-mono);word-break:break-all;color:var(--text)}
+.profile-key-box .ghost-btn{width:auto}
+@media(max-width:640px){.profile-grid{grid-template-columns:1fr}.profile-key-head{flex-direction:column;align-items:stretch}.profile-key-head .ghost-btn{width:100%}}

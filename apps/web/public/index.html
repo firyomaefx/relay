@@ -625,9 +625,9 @@
                   <header class="panel-head">
                     <div>
                       <p class="panel-eyebrow">Account</p>
-                      <h3 id="profileTitle">Profile &amp; API key</h3>
+                      <h3 id="profileTitle">Profile &amp; API keys</h3>
                     </div>
-                    <span class="panel-hint">Used by Claude and other MCP clients</span>
+                    <span class="panel-hint">One key works with every MCP client</span>
                   </header>
                   <div class="profile-grid">
                     <label class="field">
@@ -639,19 +639,18 @@
                       <input class="input" id="profilePhone" type="tel" autocomplete="tel" placeholder="+60 12 345 6789">
                     </label>
                   </div>
-                  <div class="session-row" style="margin-top:14px">
-                    <div>
-                      <p class="kv-key">Relay Cloud API key</p>
-                      <p class="kv-value" id="profileKeyStatus">Loading…</p>
-                    </div>
+                  <div class="profile-actions">
                     <button class="ghost-btn small" id="profileSaveBtn" type="button">Save profile</button>
                   </div>
-                  <div class="session-row">
-                    <div>
-                      <p class="kv-key">Generate a key</p>
-                      <p class="kv-value">Create a new key for Claude and copy it once.</p>
+                  <div class="profile-key-section">
+                    <div class="profile-key-head">
+                      <div>
+                        <p class="kv-key">API keys</p>
+                        <p class="kv-value" id="profileKeyStatus">Loading…</p>
+                      </div>
+                      <button class="ghost-btn small" id="profileKeyBtn" type="button">Generate API key</button>
                     </div>
-                    <button class="ghost-btn small" id="profileKeyBtn" type="button">Generate API key</button>
+                    <p class="field-hint">Use the same key with Claude, ChatGPT, Cursor, or any MCP client.</p>
                   </div>
                   <div class="profile-key-box" id="profileKeyBox" hidden>
                     <p class="field-hint">Copy this now. Relay will not show the full key again.</p>

@@ -2169,8 +2169,8 @@
       els.profileKeyStatus.textContent = !complete
         ? "Add your email and phone, then save, to enable key generation."
         : keys.length
-          ? `${keys.length} active key${keys.length === 1 ? "" : "s"} · latest ${keys[keys.length - 1].prefix}…`
-          : "No active key yet.";
+          ? `${keys.length} active · latest ${keys[keys.length - 1].prefix}…`
+          : "No active keys yet.";
     }
   }
 
