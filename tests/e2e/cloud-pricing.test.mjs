@@ -19,7 +19,9 @@ test("public pricing page and price API work without a console session", async (
     assert.equal(page.status, 200);
     const html = await page.text();
     assert.match(html, /Relay Cloud/);
-    assert.match(html, /Prices by platform/);
+    assert.match(html, /Pay for posts that go out/);
+    assert.match(html, /US\$0\.50 free start/);
+    assert.match(html, /Charges are in US dollars\. RM figures are estimates/);
 
     const api = await httpJson(server.baseUrl, "/api/pricing");
     assert.equal(api.status, 200);
@@ -27,7 +29,8 @@ test("public pricing page and price API work without a console session", async (
     assert.equal(api.json.unit, "milliUSD");
     assert.equal(api.json.freeAllowanceMilliUsd, 500);
     assert.equal(api.json.freeAllowanceUnits, 0);
-    assert.match(html, /\$0\.50 free credit/);
+    assert.equal(api.json.display.currency, "MYR");
+    assert.equal(api.json.display.usdMyrRate, 4.7);
     assert.equal(api.json.prices.x.text, 20);
 
     const protectedState = await httpJson(server.baseUrl, "/api/state");

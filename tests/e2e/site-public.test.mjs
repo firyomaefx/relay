@@ -21,12 +21,15 @@ test("visitors get the landing page at /, the console stays behind login", async
   try {
     const home = await get(server.baseUrl, "/");
     assert.equal(home.status, 200);
-    assert.match(home.text, /Let your AI agent post for you\. Pay only when the post goes up\./);
+    assert.match(home.text, /Schedule once\. Post everywhere\./);
+    assert.match(home.text, /Write a post in your browser/);
     assert.match(home.text, /href="\/waitlist"/);
     assert.match(home.text, /href="\/login"/);
     assert.match(home.text, /href="\/contact"/);
     assert.match(home.text, /<meta property="og:image" content="https:\/\/relay\.duitpoket\.fun\/og\.png">/);
     assert.match(home.text, /CLOSING-LINE:START/);
+    assert.match(home.text, /id="langSwitch"/);
+    assert.doesNotMatch(home.text, /\bAPI\b|\bMCP\b|milliUSD/, "developer language stays off the seller landing page");
 
     const login = await get(server.baseUrl, "/login");
     assert.equal(login.status, 200);
@@ -78,10 +81,22 @@ test("public pages and assets are served without a session and follow the copy r
     }
     const pricing = await get(server.baseUrl, "/pricing");
     assert.equal(pricing.status, 200);
-    assert.doesNotMatch(pricing.text, /operator-provisioned while Stripe card checkout is being completed/);
-    assert.doesNotMatch(pricing.text, /Five networks/);
-    assert.match(pricing.text, /<b>6<\/b><span>networks in one API/);
-    assert.match(pricing.text, /linkedin:"LinkedIn"/);
+    assert.match(pricing.text, /Pay for posts that go out\. Nothing for posts that fail\./);
+    assert.match(pricing.text, /RM10 of credit is about/);
+    assert.match(pricing.text, /Charges are in US dollars\. RM figures are estimates/);
+    assert.match(pricing.text, /id="langSwitch"/);
+    const visiblePricing = pricing.text.replace(/<script[\s\S]*?<\/script>/gi, "");
+    assert.doesNotMatch(visiblePricing, /\bAPI\b|\bMCP\b|milliUSD/, "developer language moved to /docs");
+    assert.doesNotMatch(visiblePricing, /Rekalab/i, "no competitor price claims");
+
+    const priceApi = await get(server.baseUrl, "/api/pricing");
+    assert.equal(priceApi.status, 200);
+    const priceJson = JSON.parse(priceApi.text);
+    assert.equal(priceJson.currency, "USD");
+    assert.equal(priceJson.display.currency, "MYR");
+    assert.equal(priceJson.display.usdMyrRate, 4.7);
+    assert.equal(priceJson.display.rateCheckedAt, "2026-11-12");
+    assert.equal(priceJson.prices.linkedin.text, 20);
   } finally {
     await server.stop();
     await cleanupTempDir(dir);

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Relay Cloud · Let your AI agent post for you</title>
-<meta name="description" content="Post to X, Threads, TikTok, YouTube, Instagram and LinkedIn from your AI agent over MCP. Pay per post, no monthly fee, failed posts are free.">
+<title>Relay Cloud · Schedule once. Post everywhere.</title>
+<meta name="description" content="Schedule and publish to Instagram, Threads, TikTok, YouTube, X and LinkedIn from your browser. Pay only for posts that go out.">
 <link rel="canonical" href="https://relay.duitpoket.fun/">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
@@ -13,136 +13,160 @@
 <meta name="theme-color" content="#050706">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Relay Cloud">
-<meta property="og:title" content="Relay Cloud · Let your AI agent post for you">
-<meta property="og:description" content="Post to X, Threads, TikTok, YouTube, Instagram and LinkedIn from your AI agent over MCP. Pay per post, no monthly fee, failed posts are free.">
+<meta property="og:title" content="Relay Cloud · Schedule once. Post everywhere.">
+<meta property="og:description" content="Schedule and publish to Instagram, Threads, TikTok, YouTube, X and LinkedIn from your browser. Pay only for posts that go out.">
 <meta property="og:url" content="https://relay.duitpoket.fun/">
 <meta property="og:image" content="https://relay.duitpoket.fun/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Relay Cloud · Let your AI agent post for you">
-<meta name="twitter:description" content="Post to X, Threads, TikTok, YouTube, Instagram and LinkedIn from your AI agent over MCP. Pay per post, no monthly fee, failed posts are free.">
+<meta name="twitter:title" content="Relay Cloud · Schedule once. Post everywhere.">
+<meta name="twitter:description" content="Schedule and publish to Instagram, Threads, TikTok, YouTube, X and LinkedIn from your browser. Pay only for posts that go out.">
 <meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
 <link rel="stylesheet" href="/site.css">
-<script src="/site.js"></script>
+<script src="/site.js" defer></script>
+<script src="/site-i18n.js" defer></script>
 </head>
-<body>
+<body data-page="landing">
 <div class="wrap">
 <nav class="nav" aria-label="Main">
   <a class="brand" href="/"><img class="brand-lockup" src="/brand/relay-cloud-lockup-light.png" alt="Relay Cloud"></a>
   <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Open menu"><span></span><span></span><span></span></button>
   <div class="nav-links" id="navLinks">
-    <a href="/pricing">Pricing</a>
-    <a href="/docs">Docs</a>
-    <a href="/about">About</a>
-    <a href="/connect">Connect</a>
-    <a href="/contact">Contact</a>
-    <a href="/login" class="login">Log in</a>
-    <a href="/waitlist" class="menu-only menu-cta">Join the waitlist</a>
+    <a href="/pricing" data-i18n="nav.pricing">Pricing</a>
+    <a href="/docs" data-i18n="nav.docs">Developer docs</a>
+    <a href="/about" data-i18n="nav.about">About</a>
+    <a href="/contact" data-i18n="nav.contact">Contact</a>
+    <a href="/login" class="login" data-i18n="nav.login">Log in</a>
+    <button class="lang-switch" id="langSwitch" type="button" aria-pressed="false" aria-label="Switch language">BM</button>
+    <a href="/waitlist" class="menu-only menu-cta" data-i18n="nav.waitlist">Join the waitlist</a>
   </div>
 </nav>
 </div>
+
 <main>
 <header class="hero wrap">
-  <h1>Let your AI agent post for you. Pay only when the post goes up.</h1>
-  <p class="sub">One API and MCP server for X, Threads, TikTok, YouTube, Instagram and LinkedIn. Prepaid, no monthly fee, and failed posts cost nothing.</p>
+  <p class="eyebrow" data-i18n="hero.eyebrow">Relay Cloud for sellers</p>
+  <h1 data-i18n="hero.title">Schedule once. Post everywhere.</h1>
+  <p class="sub" data-i18n="hero.sub">Write a post in your browser and send it to Instagram, Threads, TikTok, YouTube, X and LinkedIn. Pay only when a post goes out.</p>
   <div class="actions">
-    <a class="btn btn-primary" href="/waitlist">Join the first 100</a>
-    <a class="btn" href="/pricing">See pricing</a>
+    <a class="btn btn-primary" href="/waitlist" data-i18n="hero.cta">Join the waitlist</a>
+    <a class="btn" href="/pricing" data-i18n="hero.pricing">See pricing</a>
   </div>
-  <p class="hero-note">Using Claude on your phone? <a href="/connect">Add Relay once on claude.ai from your phone browser</a>. Then it appears in the Claude iPhone and Android apps.</p>
+  <p class="hero-note" data-i18n="hero.note">Facebook Pages is built and waiting on Meta review. It turns on when the app and Page permissions are approved.</p>
   <div class="proof-strip" aria-label="Product status">
-    <div><strong>Live</strong><span>in production</span></div>
-    <div><strong>6</strong><span>platform adapters</span></div>
-    <div><strong>219</strong><span>automated tests</span></div>
-    <div><strong>Cloud MCP</strong><span>agent endpoint</span></div>
+    <div><strong data-i18n="proof.browserValue">Browser first</strong><span data-i18n="proof.browserLabel">no agent needed</span></div>
+    <div><strong data-i18n="proof.platformsValue">6 platforms</strong><span data-i18n="proof.platformsLabel">one composer</span></div>
+    <div><strong data-i18n="proof.failedValue">Free</strong><span data-i18n="proof.failedLabel">failed posts</span></div>
+    <div><strong data-i18n="proof.monthlyValue">No monthly fee</strong><span data-i18n="proof.monthlyLabel">prepaid credit</span></div>
   </div>
 </header>
 
-<section class="section wrap" id="who">
-  <span class="eyebrow">Who it's for</span>
-  <div class="grid">
-    <div class="card"><h3>AI agent builders</h3><p>Your agent writes the post, Relay ships it. Plug it into Cursor, Claude or any MCP client with one URL and an API key.</p></div>
-    <div class="card"><h3>Social media agencies</h3><p>Run several brands from one balance. Each customer stays separate, and the Agency plan sorts out volume and onboarding with you directly.</p></div>
-    <div class="card"><h3>Solo creators and SMM freelancers</h3><p>Schedule once and Relay's cloud scheduler posts it, even when your laptop is off.</p></div>
+<section class="section wrap seller-visual-section" aria-labelledby="visualTitle">
+  <span class="eyebrow" data-i18n="visual.eyebrow">A calmer week</span>
+  <h2 id="visualTitle" data-i18n="visual.title">See the week before it happens.</h2>
+  <div class="seller-visual">
+    <div class="mini-calendar" aria-hidden="true">
+      <div class="mini-calendar-head"><strong data-i18n="visual.calendar">This week</strong><span data-i18n="visual.calendarHint">4 posts</span></div>
+      <div class="mini-week">
+        <div><span>Mon</span><i></i></div>
+        <div><span>Tue</span><i data-tone="done"></i></div>
+        <div><span>Wed</span><i></i></div>
+        <div><span>Thu</span><i data-tone="pending"></i></div>
+        <div><span>Fri</span><i data-tone="done"></i></div>
+        <div><span>Sat</span><i></i></div>
+        <div><span>Sun</span><i data-tone="pending"></i></div>
+      </div>
+    </div>
+    <div class="mini-post" aria-hidden="true">
+      <div class="mini-post-head"><span class="mini-avatar">R</span><div><strong data-i18n="visual.pageName">Your Page</strong><span data-i18n="visual.pageMeta">Facebook Page · scheduled</span></div></div>
+      <p data-i18n="visual.postText">New stock just landed. Free delivery in Peninsular Malaysia this week.</p>
+      <div class="mini-image" data-i18n="visual.imageLabel">Product photo</div>
+      <div class="mini-post-foot"><span data-i18n="visual.previewLabel">Approximate preview</span><strong data-i18n="visual.queuedLabel">Queued for 9:00</strong></div>
+    </div>
   </div>
 </section>
 
 <section class="section wrap" id="how">
-  <span class="eyebrow">How it works with your agent</span>
-  <ol class="steps">
-    <li>Get your API key and add Relay to your MCP client config.</li>
-    <li>Your agent validates the post first, then publishes or schedules it.</li>
-    <li>Relay holds the price, charges only when the platform accepts the post, and releases the hold if it fails or you cancel.</li>
-  </ol>
-  <p class="muted">Every charge goes into a ledger you can check.</p>
-  <p><a href="/docs">Read the quickstart</a></p>
+  <span class="eyebrow" data-i18n="steps.eyebrow">How it works</span>
+  <h2 data-i18n="steps.title">Three steps, no setup maze.</h2>
+  <div class="grid">
+    <div class="card"><h3 data-i18n="steps.step1Title">1. Connect an account</h3><p data-i18n="steps.step1Text">Sign in once for each platform you use. Start with one and add the rest later.</p></div>
+    <div class="card"><h3 data-i18n="steps.step2Title">2. Write once</h3><p data-i18n="steps.step2Text">Add text, photos or video. Check the preview for each network before you post.</p></div>
+    <div class="card"><h3 data-i18n="steps.step3Title">3. Post or schedule</h3><p data-i18n="steps.step3Text">Publish now or pick a time. Cancel anything still waiting, and retry only the platforms that failed.</p></div>
+  </div>
 </section>
 
 <section class="section wrap" id="platforms">
-  <span class="eyebrow">Platforms</span>
+  <span class="eyebrow" data-i18n="platforms.eyebrow">Platforms</span>
+  <h2 data-i18n="platforms.title">One draft. Six places to put it.</h2>
   <ul class="chips" aria-label="Supported platforms">
-    <li>X</li><li>Threads</li><li>TikTok</li><li>YouTube</li><li>Instagram</li><li>LinkedIn</li>
+    <li>Instagram</li><li>Threads</li><li>TikTok</li><li>YouTube</li><li>X</li><li>LinkedIn</li>
   </ul>
+  <p class="note" data-i18n="platforms.note">Facebook Pages joins the list after Meta review. The code is ready; the approval is not.</p>
 </section>
 
 <section class="section wrap" id="pricing">
-  <span class="eyebrow">Pricing in short</span>
+  <span class="eyebrow" data-i18n="short.eyebrow">Pricing in short</span>
+  <h2 data-i18n="short.title">Pay for posts that go out.</h2>
   <ul class="plain">
-    <li>Text, image, link and carousel posts from US$0.02 per platform. Video US$0.04.</li>
-    <li>One post part on one platform is one unit, so a 3-part thread to 2 platforms is 6 units (US$0.12).</li>
-    <li>US$0.50 free credit to start. X isn't included in the free credit.</li>
-    <li>A single US$9.90 top-up gives you 3 accounts per platform and unlocks Threads auto-reply (bring your own DeepSeek key). A single US$49.90 top-up gives you 10 accounts per platform.</li>
-    <li>No monthly fee. Agency pricing by arrangement.</li>
+    <li data-i18n="short.text">Text, link, image and carousel posts: US$0.02 per platform, per part. About RM0.09.</li>
+    <li data-i18n="short.video">Video posts: US$0.04 per platform, per part. About RM0.19.</li>
+    <li data-i18n="short.free">Start with US$0.50 free credit. X is not included in the free credit.</li>
+    <li data-i18n="short.fail">Failed posts are free. No monthly fee.</li>
+    <li data-i18n="short.rm">Charges are in US dollars. RM figures are estimates at the rate shown on the pricing page.</li>
   </ul>
-  <p><a href="/pricing">See pricing</a></p>
+  <p><a href="/pricing" data-i18n="short.link">See the full pricing page</a></p>
 </section>
 
 <section class="section wrap" id="founding-deal" data-hide-sticky>
   <div class="offer deal">
-    <h2>Founding deal, first 100 paying customers</h2>
-    <p>Top up before 31 Mar 2027 and we add a one-time bonus credit:</p>
+    <h2 data-i18n="deal.title">Founding deal, first 100 paying customers</h2>
+    <p data-i18n="deal.copy">Top up before 31 Mar 2027 and we add a one-time bonus credit.</p>
     <ul class="deal-list">
-      <li><b>US$9.90</b> top-up, get <b>+US$5</b> free credit</li>
-      <li><b>US$49.90</b> top-up, get <b>+US$25</b> free credit</li>
+      <li data-i18n="deal.starter">US$9.90 top-up, get +US$5 free credit</li>
+      <li data-i18n="deal.scale">US$49.90 top-up, get +US$25 free credit</li>
     </ul>
-    <p>Your per-post rates stay locked until 30 Jun 2027. We also do a free 30-min setup call with you, connect your accounts and send your first post together. All we ask is 15 mins of honest feedback after 2 weeks.</p>
-    <div class="actions"><a class="btn btn-primary" href="/waitlist">Claim a founding spot</a></div>
-    <p class="deal-fine">One bonus per customer, first 100 paying customers. Bonus credit is added after your top-up clears. Questions about the setup call: <a href="/contact">contact us</a>.</p>
+    <p data-i18n="deal.terms">Your per-post rates stay locked until 30 Jun 2027. We also do a free 30-minute setup call: connect your accounts and send your first post together. All we ask is 15 minutes of honest feedback after two weeks.</p>
+    <div class="actions"><a class="btn btn-primary" href="/waitlist" data-i18n="deal.cta">Claim a founding spot</a></div>
+    <p class="deal-fine" data-i18n="deal.fine">One bonus per customer, first 100 paying customers. Bonus credit is added after your top-up clears.</p>
   </div>
 </section>
 
 <section class="section wrap" id="offer" data-hide-sticky>
   <div class="offer">
-    <h2>First 100 builders</h2>
-    <p>We're letting Relay Cloud in 100 users at a time, starting with Malaysian builders, agencies and creators. Join the waitlist, get approved, and start with US$0.50 free credit (not usable on X). Top up US$9.90 once to get 3 accounts per platform and Threads auto-reply. No monthly fee, and a post that fails doesn't cost you anything.</p>
-    <div class="actions"><a class="btn btn-primary" href="/waitlist">Join the waitlist</a></div>
+    <h2 data-i18n="offer.title">Join the first 100</h2>
+    <p data-i18n="offer.copy">We let people in 100 at a time. Join the waitlist, get approved, set your password and post straight away. No monthly fee, and a post that fails does not cost you anything.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="/waitlist" data-i18n="offer.cta">Join the waitlist</a>
+      <a class="btn" href="/docs" data-i18n="offer.docs">Developer docs</a>
+    </div>
   </div>
 </section>
 
 <!-- CLOSING-LINE:START (delete this block to remove the closing line) -->
 <section class="section wrap" id="closing">
-  <p class="closing">Built in Malaysia by a founder-led team. Relay Cloud is live in production, with six platform adapters and a cloud MCP endpoint. Try it free, top up when it ships.</p>
+  <p class="closing" data-i18n="closing.text">Built in Malaysia by a small, founder-led team. Relay Cloud is live for normal sellers and creators, with no monthly fee and no charge for failed posts.</p>
 </section>
 <!-- CLOSING-LINE:END -->
 </main>
+
 <footer class="site">
 <div class="wrap row">
-  <span>Relay Cloud · pay-per-post publishing for AI agents</span>
+  <span data-i18n="footer.tag">Relay Cloud · pay-per-post publishing for sellers and creators</span>
   <nav aria-label="Footer">
-    <a href="/pricing">Pricing</a>
-    <a href="/docs">Docs</a>
-    <a href="/about">About</a>
-    <a href="/connect">Connect</a>
-    <a href="/topup">Top up</a>
-    <a href="/terms">Terms</a>
-    <a href="/privacy">Privacy</a>
-    <a href="/refund">Refunds</a>
-    <a href="/contact">Contact</a>
-    <a href="/login">Log in</a>
+    <a href="/pricing" data-i18n="footer.pricing">Pricing</a>
+    <a href="/docs" data-i18n="footer.docs">Developer docs</a>
+    <a href="/about" data-i18n="footer.about">About</a>
+    <a href="/topup" data-i18n="footer.topup">Top up</a>
+    <a href="/terms" data-i18n="footer.terms">Terms</a>
+    <a href="/privacy" data-i18n="footer.privacy">Privacy</a>
+    <a href="/refund" data-i18n="footer.refund">Refunds</a>
+    <a href="/contact" data-i18n="footer.contact">Contact</a>
+    <a href="/login" data-i18n="footer.login">Log in</a>
   </nav>
 </div>
 </footer>
-<a class="sticky-cta" href="/waitlist">Join the waitlist</a>
+<a class="sticky-cta" href="/waitlist" data-i18n="nav.waitlist">Join the waitlist</a>
 </body>
 </html>
