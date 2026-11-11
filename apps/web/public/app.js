@@ -3183,6 +3183,9 @@
     if (role === "customer") {
       const settingsNav = document.querySelector('[data-nav="settings"] .nav-label');
       if (settingsNav) settingsNav.textContent = "Profile";
+      if (typeof NAV_META !== "undefined") NAV_META.settings = { eyebrow: "Account", title: "Profile" };
+      const settingsTitle = document.getElementById("settingsTitle");
+      if (settingsTitle) settingsTitle.innerHTML = 'Profile<span class="display-dot">.</span>';
     }
   }
 

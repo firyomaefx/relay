@@ -326,6 +326,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   }
   const pathname = url.pathname;
   const segments = splitPath(pathname);
+  if (!isGet) {
+    const origin = req.headers.origin;
+    const expected = process.env.RELAY_PUBLIC_URL?.trim().replace(/\/+$/, "");
+    if (origin && expected && origin !== expected) {
+      throw new RelayError("Cross-origin request refused.", "origin_refused", undefined, 403);
+    }
+  }
   const requestSession = await resolveRequestSession(req, deps);
 
   // The OAuth provider redirects the browser here; the signed state parameter is
