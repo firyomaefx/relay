@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
-import { CloudStore } from "@relay/cloud";
+import { CloudStore, TenantManager } from "@relay/cloud";
 import { CustomerAuth, hashCustomerPassword, verifyCustomerPassword, createInviteToken, hashInviteToken } from "../../apps/web/dist/customer-auth.js";
 import { cleanupTempDir, makeTempDir } from "../helpers.mjs";
 
@@ -48,6 +48,35 @@ test("email uniqueness is enforced for customer accounts", async () => {
     store.createCustomer({ displayName: "One", email: "one@example.com" });
     assert.throws(() => store.createCustomer({ displayName: "Two", email: "ONE@example.com" }));
   } finally {
+    store.close();
+    await cleanupTempDir(dataDir);
+  }
+});
+
+
+test("two customer tenants resolve to isolated data directories", async () => {
+  const dataDir = await makeTempDir("relay-tenant-isolation-");
+  const store = CloudStore.open(path.join(dataDir, "cloud.sqlite"));
+  const config = {
+    enabled: true,
+    dbPath: path.join(dataDir, "cloud.sqlite"),
+    tokenKey: Buffer.alloc(32, 7),
+    mcpPort: 4321,
+    tenantDataRoot: path.join(dataDir, "tenants"),
+    ownerDataDir: path.join(dataDir, "owner"),
+    oauthBase: "https://relay.duitpoket.fun",
+  };
+  const manager = new TenantManager({ store, config, forceMock: true, logger: () => undefined });
+  try {
+    const first = store.createCustomer({ displayName: "First", email: "first@example.com" });
+    const second = store.createCustomer({ displayName: "Second", email: "second@example.com" });
+    const firstRelay = await manager.get(first);
+    const secondRelay = await manager.get(second);
+    assert.notEqual(firstRelay.dataDir, secondRelay.dataDir);
+    assert.equal(firstRelay.dataDir.includes(first.id), true);
+    assert.equal(secondRelay.dataDir.includes(second.id), true);
+  } finally {
+    await manager.close();
     store.close();
     await cleanupTempDir(dataDir);
   }
