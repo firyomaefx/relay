@@ -140,7 +140,8 @@
   const newPart = (text = "") => ({ id: `part-${++partSeq}`, text, media: [] });
 
   const state = {
-    session: { protected: false, authenticated: true },
+    session: { protected: false, authenticated: true, role: null },
+    role: null,
     settings: null,
     accounts: [],
     queue: [],
@@ -527,7 +528,7 @@
     if (creditLoading || (!force && Date.now() - creditFetchedAt < 15_000)) return;
     creditLoading = true;
     try {
-      const response = await fetch("/api/cloud/admin/me", { credentials: "same-origin" });
+      const response = await fetch("/api/cloud/me", { credentials: "same-origin" });
       if (!response.ok) {
         els.creditCard.hidden = true;
         return;
@@ -1946,7 +1947,7 @@
     if (!els.billingSummary) return;
     els.billingSummary.innerHTML = `<p class="list-excerpt">Loading wallet…</p>`;
     try {
-      const response = await fetch("/api/cloud/admin/billing", { credentials: "same-origin" });
+      const response = await fetch("/api/cloud/billing", { credentials: "same-origin" });
       if (!response.ok) {
         els.billingSummary.innerHTML = `<p class="list-excerpt">Billing is not available for this account.</p>`;
         return;
@@ -2512,6 +2513,7 @@
   async function refreshAll() {
     try {
       await loadState();
+      if (state.session?.role) applyRole(state.session.role);
       renderChrome();
       renderActiveScreen();
       observeReveals();
@@ -3175,11 +3177,21 @@
   /* ------------------------------------------------------------------ *
    * Boot
    * ------------------------------------------------------------------ */
+  function applyRole(role) {
+    state.role = role;
+    document.body.dataset.role = role;
+    if (role === "customer") {
+      const settingsNav = document.querySelector('[data-nav="settings"] .nav-label');
+      if (settingsNav) settingsNav.textContent = "Profile";
+    }
+  }
+
   async function init() {
     cacheElements();
     wireEvents();
     try {
       state.session = await api("/api/session");
+      applyRole(state.session.role ?? "operator");
       if (state.session.protected && !state.session.authenticated) {
         window.location.replace("/login");
         return;

@@ -141,3 +141,30 @@ export function waitlistInviteEmail(input: { name: string; connectUrl: string })
       <p style="margin:0;color:#68736c;font-size:13px">Treat this link like a password. Anyone with it can act as your Relay account.</p>`),
   };
 }
+
+export function customerSetupEmail(input: { name: string; setupUrl: string }): EmailMessage {
+  const name = input.name.trim() || "there";
+  const url = input.setupUrl;
+  const text = [
+    `Hi ${name},`,
+    "",
+    "Your Relay Cloud account is approved. Set your password here:",
+    "",
+    url,
+    "",
+    "This link expires in 7 days and can be used once.",
+    "",
+    "After setting your password, sign in at https://relay.duitpoket.fun/login",
+    "",
+    "— Relay",
+  ].join("\n");
+  return {
+    to: "",
+    subject: "Set up your Relay Cloud account",
+    text,
+    html: layout("Set up your account.", `<p style="margin:0 0 12px">Hi ${escapeHtml(name)},</p>
+      <p style="margin:0 0 12px">Your Relay Cloud account is approved. Set your password to sign in:</p>
+      <p style="margin:0 0 16px"><a href="${escapeHtml(url)}" style="display:inline-block;background:#18211c;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">Set my password</a></p>
+      <p style="margin:0;color:#68736c;font-size:13px">This link expires in 7 days and can be used once.</p>`),
+  };
+}

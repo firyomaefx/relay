@@ -16,6 +16,20 @@ export interface Customer {
   createdAt: string;
 }
 
+export interface CustomerAuthRecord {
+  customer: Customer;
+  passwordHash: string;
+  sessionVersion: number;
+}
+
+export interface CustomerInvite {
+  id: string;
+  customerId: string;
+  expiresAt: string;
+  usedAt: string | null;
+  createdAt: string;
+}
+
 export interface ApiKeyRecord {
   id: string;
   customerId: string;
@@ -304,6 +318,15 @@ export class CloudStore {
         rejected_at TEXT
       );
       CREATE INDEX IF NOT EXISTS waitlist_status_created ON waitlist(status, created_at);
+      CREATE TABLE IF NOT EXISTS customer_invites (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES customers(id),
+        token_hash TEXT NOT NULL UNIQUE,
+        expires_at TEXT NOT NULL,
+        used_at TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS customer_invites_customer ON customer_invites(customer_id);
     `);
     const waitlistColumns = db.prepare("PRAGMA table_info(waitlist)").all() as Array<{ name: string }>;
     if (!waitlistColumns.some((column) => column.name === "phone")) {
@@ -316,18 +339,29 @@ export class CloudStore {
     if (!customerColumns.some((column) => column.name === "phone")) {
       db.exec("ALTER TABLE customers ADD COLUMN phone TEXT NOT NULL DEFAULT ''");
     }
+    if (!customerColumns.some((column) => column.name === "password_hash")) {
+      db.exec("ALTER TABLE customers ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''");
+    }
+    if (!customerColumns.some((column) => column.name === "session_version")) {
+      db.exec("ALTER TABLE customers ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1");
+    }
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS customers_email_unique ON customers(email COLLATE NOCASE) WHERE email <> ''");
     return new CloudStore(db);
   }
 
-  createCustomer(input: { displayName: string; owner?: boolean; dailyCap?: number | null; monthlyCap?: number | null }): Customer {
+  createCustomer(input: { displayName: string; email?: string; owner?: boolean; dailyCap?: number | null; monthlyCap?: number | null }): Customer {
     const displayName = input.displayName.trim();
     if (!displayName) throw new RelayError("Customer name is required.", "cloud_customer_name_required", undefined, 400);
+    const email = normalizeEmail(input.email ?? "");
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new RelayError("A valid email is required.", "cloud_email_invalid", undefined, 400);
+    }
     const id = `cus_${randomUUID()}`;
     const createdAt = new Date().toISOString();
     try {
       this.db.prepare(
-        "INSERT INTO customers (id, display_name, status, owner, daily_cap, monthly_cap, created_at) VALUES (?, ?, 'active', ?, ?, ?, ?)",
-      ).run(id, displayName, input.owner ? 1 : 0, input.dailyCap ?? null, input.monthlyCap ?? null, createdAt);
+        "INSERT INTO customers (id, display_name, email, status, owner, daily_cap, monthly_cap, created_at) VALUES (?, ?, ?, 'active', ?, ?, ?, ?)",
+      ).run(id, displayName, email, input.owner ? 1 : 0, input.dailyCap ?? null, input.monthlyCap ?? null, createdAt);
     } catch (error) {
       if (String(error).includes("UNIQUE") && input.owner) {
         throw new RelayError("An owner customer already exists.", "cloud_owner_exists", undefined, 409);
@@ -340,12 +374,61 @@ export class CloudStore {
   updateCustomerProfile(customerId: string, input: { email?: string; phone?: string }): Customer {
     const customer = this.getCustomer(customerId);
     if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
-    const email = input.email?.trim() ?? customer.email;
+    const email = normalizeEmail(input.email ?? customer.email);
     const phone = input.phone?.trim() ?? customer.phone;
     if (email.length > 254) throw new RelayError("Email is too long.", "cloud_email_invalid", undefined, 400);
     if (phone.length > 40) throw new RelayError("Phone number is too long.", "cloud_phone_invalid", undefined, 400);
     this.db.prepare("UPDATE customers SET email = ?, phone = ? WHERE id = ?").run(email, phone, customerId);
     return this.getCustomer(customerId)!;
+  }
+
+  getCustomerAuthByEmail(email: string): CustomerAuthRecord | null {
+    const normalized = normalizeEmail(email);
+    if (!normalized) return null;
+    const row = this.db.prepare("SELECT * FROM customers WHERE email = ? COLLATE NOCASE LIMIT 1").get(normalized) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return {
+      customer: toCustomer(row),
+      passwordHash: String(row.password_hash ?? ""),
+      sessionVersion: Number(row.session_version ?? 1),
+    };
+  }
+
+  getCustomerAuthById(id: string): CustomerAuthRecord | null {
+    const row = this.db.prepare("SELECT * FROM customers WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return {
+      customer: toCustomer(row),
+      passwordHash: String(row.password_hash ?? ""),
+      sessionVersion: Number(row.session_version ?? 1),
+    };
+  }
+
+  setCustomerPassword(customerId: string, passwordHash: string): CustomerAuthRecord {
+    const customer = this.getCustomer(customerId);
+    if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+    this.db.prepare("UPDATE customers SET password_hash = ?, session_version = session_version + 1 WHERE id = ?").run(passwordHash, customerId);
+    return this.getCustomerAuthById(customerId)!;
+  }
+
+  createCustomerInvite(customerId: string, tokenHash: string, ttlMs: number): CustomerInvite {
+    if (!this.getCustomer(customerId)) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+    const now = new Date();
+    const id = `cinv_${randomUUID()}`;
+    const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
+    this.db.prepare("UPDATE customer_invites SET used_at = ? WHERE customer_id = ? AND used_at IS NULL").run(now.toISOString(), customerId);
+    this.db.prepare(
+      "INSERT INTO customer_invites (id, customer_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
+    ).run(id, customerId, tokenHash, expiresAt, now.toISOString());
+    return { id, customerId, expiresAt, usedAt: null, createdAt: now.toISOString() };
+  }
+
+  consumeCustomerInvite(tokenHash: string): CustomerAuthRecord | null {
+    const row = this.db.prepare("SELECT * FROM customer_invites WHERE token_hash = ?").get(tokenHash) as Record<string, unknown> | undefined;
+    if (!row || row.used_at != null) return null;
+    if (Date.parse(String(row.expires_at)) <= Date.now()) return null;
+    this.db.prepare("UPDATE customer_invites SET used_at = ? WHERE id = ? AND used_at IS NULL").run(new Date().toISOString(), String(row.id));
+    return this.getCustomerAuthById(String(row.customer_id));
   }
 
   getCustomer(id: string): Customer | null {

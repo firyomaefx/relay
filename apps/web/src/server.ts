@@ -18,7 +18,7 @@ import {
   type RelayService,
 } from "@relay/core";
 import { createRelay } from "@relay/platforms";
-import { PriceTable, authenticateApiKey, defaultPricePath, type CloudPrices } from "@relay/cloud";
+import { PriceTable, TenantManager, authenticateApiKey, defaultPricePath, loadCloudConfig, type CloudPrices, type Customer } from "@relay/cloud";
 import { CLIENT_MATRIX, generateArtifact, type ClientId } from "@relay/connector";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { createConnectSession, lookupConnectSession, verifyConnectSession } from "./connect-session.js";
@@ -26,6 +26,14 @@ import { createCheckoutSession, loadStripeConfig, stripeReady, topupPlan, TOPUP_
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
 import { sendEmail, waitlistConfirmationEmail } from "@relay/cloud";
 import { SessionManager } from "./auth.js";
+import {
+  CustomerAuth,
+  LoginThrottle,
+  createInviteToken,
+  hashCustomerPassword,
+  hashInviteToken,
+  verifyCustomerPassword,
+} from "./customer-auth.js";
 import { readConfig } from "./config.js";
 import {
   asRecord,
@@ -46,9 +54,12 @@ const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
 const CONSOLE_BILLING_SINCE = "2026-11-11T14:20:00.000Z";
 
 /** Charge newly recorded console posts once, idempotently, using the same list prices. */
-function settleConsoleBilling(records: PostRecord[], cloudAdmin: CloudAdminDeps | undefined, config: CloudPrices | null): void {
+function settleConsoleBilling(records: PostRecord[], cloudAdmin: CloudAdminDeps | undefined, config: CloudPrices | null, customerId?: string): void {
   if (!cloudAdmin || !config) return;
-  const owner = cloudAdmin.store.ensureOwnerCustomer("Owner");
+  const owner = customerId
+    ? cloudAdmin.store.getCustomer(customerId)
+    : cloudAdmin.store.ensureOwnerCustomer("Owner");
+  if (!owner) return;
   const prices = PriceTable.fromConfig(config);
   const freeLimit = Number(config.free_allowance_milli_usd ?? 0);
   const excluded = new Set(config.free_excluded_platforms ?? []);
@@ -186,8 +197,14 @@ export interface RunningServer {
   close(): Promise<void>;
 }
 
+type RequestSession =
+  | { kind: "operator" }
+  | { kind: "customer"; customer: Customer };
+
 interface HandlerDeps {
   session: SessionManager;
+  customerAuth: CustomerAuth;
+  tenantManager?: TenantManager;
   logger: (message: string) => void;
   publicDir: string;
   relay: () => RelayService;
@@ -196,6 +213,60 @@ interface HandlerDeps {
   contactFile?: string;
   billing?: StripeBillingConfig;
   polar?: PolarConfig;
+}
+
+const loginThrottle = new LoginThrottle();
+
+async function resolveRequestSession(req: IncomingMessage, deps: HandlerDeps): Promise<RequestSession | null> {
+  if (deps.session.enabled && deps.session.authenticated(req)) return { kind: "operator" };
+  if (deps.customerAuth.enabled && deps.cloudAdmin) {
+    const token = deps.customerAuth.sessionFromRequest(req);
+    if (token) {
+      const record = deps.cloudAdmin.store.getCustomerAuthById(token.customerId);
+      if (
+        record &&
+        record.customer.status === "active" &&
+        !record.customer.owner &&
+        record.sessionVersion === token.sessionVersion
+      ) {
+        return { kind: "customer", customer: record.customer };
+      }
+    }
+  }
+  // Legacy installations with no auth configured keep the original open-console behaviour.
+  if (!deps.session.enabled && !deps.customerAuth.enabled) return { kind: "operator" };
+  return null;
+}
+
+async function relayForSession(session: RequestSession, deps: HandlerDeps): Promise<RelayService> {
+  if (session.kind === "operator") return deps.relay();
+  if (!deps.cloudAdmin || !deps.tenantManager) {
+    throw new RelayError("Customer sessions are not configured.", "customer_auth_unavailable", undefined, 503);
+  }
+  const record = deps.cloudAdmin.store.getCustomerAuthById(session.customer.id);
+  if (!record || record.customer.status !== "active" || record.customer.owner) {
+    throw new RelayError("This customer session is no longer valid.", "unauthorized", undefined, 401);
+  }
+  const relay = await deps.tenantManager.get(record.customer);
+  // Customer consoles can schedule posts; the tenant owns its own scheduler lock.
+  await relay.startScheduler().catch((error: unknown) => deps.logger(`tenant scheduler failed: ${errorMessage(error)}`));
+  return relay;
+}
+
+function requireOperator(session: RequestSession | null): asserts session is { kind: "operator" } {
+  if (!session || session.kind !== "operator") {
+    throw new RelayError("Operator access required.", "operator_required", undefined, 403);
+  }
+}
+
+function sendJsonWithCookies(
+  res: ServerResponse,
+  status: number,
+  value: unknown,
+  cookies: string[],
+): void {
+  if (cookies.length > 0) res.setHeader("Set-Cookie", cookies);
+  sendJson(res, status, value);
 }
 
 function splitPath(pathname: string): string[] {
@@ -255,11 +326,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   }
   const pathname = url.pathname;
   const segments = splitPath(pathname);
+  const requestSession = await resolveRequestSession(req, deps);
 
   // The OAuth provider redirects the browser here; the signed state parameter is
   // the protection, so this route stays reachable without a console session.
   if (isGet && segments.length === 3 && segments[0] === "auth" && segments[1] === "callback") {
-    await handleAuthCallback(res, segments[2], url, deps);
+    const relay = requestSession ? await relayForSession(requestSession, deps) : null;
+    if (!relay) {
+      redirect(res, "/login");
+      return;
+    }
+    await handleAuthCallback(res, segments[2], url, deps, relay);
     return;
   }
 
@@ -498,32 +575,72 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       });
       return;
     }
+    if (method === "POST" && segments.length === 3 && segments[1] === "customer" && segments[2] === "login") {
+      await handleCustomerLogin(req, res, deps);
+      return;
+    }
+    if (method === "POST" && segments.length === 3 && segments[1] === "customer" && segments[2] === "accept-invite") {
+      await handleAcceptCustomerInvite(req, res, deps);
+      return;
+    }
+    if (method === "POST" && segments.length === 3 && segments[1] === "customer" && segments[2] === "logout") {
+      await readJsonBody(req, MAX_JSON_BYTES).catch(() => undefined);
+      sendJsonWithCookies(res, 200, { ok: true }, [
+        deps.session.clearCookieHeader(),
+        deps.customerAuth.clearCookieHeader(),
+      ]);
+      return;
+    }
     if (method === "POST" && segments.length === 2 && segments[1] === "login") {
       await handleLogin(req, res, deps);
       return;
     }
     if (method === "POST" && segments.length === 2 && segments[1] === "logout") {
       await readJsonBody(req, MAX_JSON_BYTES).catch(() => undefined);
-      sendJson(res, 200, { ok: true }, { "Set-Cookie": deps.session.clearCookieHeader() });
+      sendJsonWithCookies(res, 200, { ok: true }, [
+        deps.session.clearCookieHeader(),
+        deps.customerAuth.clearCookieHeader(),
+      ]);
       return;
     }
     if (isGet && segments.length === 2 && segments[1] === "session") {
       sendJson(res, 200, {
-        protected: deps.session.enabled,
-        authenticated: deps.session.authenticated(req),
+        protected: deps.session.enabled || deps.customerAuth.enabled,
+        authenticated: requestSession !== null,
+        role: requestSession?.kind ?? null,
+        operatorEnabled: deps.session.enabled,
+        customerEnabled: deps.customerAuth.enabled,
       });
       return;
     }
   }
 
-  // Login page.
+  // Customer sign-in page.
   if (isGet && (pathname === "/login" || pathname === "/login.html")) {
-    if (!deps.session.enabled || deps.session.authenticated(req)) {
+    if (requestSession) {
+      redirect(res, "/");
+      return;
+    }
+    const served = await sendFile(req, res, path.join(deps.publicDir, "customer-login.html"), { html: true });
+    if (!served) throw new RelayError("The customer login page is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
+  // Operator sign-in page.
+  if (isGet && (pathname === "/admin" || pathname === "/admin/" || pathname === "/admin/login")) {
+    if (requestSession?.kind === "operator") {
       redirect(res, "/");
       return;
     }
     const served = await sendFile(req, res, path.join(deps.publicDir, "login.html"), { html: true });
-    if (!served) throw new RelayError("The console login page is missing", "console_assets_missing", undefined, 500);
+    if (!served) throw new RelayError("The operator login page is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
+  // Customer setup page (one-time invite token in the URL).
+  if (isGet && (pathname === "/setup" || pathname === "/setup.html")) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, "setup.html"), { html: true });
+    if (!served) throw new RelayError("The account setup page is missing", "console_assets_missing", undefined, 500);
     return;
   }
 
@@ -619,8 +736,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
     return;
   }
 
-  // Everything else requires a session when RELAY_CONSOLE_PASSWORD is set.
-  if (deps.session.enabled && !deps.session.authenticated(req)) {
+  // Everything else requires an operator or customer session.
+  if ((deps.session.enabled || deps.customerAuth.enabled) && !requestSession) {
     // Visitors get the public landing page at /; signed-in users still get the console.
     if (isGet && (pathname === "/" || pathname === "/index.html")) {
       const served = await sendFile(req, res, path.join(deps.publicDir, "landing.html"), { html: true });
@@ -634,7 +751,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       const assetServed = await serveStatic(req, res, segments, deps.publicDir, false);
       if (assetServed) return;
     }
-    redirect(res, "/login");
+    redirect(res, pathname.startsWith("/admin") ? "/admin" : "/login");
     return;
   }
 
@@ -645,8 +762,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   }
 
   if (segments[0] === "api") {
-    await handleApi(req, res, method, segments, url, deps);
+    const relay = requestSession ? await relayForSession(requestSession, deps) : null;
+    if (!relay) throw new RelayError("Sign in to the Relay console first", "unauthorized", undefined, 401);
+    await handleApi(req, res, method, segments, url, deps, requestSession!, relay);
     return;
+  }
+
+  if (isGet && (pathname === "/cloud-admin.html" || pathname === "/cloud-admin")) {
+    requireOperator(requestSession);
   }
 
   if (isGet) {
@@ -670,11 +793,17 @@ async function handleApi(
   segments: string[],
   url: URL,
   deps: HandlerDeps,
+  session: RequestSession,
+  relay: RelayService,
 ): Promise<void> {
+  const operator = session.kind === "operator";
+  const billingCustomerId = operator
+    ? deps.cloudAdmin?.store.ensureOwnerCustomer("Owner").id
+    : session.customer.id;
   // REQ-001, REQ-022, REQ-023
   if (segments[1] === "connect" && segments[2] === "clients" && segments.length === 3) {
     if (method !== "GET") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
-    sendJson(res, 200, { clients: CLIENT_MATRIX, mcpUrl: publicMcpUrl(deps.relay()) });
+    sendJson(res, 200, { clients: CLIENT_MATRIX, mcpUrl: publicMcpUrl(relay) });
     return;
   }
 
@@ -683,7 +812,7 @@ async function handleApi(
     if (method !== "GET") throw new RelayError("Method not allowed.", "method_not_allowed", undefined, 405);
     const clientId = decodeURIComponent(segments[3] ?? "") as ClientId;
     try {
-      sendJson(res, 200, generateArtifact({ clientId, mcpUrl: publicMcpUrl(deps.relay()) }));
+      sendJson(res, 200, generateArtifact({ clientId, mcpUrl: publicMcpUrl(relay) }));
     } catch (error) {
       throw new RelayError(errorMessage(error), "connect_artifact_unavailable", undefined, 404);
     }
@@ -718,9 +847,9 @@ async function handleApi(
     if (!Number.isInteger(amount) || amount < 100 || amount > 50_000) {
       throw new RelayError("Top-ups must be between $1.00 and $500.00.", "stripe_amount_invalid", undefined, 400);
     }
-    const owner = deps.cloudAdmin.store.ensureOwnerCustomer("Owner");
+    if (!billingCustomerId) throw new RelayError("Cloud billing is not configured.", "cloud_unavailable", undefined, 503);
     const session = await createCheckoutSession(deps.billing, {
-      customerId: owner.id,
+      customerId: billingCustomerId,
       amount: amount * 10,
       baseUrl: process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun",
     });
@@ -739,9 +868,9 @@ async function handleApi(
     if (!Number.isInteger(amount) || !productId) {
       throw new RelayError("Choose an available top-up amount.", "polar_amount_invalid", undefined, 400);
     }
-    const owner = deps.cloudAdmin.store.ensureOwnerCustomer("Owner");
+    if (!billingCustomerId) throw new RelayError("Cloud billing is not configured.", "cloud_unavailable", undefined, 503);
     const session = await createPolarCheckout(deps.polar, {
-      customerId: owner.id,
+      customerId: billingCustomerId,
       productId,
       amountMilli: amount * 10,
     });
@@ -749,9 +878,47 @@ async function handleApi(
     return;
   }
 
+  if (segments[1] === "cloud" && segments[2] === "me" && segments.length === 3 && method === "GET") {
+    if (!deps.cloudAdmin || !billingCustomerId) throw new RelayError("Cloud billing is not configured.", "cloud_unavailable", undefined, 503);
+    const balance = deps.cloudAdmin.ledger.balanceWithHold(billingCustomerId);
+    const freeLimit = deps.pricing?.free_allowance_milli_usd ?? 0;
+    const freeRemaining = freeLimit > 0 ? deps.cloudAdmin.ledger.freeRemaining(billingCustomerId, freeLimit) : 0;
+    sendJson(res, 200, {
+      customer: { id: billingCustomerId },
+      balance,
+      freeCredit: freeLimit > 0 ? { limit: freeLimit, remaining: freeRemaining, currency: "USD" } : null,
+      totalAvailable: balance.available + freeRemaining,
+    });
+    return;
+  }
+
+  if (segments[1] === "cloud" && segments[2] === "billing" && segments.length === 3 && method === "GET") {
+    if (!deps.cloudAdmin || !billingCustomerId) throw new RelayError("Cloud billing is not configured.", "cloud_unavailable", undefined, 503);
+    const customer = deps.cloudAdmin.store.getCustomer(billingCustomerId);
+    if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+    const freeLimit = deps.pricing?.free_allowance_milli_usd ?? 0;
+    const freeCredit = freeLimit > 0
+      ? { limit: freeLimit, remaining: deps.cloudAdmin.ledger.freeRemaining(customer.id, freeLimit), currency: "USD" }
+      : null;
+    const balance = deps.cloudAdmin.ledger.balanceWithHold(customer.id);
+    sendJson(res, 200, {
+      customer: { id: customer.id, displayName: customer.displayName },
+      balance,
+      freeCredit,
+      totalAvailable: balance.available + (freeCredit?.remaining ?? 0),
+      payments: deps.cloudAdmin.ledger.listPayments(customer.id, 20),
+      providers: { stripe: Boolean(deps.billing), polar: Boolean(deps.polar) },
+      polarAmounts: Object.keys(deps.polar?.products ?? {}).map(Number).sort((a, b) => a - b),
+      stripeAmounts: deps.billing?.webhookSecret ? [990, 2490, 4990] : [],
+    });
+    return;
+  }
+
   if (segments[1] === "cloud" && segments[2] === "profile") {
     if (!deps.cloudAdmin) throw new RelayError("Cloud profile is not configured.", "cloud_unavailable", undefined, 503);
-    const owner = deps.cloudAdmin.store.ensureOwnerCustomer("Relay Cloud");
+    const owner = operator
+      ? deps.cloudAdmin.store.ensureOwnerCustomer("Relay Cloud")
+      : session.customer;
     const profilePayload = () => ({
       customer: {
         id: owner.id,
@@ -806,10 +973,10 @@ async function handleApi(
     throw new RelayError("Not found", "not_found", undefined, 404);
   }
   if (segments[1] === "cloud" && segments[2] === "admin") {
+    requireOperator(session);
     await handleCloudAdmin(req, res, segments, url, deps.cloudAdmin);
     return;
   }
-  const relay = deps.relay();
   const resource = segments[1] ?? "";
 
   if (segments.length === 2) {
@@ -819,12 +986,13 @@ async function handleApi(
         relay.accounts(),
         relay.listQueue(),
         relay.history(50),
-        Promise.resolve(relay.credentialInfos()),
+        operator ? Promise.resolve(relay.credentialInfos()) : Promise.resolve([]),
         relay.schedulerStatus(),
       ]);
-      settleConsoleBilling(history, deps.cloudAdmin, deps.pricing);
+      settleConsoleBilling(history, deps.cloudAdmin, deps.pricing, session.kind === "customer" ? session.customer.id : undefined);
       sendJson(res, 200, {
-        settings: { ...settings, passwordProtected: deps.session.enabled },
+        role: session.kind,
+        settings: { ...settings, passwordProtected: deps.session.enabled, ...(operator ? {} : { dataDir: "" }) },
         accounts,
         queue,
         history: historyWithCost(history, deps.pricing),
@@ -846,12 +1014,12 @@ async function handleApi(
       const raw = url.searchParams.get("limit");
       const limit = raw !== null && /^\d+$/.test(raw) ? Number(raw) : 50;
       const records = await relay.history(limit);
-      settleConsoleBilling(records, deps.cloudAdmin, deps.pricing);
+      settleConsoleBilling(records, deps.cloudAdmin, deps.pricing, session.kind === "customer" ? session.customer.id : undefined);
       sendJson(res, 200, { history: historyWithCost(records, deps.pricing) });
       return;
     }
     if (method === "POST" && resource === "posts") {
-      await handleCreatePost(req, res, relay, deps);
+      await handleCreatePost(req, res, relay, deps, session);
       return;
     }
     if (method === "POST" && resource === "validate") {
@@ -917,6 +1085,7 @@ async function handleApi(
 
   // Save or clear the DeepSeek API key. Encrypted at rest.
   if (segments.length === 3 && resource === "settings" && segments[2] === "deepseek" && method === "POST") {
+    requireOperator(session);
     const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
     const key = typeof body.apiKey === "string" ? body.apiKey : null;
     if (key !== null && key.trim().length < 10) {
@@ -929,6 +1098,7 @@ async function handleApi(
 
   // Live DeepSeek key check. Never returns the key.
   if (segments.length === 4 && resource === "settings" && segments[2] === "deepseek" && segments[3] === "test" && method === "POST") {
+    requireOperator(session);
     sendJson(res, 200, await relay.testDeepSeekKey());
     return;
   }
@@ -1017,6 +1187,7 @@ async function handleApi(
   }
 
   if (segments.length === 3 && resource === "credentials" && method === "PUT") {
+    requireOperator(session);
     const platform = requirePlatform(segments[2]);
     const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
     const clientId = typeof body.clientId === "string" ? body.clientId.trim() : "";
@@ -1027,6 +1198,7 @@ async function handleApi(
   }
 
   if (segments.length === 3 && resource === "credentials" && method === "DELETE") {
+    requireOperator(session);
     const platform = requirePlatform(segments[2]);
     await readJsonBody(req, MAX_JSON_BYTES).catch(() => undefined);
     await relay.removeCredentials(platform);
@@ -1037,14 +1209,14 @@ async function handleApi(
   throw new RelayError("Not found", "not_found", undefined, 404);
 }
 
-async function handleCreatePost(req: IncomingMessage, res: ServerResponse, relay: RelayService, deps: Parameters<typeof createHandler>[0]): Promise<void> {
+async function handleCreatePost(req: IncomingMessage, res: ServerResponse, relay: RelayService, deps: Parameters<typeof createHandler>[0], session: RequestSession): Promise<void> {
   const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
   const draftValue = Object.prototype.hasOwnProperty.call(body, "draft") ? body.draft : body;
   const draft = relay.parseDraftFromJson(draftValue);
   const force = body.force === true;
   const result = await relay.createPost(draft, { force });
   if (!result.scheduled && result.recordId) {
-    settleConsoleBilling(await relay.history(5), deps.cloudAdmin, deps.pricing);
+    settleConsoleBilling(await relay.history(5), deps.cloudAdmin, deps.pricing, session.kind === "customer" ? session.customer.id : undefined);
   }
   // Validation failures are a domain outcome, not a transport error: the client
   // renders `report.issues` and `results` directly. Only malformed JSON is a 400.
@@ -1102,21 +1274,79 @@ async function handleMediaUpload(req: IncomingMessage, res: ServerResponse, rela
   });
 }
 
+function clientKey(req: IncomingMessage): string {
+  return req.socket.remoteAddress?.trim() || "unknown";
+}
+
+async function handleCustomerLogin(req: IncomingMessage, res: ServerResponse, deps: HandlerDeps): Promise<void> {
+  if (!deps.customerAuth.enabled || !deps.cloudAdmin) {
+    throw new RelayError("Customer sign-in is not enabled.", "customer_auth_unavailable", undefined, 503);
+  }
+  const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const password = String(body.password ?? "");
+  const throttleKey = `customer:${clientKey(req)}:${email}`;
+  loginThrottle.check(throttleKey);
+  const record = email ? deps.cloudAdmin.store.getCustomerAuthByEmail(email) : null;
+  const valid = record && record.customer.status === "active" && !record.customer.owner && record.passwordHash
+    ? await verifyCustomerPassword(password, record.passwordHash)
+    : false;
+  if (!record || !valid) {
+    throw new RelayError("Email or password is incorrect.", "invalid_credentials", undefined, 401);
+  }
+  loginThrottle.clear(throttleKey);
+  sendJsonWithCookies(
+    res,
+    200,
+    { ok: true, role: "customer" },
+    [
+      deps.customerAuth.cookieHeader({ customerId: record.customer.id, sessionVersion: record.sessionVersion }),
+      deps.session.clearCookieHeader(),
+    ],
+  );
+}
+
+async function handleAcceptCustomerInvite(req: IncomingMessage, res: ServerResponse, deps: HandlerDeps): Promise<void> {
+  if (!deps.customerAuth.enabled || !deps.cloudAdmin) {
+    throw new RelayError("Customer sign-in is not enabled.", "customer_auth_unavailable", undefined, 503);
+  }
+  const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+  const token = String(body.token ?? "").trim();
+  const password = String(body.password ?? "");
+  if (!token || password.length < 10) {
+    throw new RelayError("Choose a password with at least 10 characters.", "password_invalid", undefined, 400);
+  }
+  const record = deps.cloudAdmin.store.consumeCustomerInvite(hashInviteToken(token));
+  if (!record || record.customer.status !== "active" || record.customer.owner) {
+    throw new RelayError("This setup link is invalid or has expired.", "invite_invalid", undefined, 400);
+  }
+  const updated = deps.cloudAdmin.store.setCustomerPassword(record.customer.id, await hashCustomerPassword(password));
+  sendJsonWithCookies(
+    res,
+    200,
+    { ok: true, role: "customer" },
+    [
+      deps.customerAuth.cookieHeader({ customerId: updated.customer.id, sessionVersion: updated.sessionVersion }),
+      deps.session.clearCookieHeader(),
+    ],
+  );
+}
+
 async function handleLogin(req: IncomingMessage, res: ServerResponse, deps: HandlerDeps): Promise<void> {
   const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
   if (!deps.session.enabled) {
-    sendJson(res, 200, { ok: true, protected: false, authenticated: true });
+    sendJsonWithCookies(res, 200, { ok: true, protected: false, authenticated: true, role: "operator" }, [
+      deps.customerAuth.clearCookieHeader(),
+    ]);
     return;
   }
   if (!deps.session.verifyPassword(body.password)) {
     throw new RelayError("Incorrect password", "invalid_password", undefined, 401);
   }
-  sendJson(
-    res,
-    200,
-    { ok: true, protected: true, authenticated: true },
-    { "Set-Cookie": deps.session.cookieHeader() },
-  );
+  sendJsonWithCookies(res, 200, { ok: true, protected: true, authenticated: true, role: "operator" }, [
+    deps.session.cookieHeader(),
+    deps.customerAuth.clearCookieHeader(),
+  ]);
 }
 
 async function handleAuthCallback(
@@ -1124,6 +1354,7 @@ async function handleAuthCallback(
   platformSegment: string,
   url: URL,
   deps: HandlerDeps,
+  relay: RelayService,
 ): Promise<void> {
   const logAuth = async (message: string): Promise<void> => {
     try {
@@ -1155,7 +1386,7 @@ async function handleAuthCallback(
 
   try {
     await logAuth(`start platform=${platform} code=${Boolean(code)} state=${state.slice(0, 6)}`);
-    await deps.relay().completeConnect(platform, { code, state });
+    await relay.completeConnect(platform, { code, state });
     await logAuth(`success platform=${platform}`);
     redirect(res, `/?connected=${platform}`);
   } catch (error) {
@@ -1215,6 +1446,9 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   const publicDir =
     options.publicDir ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
   const session = new SessionManager(password);
+  const secureCookies = /^https:/i.test(env.RELAY_PUBLIC_URL?.trim() ?? "") || env.NODE_ENV === "production";
+  const customerAuth = new CustomerAuth(env.RELAY_CUSTOMER_SESSION_SECRET, { secure: secureCookies });
+  if (!customerAuth.enabled) logger("customer auth disabled: RELAY_CUSTOMER_SESSION_SECRET missing or shorter than 32 chars");
   const billing = loadStripeConfig(env);
   const polar = loadPolarConfig(env);
   let cloudAdmin: CloudAdminDeps | null = null;
@@ -1229,11 +1463,24 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   } catch (error) {
     logger(`cloud admin disabled: ${errorMessage(error)}`);
   }
+  let tenantManager: TenantManager | undefined;
+  if (cloudAdmin) {
+    tenantManager = new TenantManager({
+      store: cloudAdmin.store,
+      config: cloudAdmin.config,
+      env,
+      forceMock,
+      consoleUrl: options.consoleUrl ?? config.consoleUrl ?? env.RELAY_CONSOLE_URL?.trim() ?? "https://relay.duitpoket.fun",
+      logger,
+    });
+  }
 
   let relay: RelayService | null = null;
   const server = createServer(
     createHandler({
       session,
+      customerAuth,
+      tenantManager,
       logger,
       publicDir,
       cloudAdmin: cloudAdmin ?? undefined,
@@ -1287,6 +1534,11 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
           relay = null;
           await active.stopScheduler();
           await active.close();
+        }
+        if (tenantManager) {
+          const activeTenants = tenantManager;
+          tenantManager = undefined;
+          await activeTenants.close();
         }
         if (cloudAdmin) {
           const activeCloud = cloudAdmin;

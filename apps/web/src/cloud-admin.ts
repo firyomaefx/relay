@@ -3,11 +3,13 @@ import { RelayError, errorMessage } from "@relay/core";
 import { CloudLedger, CloudStore, PriceTable, defaultPricePath, loadCloudConfig } from "@relay/cloud";
 import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
 import { createPolarCheckout, loadPolarConfig, type PolarConfig } from "./polar.js";
-import { loadEmailConfig, sendEmail, waitlistInviteEmail, type EmailConfig } from "@relay/cloud";
+import { customerSetupEmail, loadEmailConfig, sendEmail, type EmailConfig } from "@relay/cloud";
+import { createInviteToken } from "./customer-auth.js";
 
 export interface CloudAdminDeps {
   store: CloudStore;
   ledger: CloudLedger;
+  config: ReturnType<typeof loadCloudConfig>;
   pricing?: PriceTable;
   billing?: StripeBillingConfig;
   polar?: PolarConfig;
@@ -34,6 +36,7 @@ export function openCloudAdmin(env: NodeJS.ProcessEnv): CloudAdminDeps | null {
   return {
     store,
     ledger,
+    config,
     pricing,
     billing: loadStripeConfig(env) ?? undefined,
     polar: loadPolarConfig(env) ?? undefined,
@@ -68,6 +71,18 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
     throw new RelayError("JSON object required.", "cloud_body_invalid", undefined, 400);
   }
   return parsed as Record<string, unknown>;
+}
+
+async function createCustomerSetupInvite(deps: CloudAdminDeps, customer: { id: string; displayName: string; email: string }): Promise<{ url: string; emailSent: boolean; emailError?: string }> {
+  const { token, tokenHash } = createInviteToken();
+  deps.store.createCustomerInvite(customer.id, tokenHash, 7 * 24 * 60 * 60 * 1000);
+  const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+  const url = `${publicBase}/setup?token=${encodeURIComponent(token)}`;
+  const emailResult = await sendEmail(deps.email, {
+    ...customerSetupEmail({ name: customer.displayName, setupUrl: url }),
+    to: customer.email,
+  });
+  return { url, emailSent: emailResult.sent, emailError: emailResult.sent ? undefined : emailResult.error };
 }
 
 /** Admin-only manual top-up interface. Existing console session already guards these routes. */
@@ -180,21 +195,16 @@ export async function handleCloudAdmin(
         if (!entry.customerId) {
           throw new RelayError("This entry has no customer yet.", "waitlist_customer_missing", undefined, 409);
         }
-        const created = deps.store.createConnectToken(entry.customerId, `Waitlist reinvite: ${entry.email}`);
-        const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
-        const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun/mcp";
-        const connectUrl = `${publicBase}/connect?token=${encodeURIComponent(created.token)}`;
-        const emailResult = await sendEmail(deps.email, {
-          ...waitlistInviteEmail({ name: entry.name, connectUrl }),
-          to: entry.email,
-        });
+        const customer = deps.store.getCustomer(entry.customerId);
+        if (!customer) throw new RelayError("This entry has no customer yet.", "waitlist_customer_missing", undefined, 409);
+        if (!customer.email && entry.email) deps.store.updateCustomerProfile(customer.id, { email: entry.email });
+        const setup = await createCustomerSetupInvite(deps, deps.store.getCustomer(customer.id) ?? customer);
         send(res, 201, {
           ok: true,
           entry,
-          connectUrl,
-          mcpUrl: `${mcpBase}?token=${encodeURIComponent(created.token)}`,
-          emailSent: emailResult.sent,
-          emailError: emailResult.sent ? undefined : emailResult.error,
+          setupUrl: setup.url,
+          emailSent: setup.emailSent,
+          emailError: setup.emailSent ? undefined : setup.emailError,
         });
         return;
       }
@@ -208,24 +218,22 @@ export async function handleCloudAdmin(
       if (accepted >= limit) {
         throw new RelayError(`The first batch is full (${limit}). Raise RELAY_WAITLIST_LIMIT to approve more.`, "waitlist_full", undefined, 409);
       }
-      const customer = deps.store.createCustomer({ displayName: entry.name });
+      const customer = deps.store.createCustomer({ displayName: entry.name, email: entry.email });
       const created = deps.store.createConnectToken(customer.id, `Waitlist invite: ${entry.email}`);
       const invited = deps.store.approveWaitlist(id, customer.id);
+      const setup = await createCustomerSetupInvite(deps, customer);
       const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
       const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun/mcp";
       const connectUrl = `${publicBase}/connect?token=${encodeURIComponent(created.token)}`;
-      const emailResult = await sendEmail(deps.email, {
-        ...waitlistInviteEmail({ name: entry.name, connectUrl }),
-        to: entry.email,
-      });
       send(res, 201, {
         ok: true,
         entry: invited,
         customer: { id: customer.id, displayName: customer.displayName },
+        setupUrl: setup.url,
         connectUrl,
         mcpUrl: `${mcpBase}?token=${encodeURIComponent(created.token)}`,
-        emailSent: emailResult.sent,
-        emailError: emailResult.sent ? undefined : emailResult.error,
+        emailSent: setup.emailSent,
+        emailError: setup.emailSent ? undefined : setup.emailError,
       });
       return;
     }

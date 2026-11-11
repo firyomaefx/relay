@@ -5178,3 +5178,11 @@ body { font-size: 17px; }
 .row-actions .cost-badge small{font-size:10px;font-weight:400;color:var(--text-mute)}
 
 .history-billing + .history-billing-note{margin:-6px 0 14px}
+
+.auth-links{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:18px;font-size:13px}
+.auth-links a{color:var(--text-dim);text-decoration:none}
+.auth-links a:hover{color:var(--text)}
+
+/* Customer console: only the profile card remains under Settings. */
+body[data-role="customer"] #screen-settings .settings-col:first-child .bezel:not(:first-child),
+body[data-role="customer"] #screen-settings .settings-col:last-child { display: none !important; }
