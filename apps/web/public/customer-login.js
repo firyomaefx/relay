@@ -27,7 +27,7 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) return fail(data.error || "Email or password is incorrect.");
-      window.location.replace("/");
+      window.location.replace("/#compose");
     } catch {
       fail("Cannot reach Relay Cloud. Try again.");
     }

@@ -85,8 +85,8 @@ button{min-height:52px;font-size:16px}
     <a href="/">Home</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/about">About</a><a href="/connect">Connect</a><a href="/login">Log in</a>
   </nav>
   <p class="eyebrow">Relay Cloud · first 100</p>
-  <h1>Publish once. Everywhere.</h1>
-  <p class="lede">One MCP endpoint for X, Threads, TikTok, YouTube, Instagram and LinkedIn. We are onboarding the first 100 operators by hand, then opening public access.</p>
+  <h1>Write once. Post everywhere.</h1>
+  <p class="lede">Schedule and publish to Instagram, Threads, TikTok, YouTube, X and LinkedIn from one browser tab. No AI agent needed, though you can use one if you prefer. We are onboarding the first 100 people by hand, then opening public access.</p>
   <div class="meta">
     <span class="pill"><span class="dot"></span><span id="spots">First 100 places</span></span>
     <span class="pill">No monthly fee</span>
@@ -120,27 +120,26 @@ button{min-height:52px;font-size:16px}
             <label class="platform"><input type="checkbox" name="platform" value="Instagram"> Instagram</label>
             <label class="platform"><input type="checkbox" name="platform" value="LinkedIn"> LinkedIn</label>
             <label class="platform"><input type="checkbox" name="platform" value="X"> X</label>
+            <label class="platform"><input type="checkbox" name="platform" value="Facebook Page"> Facebook Page (in review)</label>
           </div>
         </div>
         <div class="field">
           <label for="volume">Posts per month</label>
           <select id="volume" name="volume">
             <option value="">Select volume</option>
-            <option>1–20</option>
-            <option>21–100</option>
-            <option>101–500</option>
+            <option>1-20</option>
+            <option>21-100</option>
+            <option>101-500</option>
             <option>500+</option>
           </select>
         </div>
         <div class="field">
-          <label for="agent">How will you connect?</label>
+          <label for="agent">How do you want to post?</label>
           <select id="agent" name="agent">
-            <option value="">Select agent</option>
-            <option>Claude Desktop / Web</option>
-            <option>Cursor</option>
-            <option>Grok</option>
-            <option>ChatGPT / Codex</option>
-            <option>Direct API</option>
+            <option value="">Select one</option>
+            <option>Web app</option>
+            <option>AI agent</option>
+            <option>Both</option>
             <option>Not sure yet</option>
           </select>
         </div>
@@ -153,7 +152,7 @@ button{min-height:52px;font-size:16px}
       <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
       <button id="submit" type="submit">Join the waitlist</button>
       <p class="msg" id="message" role="status"></p>
-      <p class="note" id="deliveryNote">We review every request manually. You will get a private connect link when your place is ready.</p>
+      <p class="note" id="deliveryNote">We review every request manually. Once approved, set your password and post straight away.</p>
     </form>
   </section>
 
@@ -161,7 +160,7 @@ button{min-height:52px;font-size:16px}
     <p class="eyebrow">You're in the queue</p>
     <h2>Thanks, request received.</h2>
     <div class="position" id="position">#—</div>
-    <p class="lede" id="successText">We will email you when your Relay Cloud account is ready.</p>
+    <p class="lede" id="successText">We will email you when your Relay Cloud account is ready. Then approve, set your password and post.</p>
     <a class="back" href="/pricing">← See pricing while you wait</a>
   </section>
 </main>

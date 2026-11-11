@@ -32,7 +32,7 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) return fail(data.error || "This setup link is invalid or has expired.");
-      window.location.replace("/");
+      window.location.replace("/?welcome=1#compose");
     } catch {
       fail("Cannot reach Relay Cloud. Try again.");
     }

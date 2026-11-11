@@ -5186,3 +5186,26 @@ body { font-size: 17px; }
 /* Customer console: only the profile card remains under Settings. */
 body[data-role="customer"] #screen-settings .settings-col:first-child .bezel:not(:first-child),
 body[data-role="customer"] #screen-settings .settings-col:last-child { display: none !important; }
+
+/* Simple web flow */
+.topbar-new{width:auto;height:36px;padding:0 15px;border-radius:999px;background:var(--ink);color:var(--bg);border-color:transparent;font-weight:650}
+.topbar-new:hover{background:#fff;color:#071009}
+.hero-actions{margin:22px 0 0;align-items:center}
+.hero-actions .primary-btn,.hero-actions .ghost-btn{width:auto}
+.compose-modebar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 18px}
+.compose-mode-note{margin:0;color:var(--text-mute);font-size:12px;max-width:52ch}
+.first-run{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 0 18px;border-color:rgba(24, 122, 78, .24);background:linear-gradient(120deg, rgba(24,122,78,.06), transparent 70%)}
+.first-run h3{margin:4px 0 6px;font-size:18px;letter-spacing:-.02em}
+.first-run .primary-btn{width:auto;flex:none}
+.advanced-only[hidden],.platform-option[hidden]{display:none !important}
+.basic-options{margin-top:18px}
+.advanced-options{margin-top:14px;padding-top:14px;border-top:1px solid var(--hairline)}
+body[data-role="customer"] .publish-panel{position:sticky;top:84px}
+@media(max-width:940px){
+  .topbar-new{display:none}
+  .first-run{display:block;padding:18px}
+  .first-run .primary-btn{width:100%;margin-top:14px}
+  .compose-modebar{align-items:flex-start;gap:8px}
+  .compose-mode-note{width:100%}
+  .publish-panel .primary-btn{position:sticky;bottom:12px;z-index:5}
+}

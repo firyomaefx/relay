@@ -8,8 +8,8 @@
   <meta name="description" content="Relay publishing console." />
   <title>Relay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/styles.css?v=20261104topup2" />
-  <script src="/app.js?v=20261104topup2" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20261112simple" />
+  <script src="/app.js?v=20261112simple" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -133,6 +133,7 @@
           </div>
         </div>
         <div class="topbar-right">
+          <button class="ghost-btn topbar-new" id="newPostBtn" type="button">New post</button>
           <div class="status-pill" id="schedulerPill" title="Scheduler status">
             <span class="status-dot" id="schedulerDot"></span>
             <span id="schedulerText">Scheduler</span>
@@ -175,8 +176,12 @@
         <section class="screen is-active" id="screen-home" data-screen="home" aria-labelledby="homeTitle">
           <div class="screen-intro">
             <p class="eyebrow">Workspace</p>
-            <h1 id="homeTitle">Your publishing pulse.</h1>
-            <p class="lede">Connect the AI client you already use, then let it compose, schedule and publish through Relay.</p>
+            <h1 id="homeTitle">Write it once. Post it everywhere.</h1>
+            <p class="lede">Relay works in your browser. Connect an account, write one post, then publish now or pick a time. No AI agent needed.</p>
+            <div class="actions hero-actions">
+              <button class="primary-btn" type="button" data-goto="compose">Write a post</button>
+              <button class="ghost-btn" type="button" data-goto="queue">See calendar</button>
+            </div>
           </div>
           <div class="dash-grid">
             <section class="panel dash-card dash-activity" aria-label="Activity">
@@ -234,25 +239,29 @@
                 </div>
               </div>
             </section>
-            <aside class="panel dash-card dash-recommend" aria-label="Connect Relay">
-              <p class="eyebrow">One-click setup</p>
-              <h2>Connect Relay</h2>
-              <p class="dash-copy">Relay finds your installed MCP clients, configures the supported ones, and gives the rest the right steps.</p>
+            <aside class="panel dash-card dash-recommend" aria-label="Next step">
+              <p class="eyebrow">Next step</p>
+              <h2 id="homeNextTitle">Connect your first account</h2>
+              <p class="dash-copy" id="homeNextCopy">Pick a platform and sign in. Your posts stay in your workspace, and you only pay when one goes out.</p>
               <div class="dash-actions">
-                <button class="primary-btn" type="button" data-connect-relay>Connect Relay</button>
+                <button class="primary-btn" type="button" data-goto="accounts" id="homeNextBtn">Connect an account</button>
               </div>
-              <p class="dash-note">You approve once in the local Relay Connector. Nothing is installed until you approve.</p>
+              <p class="dash-note">Facebook Pages, Instagram, Threads, TikTok, YouTube, X and LinkedIn.</p>
             </aside>
           </div>
-          <section class="panel dash-card dash-integrations-panel" aria-labelledby="integrationsTitle">
+          <section class="panel dash-card" aria-labelledby="sellerTipsTitle">
             <div class="dash-head">
               <div>
-                <p class="eyebrow">Connect your agent</p>
-                <h2 id="integrationsTitle">Use Relay from any MCP client.</h2>
+                <p class="eyebrow">Good to know</p>
+                <h2 id="sellerTipsTitle">Built for normal posting days.</h2>
               </div>
-              <a class="link-btn" href="https://modelcontextprotocol.io/clients" target="_blank" rel="noreferrer noopener">Browse MCP clients</a>
+              <a class="link-btn" href="/docs">Developer docs</a>
             </div>
-            <div class="dash-integrations" id="dashIntegrations"></div>
+            <div class="grid">
+              <div class="card"><h3>No monthly fee</h3><p>Top up when you need to. Posts that fail are not charged.</p></div>
+              <div class="card"><h3>Week at a glance</h3><p>See scheduled, published and failed posts in one calendar.</p></div>
+              <div class="card"><h3>Safe retry</h3><p>Retry only the platforms that failed. A post that already went out is never sent twice.</p></div>
+            </div>
           </section>
         </section>
 
@@ -260,8 +269,25 @@
           <div class="screen-intro">
             <p class="eyebrow">New post</p>
             <h2 class="display" id="composeTitle">Compose<span class="display-dot">.</span></h2>
-            <p class="lede">One draft, three networks. Add a thread part, attach media, or schedule it for later. Relay keeps every target in sync.</p>
+            <p class="lede">Write once, check the preview, then publish or schedule. Relay adapts the post for each network.</p>
           </div>
+
+          <div class="compose-modebar">
+            <div class="segmented" role="group" aria-label="Compose mode">
+              <button class="segmented-btn is-active" type="button" data-compose-mode="simple" aria-pressed="true">Simple</button>
+              <button class="segmented-btn" type="button" data-compose-mode="advanced" aria-pressed="false">Advanced</button>
+            </div>
+            <p class="compose-mode-note" id="composeModeNote">Simple keeps the basics. Advanced adds thread parts, repeats and reply settings.</p>
+          </div>
+
+          <section class="panel first-run" id="firstRunPanel" hidden aria-labelledby="firstRunTitle">
+            <div>
+              <p class="panel-eyebrow">First post</p>
+              <h3 id="firstRunTitle">1. Connect an account. 2. Write once. 3. Post or schedule.</h3>
+              <p class="list-excerpt">Start with the platform you use most. You can add the rest later.</p>
+            </div>
+            <button class="primary-btn" type="button" data-goto="accounts">Connect an account</button>
+          </section>
 
           <div class="compose-layout">
             <div class="compose-main">
@@ -290,7 +316,7 @@
 
                   <div class="parts" id="parts"></div>
 
-                  <div class="editor-actions">
+                  <div class="editor-actions advanced-only" id="advancedThreadTools" hidden>
                     <button class="ghost-btn" id="addPartBtn" type="button">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
                       <span>Add thread part</span>
@@ -300,17 +326,13 @@
 
                   <div class="divider" role="separator"></div>
 
-                  <div class="options-grid" id="optionsGrid">
-                    <label class="field" for="replySetting">
-                      <span class="field-label">Replies</span>
-                      <select class="select" id="replySetting">
-                        <option value="everyone">Everyone</option>
-                        <option value="followers">Followers only</option>
-                        <option value="mentioned">Mentioned only</option>
-                      </select>
-                      <span class="field-hint">Applied to X and Threads.</span>
+                  <div class="options-grid basic-options" id="basicOptions">
+                    <label class="field field-wide" for="scheduleAt">
+                      <span class="field-label">Schedule <span class="field-label-dim">(local time)</span></span>
+                      <input class="input" id="scheduleAt" type="datetime-local" />
+                      <span class="field-hint" id="scheduleHint">Leave empty to publish now. Past times publish immediately.</span>
                     </label>
-                    <label class="field" for="tiktokPrivacy">
+                    <label class="field platform-option" id="tiktokPrivacyField" for="tiktokPrivacy" hidden>
                       <span class="field-label">TikTok privacy</span>
                       <select class="select" id="tiktokPrivacy">
                         <option value="PUBLIC_TO_EVERYONE">Public</option>
@@ -319,7 +341,7 @@
                       </select>
                       <span class="field-hint">Unaudited apps should use “Only me”.</span>
                     </label>
-                    <label class="field" for="youtubePrivacy">
+                    <label class="field platform-option" id="youtubePrivacyField" for="youtubePrivacy" hidden>
                       <span class="field-label">YouTube privacy</span>
                       <select class="select" id="youtubePrivacy">
                         <option value="public">Public</option>
@@ -327,6 +349,18 @@
                         <option value="private">Private</option>
                       </select>
                       <span class="field-hint">One video per post; first line becomes the title.</span>
+                    </label>
+                  </div>
+
+                  <div class="options-grid advanced-options advanced-only" id="advancedOptions" hidden>
+                    <label class="field" for="replySetting">
+                      <span class="field-label">Replies</span>
+                      <select class="select" id="replySetting">
+                        <option value="everyone">Everyone</option>
+                        <option value="followers">Followers only</option>
+                        <option value="mentioned">Mentioned only</option>
+                      </select>
+                      <span class="field-hint">Applied to X and Threads.</span>
                     </label>
                     <label class="field" for="quotePostId">
                       <span class="field-label">X quote post id</span>
@@ -357,11 +391,6 @@
                         <span class="switch-copy">Publish video as 6 image slides on TikTok &amp; Instagram</span>
                       </label>
                     </div>
-                    <label class="field field-wide" for="scheduleAt">
-                      <span class="field-label">Schedule <span class="field-label-dim">(local time)</span></span>
-                      <input class="input" id="scheduleAt" type="datetime-local" />
-                      <span class="field-hint" id="scheduleHint">Leave empty to publish now. Past times publish immediately.</span>
-                    </label>
                     <label class="field" for="recurrence">
                       <span class="field-label">Repeat</span>
                       <select class="select" id="recurrence">

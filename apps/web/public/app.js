@@ -173,6 +173,7 @@
     lastResult: null,
     publishing: false,
     uploading: Object.create(null),
+    composeMode: "simple",
     queueView: "list",
     calendarCursor: new Date(),
   };
@@ -323,6 +324,53 @@
 
   function selectedPlatforms() {
     return PLATFORMS.filter((platform) => state.selected.has(platform));
+  }
+
+  function composeModeStorageKey() {
+    return `relay.composeMode.${state.role ?? "customer"}`;
+  }
+
+  function preferredComposeMode() {
+    let saved = "";
+    try {
+      saved = window.localStorage.getItem(composeModeStorageKey()) ?? "";
+    } catch {
+      saved = "";
+    }
+    if (saved === "simple" || saved === "advanced") return saved;
+    return state.role === "customer" ? "simple" : "advanced";
+  }
+
+  function setComposeMode(mode, { persist = true } = {}) {
+    state.composeMode = mode === "advanced" ? "advanced" : "simple";
+    const advanced = state.composeMode === "advanced";
+    if (els.advancedOptions) els.advancedOptions.hidden = !advanced;
+    if (els.advancedThreadTools) els.advancedThreadTools.hidden = !advanced;
+    for (const button of els.composeModeButtons ?? []) {
+      const active = button.dataset.composeMode === state.composeMode;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    }
+    if (persist) {
+      try {
+        window.localStorage.setItem(composeModeStorageKey(), state.composeMode);
+      } catch {
+        /* storage can be disabled */
+      }
+    }
+    renderComposePlatformOptions();
+  }
+
+  function renderComposePlatformOptions() {
+    const tiktok = state.selected.has("tiktok");
+    const youtube = state.selected.has("youtube");
+    if (els.tiktokPrivacyField) els.tiktokPrivacyField.hidden = !tiktok;
+    if (els.youtubePrivacyField) els.youtubePrivacyField.hidden = !youtube;
+  }
+
+  function renderFirstRun() {
+    if (!els.firstRunPanel) return;
+    els.firstRunPanel.hidden = state.accounts.length > 0;
   }
 
   function maxPartsForSelection() {
@@ -641,6 +689,7 @@
 
     const count = state.selected.size;
     els.targetsHint.textContent = count === 0 ? "Choose at least one" : count === 1 ? "1 destination" : `${count} destinations`;
+    renderComposePlatformOptions();
   }
 
   function togglePlatform(platform) {
@@ -1764,8 +1813,17 @@
     els.dashStreak.textContent = `${streak} day${streak === 1 ? "" : "s"}`;
     els.dashTop.textContent = topPlatform ? PLATFORM_META[topPlatform]?.name ?? topPlatform : "—";
     els.dashAccounts.textContent = String(state.accounts.length);
-    els.dashIntegrations.innerHTML = integrationCards();
-    void loadConnectMatrix();
+    const hasAccounts = state.accounts.length > 0;
+    if (els.homeNextTitle) els.homeNextTitle.textContent = hasAccounts ? "Write your next post" : "Connect your first account";
+    if (els.homeNextCopy) {
+      els.homeNextCopy.textContent = hasAccounts
+        ? "Your accounts are ready. Start a draft, check the preview, then post now or schedule it."
+        : "Pick a platform and sign in. Your posts stay in your workspace, and you only pay when one goes out.";
+    }
+    if (els.homeNextBtn) {
+      els.homeNextBtn.textContent = hasAccounts ? "Write a post" : "Connect an account";
+      els.homeNextBtn.dataset.goto = hasAccounts ? "compose" : "accounts";
+    }
   }
 
   async function copyDashboardConfig(kind) {
@@ -2433,7 +2491,9 @@
   }
 
   function renderCompose() {
+    renderFirstRun();
     renderTargets();
+    renderComposePlatformOptions();
     renderParts();
     if (els.replySetting && document.activeElement !== els.replySetting) els.replySetting.value = state.options.replySetting;
     if (els.tiktokPrivacy && document.activeElement !== els.tiktokPrivacy) els.tiktokPrivacy.value = state.options.tiktokPrivacy;
@@ -2455,6 +2515,7 @@
     if (state.screen === "home") {
       renderHome();
     } else if (state.screen === "compose") {
+      renderFirstRun();
       renderTargets();
       updateSummary();
       updatePublishAvailability();
@@ -2590,13 +2651,21 @@
     const error = params.get("error");
     if (connected) {
       const meta = PLATFORM_META[connected];
+      if (PLATFORMS.includes(connected)) state.selected.add(connected);
       toast({ tone: "success", title: `Connected ${meta?.name ?? connected}`, text: "Account linked. You can publish to this platform now." });
+      setComposeMode(state.role === "customer" ? "simple" : state.composeMode);
+      setScreen("compose");
     }
     if (error) {
       toast({ tone: "error", title: "Sign-in failed", text: error });
     }
     if (connected || error) {
-      window.history.replaceState(null, "", `${window.location.pathname}${window.location.hash}`);
+      const params = new URLSearchParams(window.location.search);
+      params.delete("connected");
+      params.delete("error");
+      const query = params.toString();
+      const next = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash || (connected ? "#compose" : "")}`;
+      window.history.replaceState(null, "", next);
     }
   }
 
@@ -2650,6 +2719,16 @@
       simBannerCta: $("#simBannerCta"),
       simBannerDismiss: $("#simBannerDismiss"),
       refreshBtn: $("#refreshBtn"),
+      newPostBtn: $("#newPostBtn"),
+      firstRunPanel: $("#firstRunPanel"),
+      advancedOptions: $("#advancedOptions"),
+      advancedThreadTools: $("#advancedThreadTools"),
+      tiktokPrivacyField: $("#tiktokPrivacyField"),
+      youtubePrivacyField: $("#youtubePrivacyField"),
+      composeModeButtons: $$("[data-compose-mode]"),
+      homeNextTitle: $("#homeNextTitle"),
+      homeNextCopy: $("#homeNextCopy"),
+      homeNextBtn: $("#homeNextBtn"),
       targets: $("#targets"),
       targetsHint: $("#targetsHint"),
       parts: $("#parts"),
@@ -2796,6 +2875,10 @@
     els.refreshBtn.addEventListener("click", () => {
       void refreshAll();
     });
+    els.newPostBtn?.addEventListener("click", () => setScreen("compose"));
+    for (const button of els.composeModeButtons ?? []) {
+      button.addEventListener("click", () => setComposeMode(button.dataset.composeMode));
+    }
 
     document.addEventListener("click", (event) => {
       const testDeepseek = event.target.closest("#testDeepseekKey");
@@ -3187,6 +3270,7 @@
       const settingsTitle = document.getElementById("settingsTitle");
       if (settingsTitle) settingsTitle.innerHTML = 'Profile<span class="display-dot">.</span>';
     }
+    setComposeMode(preferredComposeMode(), { persist: false });
   }
 
   async function init() {
@@ -3206,7 +3290,12 @@
       renderAccounts();
       renderSettings();
       renderCompose();
-      const initial = SCREENS.includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : "home";
+      const hashScreen = window.location.hash.slice(1);
+      const initial = SCREENS.includes(hashScreen)
+        ? hashScreen
+        : state.role === "customer"
+          ? "compose"
+          : "home";
       setScreen(initial, { updateHash: false });
       handleAuthQuery();
       observeReveals();

@@ -53,7 +53,7 @@ form.addEventListener('submit', async (event) => {
     phone: localPhone ? country.dial + localPhone : '',
     platforms,
     volume: form.volume.value,
-    use_case: form.use_case.value + (form.agent.value ? '\nAgent: ' + form.agent.value : ''),
+    use_case: form.use_case.value + (form.agent.value ? '\nPosting preference: ' + form.agent.value : ''),
     website: form.website.value,
     consent: form.consent.checked,
   };
