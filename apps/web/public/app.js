@@ -2152,6 +2152,66 @@
     }
   }
 
+  /* ------------------------------------------------------------------ *
+   * Profile and API key
+   * ------------------------------------------------------------------ */
+  function renderProfile(data) {
+    const customer = data?.customer ?? {};
+    if (els.profileEmail) els.profileEmail.value = customer.email ?? "";
+    if (els.profilePhone) els.profilePhone.value = customer.phone ?? "";
+    const keys = Array.isArray(data?.keys) ? data.keys : [];
+    if (els.profileKeyStatus) {
+      els.profileKeyStatus.textContent = keys.length
+        ? `${keys.length} active key${keys.length === 1 ? "" : "s"} · latest ${keys[keys.length - 1].prefix}…`
+        : "No active key yet.";
+    }
+  }
+
+  async function loadProfile() {
+    if (!els.profileEmail) return;
+    try {
+      renderProfile(await api("/api/cloud/profile"));
+    } catch (error) {
+      if (els.profileMessage) els.profileMessage.textContent = error.message;
+    }
+  }
+
+  async function saveProfile() {
+    if (!els.profileEmail) return;
+    els.profileSaveBtn.disabled = true;
+    if (els.profileMessage) els.profileMessage.textContent = "";
+    try {
+      renderProfile(await api("/api/cloud/profile", {
+        method: "POST",
+        body: { email: els.profileEmail.value.trim(), phone: els.profilePhone.value.trim() },
+      }));
+      if (els.profileMessage) els.profileMessage.textContent = "Profile saved.";
+      toast({ tone: "success", title: "Profile saved", text: "Your email and phone are updated." });
+    } catch (error) {
+      if (els.profileMessage) els.profileMessage.textContent = error.message;
+    } finally {
+      els.profileSaveBtn.disabled = false;
+    }
+  }
+
+  async function generateProfileKey() {
+    if (!els.profileKeyBtn) return;
+    els.profileKeyBtn.disabled = true;
+    if (els.profileMessage) els.profileMessage.textContent = "";
+    try {
+      const data = await api("/api/cloud/profile/api-key", { method: "POST" });
+      renderProfile(data);
+      if (els.profileKeyValue) els.profileKeyValue.textContent = data.key;
+      if (els.profileKeyBox) els.profileKeyBox.hidden = false;
+      if (els.profileMessage) els.profileMessage.textContent = "Key created. Copy it now.";
+      try { await navigator.clipboard.writeText(data.key); } catch { /* manual copy below */ }
+    } catch (error) {
+      if (els.profileMessage) els.profileMessage.textContent = error.message;
+    } finally {
+      els.profileKeyBtn.disabled = false;
+    }
+  }
+
   async function toggleAutoReply(enabled) {
     try {
       const result = await api("/api/threads/autoreply", { method: "POST", body: { enabled } });
@@ -2399,7 +2459,10 @@
     else if (name === "queue") renderQueue();
     else if (name === "history") renderHistory();
     else if (name === "accounts") renderAccounts();
-    else if (name === "settings") renderSettings();
+    else if (name === "settings") {
+      renderSettings();
+      void loadProfile();
+    }
     if (updateHash && window.location.hash.slice(1) !== name) {
       window.history.replaceState(null, "", `#${name}`);
     }
@@ -2620,6 +2683,15 @@
       integrationDownload: $("#integrationDownload"),
       settingsEnv: $("#settingsEnv"),
       settingsModeBadge: $("#settingsModeBadge"),
+      profileEmail: $("#profileEmail"),
+      profilePhone: $("#profilePhone"),
+      profileSaveBtn: $("#profileSaveBtn"),
+      profileKeyBtn: $("#profileKeyBtn"),
+      profileKeyStatus: $("#profileKeyStatus"),
+      profileKeyBox: $("#profileKeyBox"),
+      profileKeyValue: $("#profileKeyValue"),
+      profileKeyCopy: $("#profileKeyCopy"),
+      profileMessage: $("#profileMessage"),
       sessionRow: $("#sessionRow"),
       settingsLogoutBtn: $("#settingsLogoutBtn"),
       credentialForms: $("#credentialForms"),
@@ -3014,6 +3086,17 @@
 
     els.logoutBtn.addEventListener("click", () => void logout());
     els.settingsLogoutBtn.addEventListener("click", () => void logout());
+    els.profileSaveBtn?.addEventListener("click", () => void saveProfile());
+    els.profileKeyBtn?.addEventListener("click", () => void generateProfileKey());
+    els.profileKeyCopy?.addEventListener("click", async () => {
+      const key = els.profileKeyValue?.textContent ?? "";
+      if (!key) return;
+      try {
+        await navigator.clipboard.writeText(key);
+        els.profileKeyCopy.textContent = "Copied";
+        window.setTimeout(() => { els.profileKeyCopy.textContent = "Copy key"; }, 1600);
+      } catch { /* select manually */ }
+    });
 
     els.modalCancel.addEventListener("click", () => closeModal(false));
     els.modalConfirm.addEventListener("click", () => closeModal(true));

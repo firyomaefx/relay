@@ -621,6 +621,48 @@
           <div class="settings-layout">
             <div class="settings-col">
               <div class="bezel reveal" style="--i:0">
+                <section class="panel" aria-labelledby="profileTitle">
+                  <header class="panel-head">
+                    <div>
+                      <p class="panel-eyebrow">Account</p>
+                      <h3 id="profileTitle">Profile &amp; API key</h3>
+                    </div>
+                    <span class="panel-hint">Used by Claude and other MCP clients</span>
+                  </header>
+                  <div class="profile-grid">
+                    <label class="field">
+                      <span class="field-label">Email</span>
+                      <input class="input" id="profileEmail" type="email" autocomplete="email" placeholder="you@example.com">
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Phone</span>
+                      <input class="input" id="profilePhone" type="tel" autocomplete="tel" placeholder="+60 12 345 6789">
+                    </label>
+                  </div>
+                  <div class="session-row" style="margin-top:14px">
+                    <div>
+                      <p class="kv-key">Relay Cloud API key</p>
+                      <p class="kv-value" id="profileKeyStatus">Loading…</p>
+                    </div>
+                    <button class="ghost-btn small" id="profileSaveBtn" type="button">Save profile</button>
+                  </div>
+                  <div class="session-row">
+                    <div>
+                      <p class="kv-key">Generate a key</p>
+                      <p class="kv-value">Create a new key for Claude and copy it once.</p>
+                    </div>
+                    <button class="ghost-btn small" id="profileKeyBtn" type="button">Generate API key</button>
+                  </div>
+                  <div class="profile-key-box" id="profileKeyBox" hidden>
+                    <p class="field-hint">Copy this now. Relay will not show the full key again.</p>
+                    <code id="profileKeyValue"></code>
+                    <button class="ghost-btn small" id="profileKeyCopy" type="button">Copy key</button>
+                  </div>
+                  <p class="field-hint" id="profileMessage" role="status"></p>
+                </section>
+              </div>
+
+              <div class="bezel reveal" style="--i:1">
                 <section class="panel" aria-labelledby="envTitle">
                   <header class="panel-head">
                     <div>
@@ -640,7 +682,7 @@
                 </section>
               </div>
 
-              <div class="bezel reveal" style="--i:1">
+              <div class="bezel reveal" style="--i:2">
                 <section class="panel" aria-labelledby="credsTitle">
                   <header class="panel-head">
                     <div>

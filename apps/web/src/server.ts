@@ -676,6 +676,47 @@ async function handleApi(
     return;
   }
 
+  if (segments[1] === "cloud" && segments[2] === "profile") {
+    if (!deps.cloudAdmin) throw new RelayError("Cloud profile is not configured.", "cloud_unavailable", undefined, 503);
+    const owner = deps.cloudAdmin.store.ensureOwnerCustomer("Relay Cloud");
+    const profilePayload = () => ({
+      customer: {
+        id: owner.id,
+        displayName: owner.displayName,
+        email: owner.email,
+        phone: owner.phone,
+      },
+      keys: deps.cloudAdmin!.store.listApiKeys(owner.id)
+        .filter((key) => key.status === "active")
+        .map((key) => ({ id: key.id, prefix: key.prefix, label: key.label, createdAt: key.createdAt, lastUsedAt: key.lastUsedAt })),
+    });
+    if (method === "GET" && segments.length === 3) {
+      sendJson(res, 200, profilePayload());
+      return;
+    }
+    if (method === "POST" && segments.length === 3) {
+      const body = asRecord(await readJsonBody(req, 16 * 1024));
+      const email = typeof body.email === "string" ? body.email.trim() : "";
+      const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new RelayError("Enter a valid email address.", "cloud_email_invalid", undefined, 400);
+      }
+      deps.cloudAdmin.store.updateCustomerProfile(owner.id, { email, phone });
+      sendJson(res, 200, profilePayload());
+      return;
+    }
+    if (method === "POST" && segments.length === 4 && segments[3] === "api-key") {
+      const created = deps.cloudAdmin.store.createApiKey(owner.id, "Console profile");
+      sendJson(res, 201, {
+        ...profilePayload(),
+        key: created.key,
+        prefix: created.prefix,
+        keyId: created.id,
+      });
+      return;
+    }
+    throw new RelayError("Not found", "not_found", undefined, 404);
+  }
   if (segments[1] === "cloud" && segments[2] === "admin") {
     await handleCloudAdmin(req, res, segments, url, deps.cloudAdmin);
     return;

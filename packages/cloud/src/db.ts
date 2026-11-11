@@ -7,6 +7,8 @@ import { RelayError } from "@relay/core";
 export interface Customer {
   id: string;
   displayName: string;
+  email: string;
+  phone: string;
   status: "active" | "disabled";
   owner: boolean;
   dailyCap: number | null;
@@ -99,6 +101,8 @@ function toCustomer(row: Record<string, unknown>): Customer {
   return {
     id: String(row.id),
     displayName: String(row.display_name),
+    email: row.email == null ? "" : String(row.email),
+    phone: row.phone == null ? "" : String(row.phone),
     status: String(row.status) === "disabled" ? "disabled" : "active",
     owner: Number(row.owner) === 1,
     dailyCap: row.daily_cap == null ? null : Number(row.daily_cap),
@@ -305,6 +309,13 @@ export class CloudStore {
     if (!waitlistColumns.some((column) => column.name === "phone")) {
       db.exec("ALTER TABLE waitlist ADD COLUMN phone TEXT NOT NULL DEFAULT ''");
     }
+    const customerColumns = db.prepare("PRAGMA table_info(customers)").all() as Array<{ name: string }>;
+    if (!customerColumns.some((column) => column.name === "email")) {
+      db.exec("ALTER TABLE customers ADD COLUMN email TEXT NOT NULL DEFAULT ''");
+    }
+    if (!customerColumns.some((column) => column.name === "phone")) {
+      db.exec("ALTER TABLE customers ADD COLUMN phone TEXT NOT NULL DEFAULT ''");
+    }
     return new CloudStore(db);
   }
 
@@ -324,6 +335,17 @@ export class CloudStore {
       throw error;
     }
     return this.getCustomer(id)!;
+  }
+
+  updateCustomerProfile(customerId: string, input: { email?: string; phone?: string }): Customer {
+    const customer = this.getCustomer(customerId);
+    if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+    const email = input.email?.trim() ?? customer.email;
+    const phone = input.phone?.trim() ?? customer.phone;
+    if (email.length > 254) throw new RelayError("Email is too long.", "cloud_email_invalid", undefined, 400);
+    if (phone.length > 40) throw new RelayError("Phone number is too long.", "cloud_phone_invalid", undefined, 400);
+    this.db.prepare("UPDATE customers SET email = ?, phone = ? WHERE id = ?").run(email, phone, customerId);
+    return this.getCustomer(customerId)!;
   }
 
   getCustomer(id: string): Customer | null {
@@ -468,7 +490,7 @@ export class CloudStore {
       throw new RelayError("Invalid connect token.", "cloud_connect_token_invalid", undefined, 401);
     }
     const row = this.db.prepare(
-      `SELECT t.*, c.id AS c_id, c.display_name, c.status AS c_status, c.owner, c.daily_cap, c.monthly_cap, c.created_at AS c_created_at
+      `SELECT t.*, c.id AS c_id, c.display_name, c.status AS c_status, c.email, c.phone, c.owner, c.daily_cap, c.monthly_cap, c.created_at AS c_created_at
        FROM connect_tokens t JOIN customers c ON c.id = t.customer_id
        WHERE t.token_hash = ?`,
     ).get(hashKey(rawToken)) as Record<string, unknown> | undefined;
@@ -478,7 +500,10 @@ export class CloudStore {
     this.db.prepare("UPDATE connect_tokens SET last_used_at = ? WHERE id = ?").run(new Date().toISOString(), String(row.id));
     return {
       customer: {
-        id: String(row.c_id), displayName: String(row.display_name), status: "active",
+        id: String(row.c_id), displayName: String(row.display_name),
+        email: row.email == null ? "" : String(row.email),
+        phone: row.phone == null ? "" : String(row.phone),
+        status: "active",
         owner: Number(row.owner) === 1,
         dailyCap: row.daily_cap == null ? null : Number(row.daily_cap),
         monthlyCap: row.monthly_cap == null ? null : Number(row.monthly_cap),
@@ -586,7 +611,7 @@ export class CloudStore {
       throw new RelayError("Invalid API key.", "cloud_api_key_invalid", undefined, 401);
     }
     const row = this.db.prepare(
-      `SELECT k.*, c.id AS c_id, c.display_name, c.status AS c_status, c.owner, c.daily_cap, c.monthly_cap, c.created_at AS c_created_at
+      `SELECT k.*, c.id AS c_id, c.display_name, c.status AS c_status, c.email, c.phone, c.owner, c.daily_cap, c.monthly_cap, c.created_at AS c_created_at
        FROM api_keys k JOIN customers c ON c.id = k.customer_id
        WHERE k.key_hash = ?`,
     ).get(hashKey(rawKey)) as Record<string, unknown> | undefined;
@@ -598,6 +623,8 @@ export class CloudStore {
       customer: {
         id: String(row.c_id),
         displayName: String(row.display_name),
+        email: row.email == null ? "" : String(row.email),
+        phone: row.phone == null ? "" : String(row.phone),
         status: "active",
         owner: Number(row.owner) === 1,
         dailyCap: row.daily_cap == null ? null : Number(row.daily_cap),

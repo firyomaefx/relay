@@ -5147,3 +5147,10 @@ body { font-size: 17px; }
   .account-foot .status-badge { font-size: 8.5px; padding: 3px 7px; }
   .scope-tag { font-size: 9.5px; padding: 3px 5px; }
 }
+
+/* Profile & API key */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.profile-key-box{margin-top:14px;padding:14px;border:1px solid var(--hairline);border-radius:14px;background:#fbfbfc}
+.profile-key-box code{display:block;margin:8px 0 10px;padding:10px;border-radius:9px;background:#fff;border:1px solid var(--hairline);font:12px/1.6 var(--font-mono);word-break:break-all;color:var(--text)}
+.profile-key-box .ghost-btn{width:auto}
+@media(max-width:640px){.profile-grid{grid-template-columns:1fr}}
