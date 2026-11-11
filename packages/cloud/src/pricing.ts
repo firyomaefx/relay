@@ -37,9 +37,60 @@ function kindForPart(part: ThreadPartDraft): string {
   return /https?:\/\//i.test(part.text ?? "") ? "link" : "text";
 }
 
-function partsFor(draft: PostDraft): ThreadPartDraft[] {
-  if (draft.thread?.length) return draft.thread;
-  return [{ text: draft.text ?? "", ...(draft.media?.length ? { media: draft.media } : {}) }];
+const PLATFORM_TEXT_LIMITS: Record<string, number> = {
+  x: 280,
+  threads: 500,
+  tiktok: 2200,
+  youtube: 5000,
+  instagram: 2200,
+  linkedin: 3000,
+};
+const PLATFORM_MAX_PARTS: Record<string, number> = {
+  x: 25,
+  threads: 20,
+  tiktok: 1,
+  youtube: 1,
+  instagram: 1,
+  linkedin: 1,
+};
+
+function splitTextForLimit(text: string, limit: number): string[] {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return [""];
+  if (Array.from(normalized).length <= limit) return [normalized];
+  const chunks: string[] = [];
+  let current = "";
+  for (const token of normalized.split(/(\s+)/).filter((entry) => entry.length > 0)) {
+    if (Array.from(current + token).length > limit) {
+      if (current.trim()) chunks.push(current.trim());
+      current = token.trimStart();
+      if (Array.from(current).length > limit) {
+        let remaining = current;
+        while (Array.from(remaining).length > limit) {
+          chunks.push(Array.from(remaining).slice(0, limit).join(""));
+          remaining = Array.from(remaining).slice(limit).join("");
+        }
+        current = remaining;
+      }
+    } else {
+      current += token;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length > 0 ? chunks : [normalized];
+}
+
+function partsFor(draft: PostDraft, platform: string): ThreadPartDraft[] {
+  const source = draft.thread?.length
+    ? draft.thread
+    : [{ text: draft.text ?? "", ...(draft.media?.length ? { media: draft.media } : {}) }];
+  const limit = PLATFORM_TEXT_LIMITS[platform] ?? 0;
+  if (!limit) return source;
+  const expanded = source.flatMap((part) => {
+    const chunks = splitTextForLimit(part.text ?? "", limit);
+    return chunks.map((text, index) => ({ ...part, text, media: index === 0 ? (part.media ?? []) : [] }));
+  });
+  return expanded.length > (PLATFORM_MAX_PARTS[platform] ?? 1) ? source : expanded;
 }
 
 export class PriceTable {
@@ -63,8 +114,8 @@ export class PriceTable {
   }
 
   quote(draft: PostDraft, platforms: PlatformId[]): { quotes: PriceQuote[]; total: number; currency: string; unit: string } {
-    const parts = partsFor(draft);
     const quotes = platforms.map((platform) => {
+      const parts = partsFor(draft, platform);
       const platformPrices = this.config.prices[platform];
       if (!platformPrices) {
         throw new RelayError(`No price configuration for ${platform}.`, "cloud_price_missing", undefined, 500);

@@ -78,11 +78,46 @@ function emptyPerPlatform(): Record<PlatformId, PlatformIssues> {
   };
 }
 
-export function normalizeFor(platform: PlatformId, draft: PostDraft): ResolvedPost {
+/** Split one over-limit text into word-bounded chunks. */
+function splitTextForLimit(text: string, limit: number): string[] {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return [""];
+  if (Array.from(normalized).length <= limit) return [normalized];
+  const chunks: string[] = [];
+  let current = "";
+  for (const token of normalized.split(/(\s+)/).filter((entry) => entry.length > 0)) {
+    if (Array.from(current + token).length > limit) {
+      if (current.trim()) chunks.push(current.trim());
+      current = token.trimStart();
+      if (Array.from(current).length > limit) {
+        let remaining = current;
+        while (Array.from(remaining).length > limit) {
+          chunks.push(Array.from(remaining).slice(0, limit).join(""));
+          remaining = Array.from(remaining).slice(limit).join("");
+        }
+        current = remaining;
+      }
+    } else {
+      current += token;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length > 0 ? chunks : [normalized];
+}
+
+export function normalizeFor(platform: PlatformId, draft: PostDraft, maxTextLength?: number, maxParts?: number): ResolvedPost {
   const thread = Array.isArray(draft.thread) && draft.thread.length > 0 ? draft.thread : null;
-  const parts: ResolvedPart[] = thread
+  const source: ResolvedPart[] = thread
     ? thread.map((part) => ({ text: (part.text ?? "").trim(), media: part.media ?? [] }))
     : [{ text: (draft.text ?? "").trim(), media: draft.media ?? [] }];
+  const expanded = maxTextLength && maxTextLength > 0
+    ? source.flatMap((part) => {
+        const chunks = splitTextForLimit(part.text, maxTextLength);
+        return chunks.map((text, index) => ({ text, media: index === 0 ? part.media : [] }));
+      })
+    : source;
+  // Only auto-thread when the result still fits the platform's part limit.
+  const parts: ResolvedPart[] = maxParts && expanded.length > maxParts ? source : expanded;
   const options = { ...(draft.options?.[platform] ?? {}) };
   const topReplyTo = (draft.replyToId ?? draft.parentPostId)?.toString().trim();
   if ((platform === "threads" || platform === "x") && topReplyTo && !options.replyToId) options.replyToId = topReplyTo;
@@ -190,7 +225,7 @@ export async function validateDraft(
       continue;
     }
     const limits = adapter.limits;
-    const post = normalizeFor(platform, draft);
+    const post = normalizeFor(platform, draft, limits.maxTextLength, limits.maxParts);
     normalized[platform] = post;
     const platformOptions = post.options;
 

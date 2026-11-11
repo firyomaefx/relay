@@ -85,7 +85,7 @@ relay_post
 <p>Leave out <code>schedule_at</code> to post right away. Use <code>relay_queue</code> to see scheduled posts and <code>relay_cancel</code> to cancel one before it runs. Cancelling releases the held amount.</p>
 
 <h2>Limits</h2>
-<p>Relay checks these before anything is published, so a draft that breaks a limit is rejected by <code>relay_validate</code> and never charged.</p>
+<p>Relay checks these before anything is published. If text is longer than a platform's per-part limit, Relay auto-threads it into extra parts and charges $0.02 per text part ($0.04 for two, $0.06 for three) instead of rejecting the draft. A platform that only supports one part cannot auto-thread past its own limit.</p>
 <div class="table-wrap">
   <table>
     <thead><tr><th>Platform</th><th>Max characters per part</th><th>Max parts (thread)</th><th>Max media per post</th><th>Max image size</th><th>Max video size</th><th>Media required</th></tr></thead>

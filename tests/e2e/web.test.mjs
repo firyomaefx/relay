@@ -153,7 +153,7 @@ test("POST /api/posts publishes text+media and GET /api/history records it", asy
   assert.equal(record.draft.media.length, 1);
 });
 
-test("POST /api/validate rejects a 300 character X post", async () => {
+test("POST /api/validate auto-threads a 300 character X post", async () => {
   const response = await httpJson(server.baseUrl, "/api/validate", {
     method: "POST",
     body: { draft: { platforms: ["x"], text: "v".repeat(300) } },
@@ -163,11 +163,12 @@ test("POST /api/validate rejects a 300 character X post", async () => {
   assert.notEqual(response.status, 500, `validation crashed: ${requestSummary(response)}`);
   const report = response.json?.report ?? response.json;
   assert.ok(report && typeof report === "object", `expected a validation report: ${requestSummary(response)}`);
-  assert.equal(report.ok, false, "a 300 character X draft must be invalid");
-  assert.equal(report.perPlatform?.x?.ok, false);
-  assert.ok(
+  assert.equal(report.ok, true, "a 300 character X draft must auto-thread");
+  assert.equal(report.perPlatform?.x?.ok, true);
+  assert.equal(report.normalized?.x?.parts?.length, 2, "X should split 300 characters into two parts");
+  assert.equal(
     Array.isArray(report.issues) && report.issues.some((issue) => issue.code === "text_too_long"),
-    `expected a text_too_long issue: ${JSON.stringify(report.issues)}`,
+    false,
   );
 
   const validResponse = await httpJson(server.baseUrl, "/api/validate", {

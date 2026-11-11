@@ -30,18 +30,19 @@ after(async () => {
   await cleanupTempDir(dataDir);
 });
 
-test("rejects text longer than 280 characters on X", async () => {
+test("auto-threads text longer than 280 characters on X", async () => {
   const report = await relay.validate({ platforms: ["x"], text: "a".repeat(281) });
 
-  assert.equal(report.ok, false, "a 281 character X post must be rejected");
-  assert.equal(report.perPlatform.x.ok, false);
-  assert.ok(
+  assert.equal(report.ok, true, JSON.stringify(report.issues));
+  assert.equal(report.perPlatform.x.ok, true);
+  assert.equal(report.normalized.x.parts.length, 2, "281 characters should become a 2-part thread");
+  assert.equal(
     report.issues.some((issue) => issue.platform === "x" && issue.code === "text_too_long"),
-    `expected a text_too_long issue for x, got ${JSON.stringify(report.issues)}`,
+    false,
   );
 });
 
-test("300 characters is fine for Threads but rejected for X", async () => {
+test("300 characters is one Threads part and two X parts", async () => {
   const text = "b".repeat(300);
 
   const threadsOnly = await relay.validate({ platforms: ["threads"], text });
@@ -50,15 +51,12 @@ test("300 characters is fine for Threads but rejected for X", async () => {
     true,
     `Threads allows 500 characters, so 300 must pass: ${JSON.stringify(threadsOnly.issues)}`,
   );
+  assert.equal(threadsOnly.normalized.threads.parts.length, 1);
 
   const both = await relay.validate({ platforms: ["x", "threads"], text });
-  assert.equal(both.ok, false, "the combined draft must fail because of X");
-  assert.equal(both.perPlatform.x.ok, false);
-  assert.equal(both.perPlatform.threads.ok, true, "Threads itself must remain valid");
-  assert.ok(
-    both.issues.some((issue) => issue.platform === "x" && issue.code === "text_too_long"),
-    `expected an X text_too_long issue, got ${JSON.stringify(both.issues)}`,
-  );
+  assert.equal(both.ok, true, JSON.stringify(both.issues));
+  assert.equal(both.normalized.x.parts.length, 2, "X should auto-thread the 300 characters");
+  assert.equal(both.normalized.threads.parts.length, 1, "Threads should keep one part");
 });
 
 test("rejects a TikTok post without media", async () => {
