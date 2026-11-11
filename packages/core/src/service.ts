@@ -65,6 +65,7 @@ import type {
   PublishedPart,
   QueueJob,
   ResolvedPost,
+  RetryFailedResult,
   SchedulerStatus,
   SettingsView,
   ThreadsAutoReplyLog,
@@ -72,7 +73,7 @@ import type {
   ThreadsOwnPost,
   ThreadsReplyResult,
 } from "./types.js";
-import { PLATFORM_IDS } from "./types.js";
+import { CORE_PLATFORM_IDS, PLATFORM_IDS } from "./types.js";
 
 const MAX_HISTORY = 500;
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
@@ -88,6 +89,7 @@ const UNSUPPORTED_DELETE_REASON: Record<PlatformId, string> = {
   youtube:
     "Unsupported: Relay's YouTube login only has upload and read access, which cannot delete videos. Delete it in YouTube Studio.",
   linkedin: "LinkedIn delete is not available in this build. Delete the post in LinkedIn.",
+  facebook: "Facebook Page delete is not available in this build. Delete the post on the Page.",
 };
 
 /**
@@ -219,7 +221,7 @@ export class RelayService {
     const forceMock = Boolean(options.forceMock) || env.RELAY_MOCK === "1";
 
     const adapters = [...options.adapters];
-    for (const platform of PLATFORM_IDS) {
+    for (const platform of CORE_PLATFORM_IDS) {
       if (!adapters.some((adapter) => adapter.platform === platform)) {
         throw new RelayError(`No adapter registered for ${platform}`, "adapter_missing");
       }
@@ -251,7 +253,16 @@ export class RelayService {
 
   getAdapter(platform: PlatformId): PlatformAdapter {
     const adapter = this.adapters.get(platform);
-    if (!adapter) throw new RelayError(`Unknown platform: ${platform}`, "platform_unknown");
+    if (!adapter) {
+      throw new RelayError(
+        platform === "facebook"
+          ? "Facebook Pages is not enabled. Set RELAY_ENABLE_FACEBOOK=1 after Meta review and app keys are ready."
+          : `Unknown platform: ${platform}`,
+        "platform_unknown",
+        undefined,
+        404,
+      );
+    }
     return adapter;
   }
 
@@ -316,8 +327,8 @@ export class RelayService {
   async platformStatuses(): Promise<PlatformStatus[]> {
     await this.store.refresh();
     const ctx = this.adapterContext();
-    return PLATFORM_IDS.map((platform) => {
-      const adapter = this.getAdapter(platform);
+    return [...this.adapters.values()].map((adapter) => {
+      const platform = adapter.platform;
       const stored = this.store.read((db) => db.accounts[platform]);
       return {
         platform,
@@ -605,6 +616,78 @@ export class RelayService {
     const results = await this.publishResolved(report.normalized, record.id);
     await this.finalizePostRecord(record.id, results);
     return { scheduled: false, results, report, recordId: record.id };
+  }
+
+  /**
+   * Retry only the platforms that failed in a history record or a failed queue
+   * job. Successful platforms are never called again, and a partial success is
+   * treated as successful so an already-published thread is not replayed.
+   */
+  async retryFailed(input: { recordId?: string; jobId?: string }): Promise<RetryFailedResult> {
+    await this.store.refresh();
+    const recordId = typeof input.recordId === "string" ? input.recordId.trim() : "";
+    const jobId = typeof input.jobId === "string" ? input.jobId.trim() : "";
+    if (!recordId && !jobId) {
+      throw new RelayError("Pass a recordId or a jobId to retry.", "retry_target_required", undefined, 400);
+    }
+
+    const source = this.store.read((db) => {
+      if (recordId) {
+        const record = db.posts.find((entry) => entry.id === recordId);
+        if (record) return { id: record.id, kind: "record" as const, draft: record.draft, results: record.results };
+      }
+      if (jobId) {
+        const job = db.queue.find((entry) => entry.id === jobId);
+        if (job) return { id: job.id, kind: "job" as const, draft: job.draft, results: job.results ?? [], status: job.status };
+      }
+      return null;
+    });
+    if (!source) {
+      throw new RelayError("That post or queue job no longer exists.", "retry_target_not_found", undefined, 404);
+    }
+    if (source.kind === "job" && source.status !== "failed") {
+      throw new RelayError(
+        "Only a failed queue job can be retried. Scheduled jobs can be canceled instead.",
+        "retry_job_not_failed",
+        { status: source.status },
+        409,
+      );
+    }
+
+    const targeted = [...new Set(source.draft.platforms ?? [])];
+    if (targeted.length === 0) {
+      throw new RelayError("The original post has no target platforms to retry.", "retry_platforms_missing", undefined, 400);
+    }
+    const failedSet = new Set(
+      (source.results ?? [])
+        .filter((result) => !result.ok || result.status === "failed")
+        .map((result) => result.platform),
+    );
+    // A job that failed before recording per-platform results should retry all
+    // of its targets. A history record with no hard failures is not retryable.
+    const retried = source.results.length === 0 ? targeted : targeted.filter((platform) => failedSet.has(platform));
+    const skipped = targeted.filter((platform) => !retried.includes(platform));
+    if (retried.length === 0) {
+      throw new RelayError(
+        "Every platform on that post already succeeded, so there is nothing safe to retry.",
+        "retry_nothing_failed",
+        { skipped },
+        400,
+      );
+    }
+
+    const retryDraft = structuredClone(source.draft);
+    delete retryDraft.scheduleAt;
+    delete retryDraft.recurrence;
+    retryDraft.platforms = retried;
+    if (retryDraft.accountIds) {
+      retryDraft.accountIds = Object.fromEntries(
+        Object.entries(retryDraft.accountIds).filter(([platform]) => retried.includes(platform as PlatformId)),
+      ) as PostDraft["accountIds"];
+    }
+
+    const result = await this.createPost(retryDraft, { force: true });
+    return { ...result, sourceId: source.id, retried, skipped };
   }
 
   private assertRecurrenceValid(draft: PostDraft, scheduleAt: number | undefined): void {

@@ -4,9 +4,13 @@
  * This file is the integration surface between core, platforms, MCP and the web app.
  */
 
-export type PlatformId = "x" | "threads" | "tiktok" | "youtube" | "instagram" | "linkedin";
+export type PlatformId = "x" | "threads" | "tiktok" | "youtube" | "instagram" | "linkedin" | "facebook";
 
-export const PLATFORM_IDS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin"] as const satisfies readonly PlatformId[];
+/** Every known platform. Optional platforms are registered only when enabled. */
+export const PLATFORM_IDS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin", "facebook"] as const satisfies readonly PlatformId[];
+
+/** Platforms Relay can run without an optional feature flag. */
+export const CORE_PLATFORM_IDS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin"] as const satisfies readonly PlatformId[];
 
 export function isPlatformId(value: unknown): value is PlatformId {
   return typeof value === "string" && (PLATFORM_IDS as readonly string[]).includes(value);
@@ -685,6 +689,16 @@ export interface CreatePostResult {
   recordId?: string;
   results: PostResult[];
   report: ValidationReport;
+}
+
+/** Result of retrying only the platforms that failed in an earlier post. */
+export interface RetryFailedResult extends CreatePostResult {
+  /** The history record or queue job the retry was based on. */
+  sourceId: string;
+  /** Platforms that were sent again. */
+  retried: PlatformId[];
+  /** Platforms that already succeeded and were deliberately left alone. */
+  skipped: PlatformId[];
 }
 
 export interface SettingsView {

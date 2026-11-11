@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
 import { CloudLedger, CloudStore } from "../../packages/cloud/dist/index.js";
-import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helpers.mjs";
+import { cleanupTempDir, makeTempDir, repoRoot, sleep, spawnNode, waitFor } from "../helpers.mjs";
 
 const TOKEN_KEY = Buffer.alloc(32, 45).toString("base64");
 const PORT = 44999;
@@ -33,7 +33,7 @@ test("cloud accounts unlock 3 per platform at $10 and 10 per platform at $50", a
   const key = store.createApiKey(customer.id, "multi");
   store.close();
 
-  const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
+  const child = spawnNode("apps/mcp/dist/cloud-entry.js", {
     cwd: repoRoot,
     env: {
       ...process.env, RELAY_CLOUD_ENABLED: "1", RELAY_CLOUD_TOKEN_KEY: TOKEN_KEY,

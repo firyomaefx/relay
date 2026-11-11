@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import test from "node:test";
 import { CloudStore } from "../../packages/cloud/dist/index.js";
-import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helpers.mjs";
+import { cleanupTempDir, makeTempDir, repoRoot, sleep, spawnNode, waitFor } from "../helpers.mjs";
 
 const CLAUDE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const FORM = { "content-type": "application/x-www-form-urlencoded" };
@@ -18,7 +18,7 @@ function pkce() {
 
 async function startServer(port, dir, store) {
   const base = `http://127.0.0.1:${port}`;
-  const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
+  const child = spawnNode("apps/mcp/dist/cloud-entry.js", {
     cwd: repoRoot,
     env: {
       ...process.env,

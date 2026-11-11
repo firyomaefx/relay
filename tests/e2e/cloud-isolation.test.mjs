@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
 import { CloudStore, CloudLedger } from "../../packages/cloud/dist/index.js";
-import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helpers.mjs";
+import { cleanupTempDir, makeTempDir, repoRoot, sleep, spawnNode, waitFor } from "../helpers.mjs";
 
 const TOKEN_KEY = Buffer.alloc(32, 13).toString("base64");
 const PORT = 44992;
@@ -37,7 +37,7 @@ test("cloud customers A and B cannot read, cancel or publish into each other's d
   ledger.credit({ customerId: b.id, amount: 1000, type: "topup", idempotencyKey: "seed-b" });
   ledger.close();
 
-  const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
+  const child = spawnNode("apps/mcp/dist/cloud-entry.js", {
     cwd: repoRoot,
     env: {
       ...process.env,

@@ -5,7 +5,7 @@
   /* ------------------------------------------------------------------ *
    * Constants
    * ------------------------------------------------------------------ */
-  const PLATFORMS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin"];
+  const PLATFORMS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin", "facebook"];
   const SCREENS = ["home", "compose", "queue", "history", "accounts", "billing", "settings"];
   const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
   const MAX_MEDIA_PER_PART = 35;
@@ -95,13 +95,27 @@
       scopes: "openid · profile · w_member_social",
       videoExt: ["mp4", "mov"],
     },
+    facebook: {
+      name: "Facebook Page",
+      glyph: "f",
+      tagline: "Text, photos and video on a Page.",
+      connectLabel: "Sign in with Facebook",
+      emptyNote: "No Facebook Page connected. A Page is required, not a personal profile.",
+      envId: "FACEBOOK_CLIENT_ID",
+      envSecret: "FACEBOOK_CLIENT_SECRET",
+      docs: "developers.facebook.com",
+      portal: "https://developers.facebook.com/apps/",
+      portalLabel: "Open Meta app dashboard",
+      scopes: "pages_show_list · pages_read_engagement · pages_manage_posts",
+      videoExt: ["mp4", "mov"],
+    },
   };
 
   const NAV_META = {
     home: { eyebrow: "Workspace", title: "Home" },
     compose: { eyebrow: "Studio", title: "Compose" },
-    queue: { eyebrow: "Scheduler", title: "Queue" },
-    history: { eyebrow: "Archive", title: "History" },
+    queue: { eyebrow: "Posts", title: "Posts" },
+    history: { eyebrow: "Published", title: "Published" },
     accounts: { eyebrow: "Accounts", title: "Accounts" },
     billing: { eyebrow: "Wallet", title: "Billing" },
     settings: { eyebrow: "Configuration", title: "Settings" },
@@ -114,6 +128,7 @@
     youtube: { maxTextLength: 5000, maxParts: 1, maxMediaPerPost: 1 },
     instagram: { maxTextLength: 2200, maxParts: 1, maxMediaPerPost: 1 },
     linkedin: { maxTextLength: 3000, maxParts: 1, maxMediaPerPost: 1 },
+    facebook: { maxTextLength: 63206, maxParts: 1, maxMediaPerPost: 10 },
   };
 
   const ICONS = {
@@ -175,7 +190,10 @@
     uploading: Object.create(null),
     composeMode: "simple",
     queueView: "list",
+    queueTab: "scheduled",
+    calendarMode: "month",
     calendarCursor: new Date(),
+    retrying: new Set(),
   };
 
   const els = {};
@@ -322,8 +340,13 @@
     return Date.parse(iso) > Date.now() + 1000;
   }
 
+  function availablePlatforms() {
+    const configured = new Set((state.settings?.platforms ?? []).map((entry) => entry.platform));
+    return PLATFORMS.filter((platform) => platform !== "facebook" || configured.has(platform));
+  }
+
   function selectedPlatforms() {
-    return PLATFORMS.filter((platform) => state.selected.has(platform));
+    return availablePlatforms().filter((platform) => state.selected.has(platform));
   }
 
   function composeModeStorageKey() {
@@ -659,7 +682,7 @@
    * ------------------------------------------------------------------ */
   function renderTargets() {
     if (!els.targets) return;
-    els.targets.innerHTML = PLATFORMS.map((platform) => {
+    els.targets.innerHTML = availablePlatforms().map((platform) => {
       const meta = PLATFORM_META[platform];
       const selected = state.selected.has(platform);
       const status = platformStatus(platform);
@@ -693,7 +716,7 @@
   }
 
   function togglePlatform(platform) {
-    if (!PLATFORMS.includes(platform)) return;
+    if (!availablePlatforms().includes(platform)) return;
     if (state.selected.has(platform)) state.selected.delete(platform);
     else state.selected.add(platform);
     renderTargets();
@@ -752,7 +775,7 @@
   }
 
   function partHtml(part, index) {
-    const counters = PLATFORMS.map((platform) => counterHtml(part, platform)).join("");
+    const counters = availablePlatforms().map((platform) => counterHtml(part, platform)).join("");
     const remove = state.parts.length > 1
       ? `<button class="part-remove" type="button" data-part-remove="${escapeAttr(part.id)}" aria-label="Remove part ${index + 1}">${ICONS.close}</button>`
       : "";
@@ -811,7 +834,7 @@
   function updateCounters(partElement, part) {
     const container = partElement.querySelector(".counters");
     if (!container) return;
-    container.innerHTML = PLATFORMS.map((platform) => counterHtml(part, platform)).join("");
+    container.innerHTML = availablePlatforms().map((platform) => counterHtml(part, platform)).join("");
   }
 
   function addPart() {
@@ -981,6 +1004,142 @@
     return perPlatform;
   }
 
+  function previewMediaUrl(item) {
+    if (!item) return "";
+    if (item.url) return item.url;
+    if (item.path) {
+      const name = String(item.path).split(/[\\/]/).pop();
+      return name ? `/media/${encodeURIComponent(name)}` : "";
+    }
+    return "";
+  }
+
+  function previewAccount(platform) {
+    const account = accountFor(platform) ?? {};
+    const handle = String(account.handle ?? "your_handle").replace(/^@/, "");
+    const name = account.displayName || handle || "Your account";
+    return {
+      name,
+      handle,
+      avatar: account.avatarUrl
+        ? `<img src="${escapeAttr(account.avatarUrl)}" alt="" loading="lazy">`
+        : escapeHtml(initials(name)),
+    };
+  }
+
+  function previewAvatarHtml(account, className = "") {
+    return `<span class="mock-avatar ${className}" aria-hidden="true">${account.avatar}</span>`;
+  }
+
+  function previewMediaHtml(item, className = "") {
+    const url = previewMediaUrl(item);
+    if (!url) return "";
+    if (item.kind === "video") {
+      return `<div class="mock-media ${className}"><video src="${escapeAttr(url)}" muted playsinline preload="metadata"></video><span class="mock-play" aria-hidden="true">${ICONS.video}</span><span class="mock-video-label">Video</span></div>`;
+    }
+    return `<div class="mock-media ${className}"><img src="${escapeAttr(url)}" alt="${escapeAttr(item.altText ?? "Attached media")}" loading="lazy"></div>`;
+  }
+
+  function previewTextHtml(text) {
+    return escapeHtml(text || "(empty)").replace(/\n/g, "<br>");
+  }
+
+  function previewBadge(entry) {
+    if (entry.truncated) return `<span class="status-badge" data-tone="error">needs shortening</span>`;
+    if (entry.adapted) return `<span class="status-badge" data-tone="pending">adapted</span>`;
+    return `<span class="status-badge" data-tone="published">fits</span>`;
+  }
+
+  function previewMockHtml(entry) {
+    const account = previewAccount(entry.platform);
+    const parts = entry.parts?.length ? entry.parts : [""];
+    const media = state.parts.flatMap((part) => part.media ?? []);
+    const firstMedia = media[0];
+    const extraParts = parts.length > 1;
+
+    if (entry.platform === "x") {
+      return `<div class="preview-mock mock-x">
+        <div class="mock-thread">
+          ${parts.map((text, index) => `<div class="mock-post">
+            <div class="mock-post-line"><div class="mock-avatar-col">${index === 0 ? previewAvatarHtml(account) : '<span class="mock-thread-join"></span>'}</div>
+              <div class="mock-post-body">
+                <div class="mock-user"><strong>${escapeHtml(account.name)}</strong><span>@${escapeHtml(account.handle)}</span><span class="mock-dot">·</span><span>now</span></div>
+                <p>${previewTextHtml(text)}</p>
+                ${index === 0 ? previewMediaHtml(firstMedia, "mock-x-media") : ""}
+                <div class="mock-post-actions"><span>Reply</span><span>Repost</span><span>Like</span><span>View</span></div>
+              </div>
+            </div>
+          </div>`).join("")}
+        </div>
+      </div>`;
+    }
+
+    if (entry.platform === "threads") {
+      return `<div class="preview-mock mock-threads">
+        <div class="mock-thread">
+          ${parts.map((text, index) => `<div class="mock-post">
+            <div class="mock-post-line"><div class="mock-avatar-col">${index === 0 ? previewAvatarHtml(account) : '<span class="mock-thread-join"></span>'}</div>
+              <div class="mock-post-body">
+                <div class="mock-user"><strong>${escapeHtml(account.name)}</strong><span>@${escapeHtml(account.handle)}</span><span class="mock-dot">·</span><span>now</span></div>
+                <p>${previewTextHtml(text)}</p>
+                ${index === 0 ? previewMediaHtml(firstMedia, "mock-threads-media") : ""}
+                <div class="mock-post-actions"><span>Reply</span><span>Repost</span><span>Like</span><span>Share</span></div>
+              </div>
+            </div>
+          </div>`).join("")}
+        </div>
+      </div>`;
+    }
+
+    if (entry.platform === "tiktok") {
+      return `<div class="preview-mock mock-tiktok">
+        <div class="mock-phone">
+          ${previewMediaHtml(firstMedia, "mock-tiktok-media") || '<div class="mock-media mock-tiktok-media mock-media-empty"><span>9:16 video or photo</span></div>'}
+          <div class="mock-tiktok-shade"></div>
+          <div class="mock-tiktok-caption"><strong>@${escapeHtml(account.handle)}</strong><span>${previewTextHtml(parts[0])}</span></div>
+          <div class="mock-tiktok-actions" aria-hidden="true"><span>♡</span><span>💬</span><span>↗</span></div>
+          <div class="mock-tiktok-rail">For You&nbsp;&nbsp;Following</div>
+        </div>
+      </div>`;
+    }
+
+    if (entry.platform === "youtube") {
+      return `<div class="preview-mock mock-youtube">
+        ${previewMediaHtml(firstMedia, "mock-video-16x9") || '<div class="mock-media mock-video-16x9 mock-media-empty"><span class="mock-play">' + ICONS.video + "</span><span>Video preview</span></div>"}
+        <div class="mock-yt-meta">
+          ${previewAvatarHtml(account)}
+          <div><strong>${escapeHtml(parts[0].split("\n")[0] || "Video title")}</strong><span>${escapeHtml(account.name)} · 0 views · just now</span><p>${previewTextHtml(parts[0].split("\n").slice(1).join(" ") || "Description preview")}</p></div>
+        </div>
+      </div>`;
+    }
+
+    if (entry.platform === "instagram") {
+      return `<div class="preview-mock mock-instagram">
+        <div class="mock-ig-head">${previewAvatarHtml(account)}<strong>${escapeHtml(account.handle)}</strong><span aria-hidden="true">•••</span></div>
+        ${previewMediaHtml(firstMedia, "mock-square") || '<div class="mock-media mock-square mock-media-empty"><span>Square image or Reel</span></div>'}
+        <div class="mock-ig-actions" aria-hidden="true"><span>♡</span><span>💬</span><span>↗</span><span class="mock-save">▢</span></div>
+        <div class="mock-ig-caption"><strong>${escapeHtml(account.handle)}</strong> ${previewTextHtml(parts[0])}</div>
+        ${media.length > 1 ? `<div class="mock-carousel-dots">${media.slice(0, 5).map((_, index) => `<i data-active="${index === 0}"></i>`).join("")}</div>` : ""}
+      </div>`;
+    }
+
+    if (entry.platform === "facebook") {
+      return `<div class="preview-mock mock-facebook">
+        <div class="mock-fb-head">${previewAvatarHtml(account)}<div><strong>${escapeHtml(account.name)}</strong><span>Page · just now</span></div></div>
+        <p>${previewTextHtml(parts[0])}</p>
+        ${previewMediaHtml(firstMedia, "mock-fb-media")}
+        <div class="mock-fb-actions"><span>Like</span><span>Comment</span><span>Share</span></div>
+      </div>`;
+    }
+
+    return `<div class="preview-mock mock-linkedin">
+      <div class="mock-li-head">${previewAvatarHtml(account)}<div><strong>${escapeHtml(account.name)}</strong><span>${escapeHtml(account.handle)} · now</span></div></div>
+      <p>${previewTextHtml(parts[0])}</p>
+      ${previewMediaHtml(firstMedia, "mock-li-media")}
+      <div class="mock-li-actions"><span>Like</span><span>Comment</span><span>Repost</span><span>Send</span></div>
+    </div>`;
+  }
+
   function renderPreviews() {
     if (!els.previews) return;
     const draft = buildDraft();
@@ -996,26 +1155,13 @@
     els.previews.innerHTML = preview.platforms
       .map((entry) => {
         const meta = PLATFORM_META[entry.platform] ?? { name: entry.displayName };
-        const badge = entry.truncated
-          ? `<span class="status-badge" data-tone="error">needs shortening</span>`
-          : entry.adapted
-            ? `<span class="status-badge" data-tone="pending">adapted</span>`
-            : `<span class="status-badge" data-tone="published">fits</span>`;
-        const parts = entry.parts
-          .map(
-            (text, index) => `<div class="preview-part">
-              ${entry.parts.length > 1 ? `<span class="preview-part-index">${index + 1}/${entry.parts.length}</span>` : ""}
-              <p>${escapeHtml(text || "(empty)")}</p>
-              <span class="preview-count">${entry.characterCounts[index] ?? 0}/${entry.maxTextLength}</span>
-            </div>`,
-          )
-          .join("");
+        const badge = previewBadge(entry);
         const issues = entry.issues.length
           ? `<p class="preview-issue">${escapeHtml(entry.issues.join(" "))}</p>`
           : "";
-        return `<article class="preview-card" data-platform="${entry.platform}">
-          <header class="preview-head"><span class="preview-platform">${escapeHtml(meta.name)}</span>${badge}</header>
-          ${parts}
+        return `<article class="preview-card preview-card-native" data-platform="${entry.platform}">
+          <header class="preview-head"><span class="preview-platform">${escapeHtml(meta.name)}</span><span class="approximate-label">Approximate preview</span>${badge}</header>
+          ${previewMockHtml(entry)}
           ${issues}
           <footer class="preview-foot">${entry.mediaCount} media · ${entry.maxParts} part max
             ${entry.adapted && entry.parts.length > 1 && selectedPlatforms().length === 1
@@ -1307,6 +1453,12 @@
     return `<span class="status-badge" data-tone="${tone}" title="${escapeAttr(title)}">${escapeHtml(meta.name)} · ${label}</span>`;
   }
 
+  function errorDetailsHtml(messages, summary = "Details") {
+    const unique = [...new Set((messages ?? []).filter(Boolean))];
+    if (unique.length === 0) return "";
+    return `<details class="error-details"><summary>${escapeHtml(summary)}</summary><pre>${escapeHtml(unique.join("\n"))}</pre></details>`;
+  }
+
   function jobRowHtml(job) {
     const date = new Date(job.scheduleAt);
     const validDate = !Number.isNaN(date.getTime());
@@ -1316,8 +1468,10 @@
     const platforms = job.draft?.platforms ?? [];
     const timeLabel = pending && validDate ? `${formatShort(job.scheduleAt)} · ${timeUntil(job.scheduleAt)}` : formatShort(job.scheduleAt);
     const resultChips = (job.results ?? []).map(historyResultChip).join("");
+    const failures = (job.results ?? []).filter((entry) => !entry.ok).map((entry) => `${entry.platform}: ${entry.error ?? "failed"}`);
     const errorLine = job.lastError ? `<p class="result-note">${escapeHtml(job.lastError)}</p>` : "";
-    return `<div class="list-row">
+    const retrying = state.retrying.has(`job:${job.id}`);
+    return `<div class="list-row" data-post-id="${escapeAttr(job.id)}">
       <div class="list-marker" data-tone="${job.status}">
         <span>${validDate ? monthShort(date) : "—"}</span><strong>${validDate ? date.getDate() : "?"}</strong>
       </div>
@@ -1331,40 +1485,182 @@
         </div>
         ${resultChips ? `<div class="result-chip-group">${resultChips}</div>` : ""}
         ${errorLine}
+        ${errorDetailsHtml(failures, "Provider details")}
       </div>
       <div class="row-actions">
         ${job.status === "pending" ? `<button class="ghost-btn" type="button" data-cancel="${escapeAttr(job.id)}">Cancel</button>` : ""}
+        ${job.status === "failed" ? `<button class="ghost-btn retry-btn" type="button" data-retry-job="${escapeAttr(job.id)}" ${retrying ? "disabled" : ""}>${retrying ? "Retrying…" : "Retry failed"}</button>` : ""}
       </div>
     </div>`;
+  }
+
+  function jobHasHistory(job, history = state.history) {
+    if (!job.scheduleAt) return false;
+    const at = Date.parse(job.scheduleAt);
+    if (!Number.isFinite(at)) return false;
+    return history.some((record) => {
+      if (!record.scheduledFor) return false;
+      const recordAt = Date.parse(record.scheduledFor);
+      if (!Number.isFinite(recordAt) || Math.abs(recordAt - at) > 1000) return false;
+      return draftText(record.draft) === draftText(job.draft);
+    });
+  }
+
+  function postsForTab(tab) {
+    if (tab === "scheduled") {
+      return state.queue
+        .filter((job) => job.status === "pending" || job.status === "running")
+        .sort((a, b) => Date.parse(a.scheduleAt) - Date.parse(b.scheduleAt))
+        .map((job) => ({ kind: "job", job }));
+    }
+    const records = state.history.filter((record) => {
+      const results = record.results ?? [];
+      if (tab === "published") return results.some((entry) => entry.ok);
+      return results.some((entry) => !entry.ok);
+    });
+    const rows = records.map((record) => ({ kind: "record", record }));
+    const jobs = state.queue.filter((job) => {
+      if (jobHasHistory(job)) return false;
+      if (tab === "published") return job.status === "done";
+      return job.status === "failed";
+    });
+    for (const job of jobs) rows.push({ kind: "job", job });
+    return rows.sort((a, b) => {
+      const left = a.kind === "record" ? a.record.createdAt : a.job.scheduleAt;
+      const right = b.kind === "record" ? b.record.createdAt : b.job.scheduleAt;
+      return Date.parse(right) - Date.parse(left);
+    });
+  }
+
+  function setQueueTab(tab, { render = true } = {}) {
+    if (!["scheduled", "published", "failed"].includes(tab)) tab = "scheduled";
+    state.queueTab = tab;
+    for (const button of els.postsTabButtons ?? []) {
+      const active = button.dataset.queueTab === tab;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    }
+    if (els.postsListPanel) els.postsListPanel.setAttribute("aria-labelledby", `postsTab${tab[0].toUpperCase()}${tab.slice(1)}`);
+    if (state.screen === "queue") {
+      for (const item of els.navItems) {
+        const active = tab === "published" ? item.dataset.nav === "history" : item.dataset.nav === "queue";
+        item.classList.toggle("is-active", active);
+        if (active) item.setAttribute("aria-current", "page");
+        else item.removeAttribute("aria-current");
+      }
+    }
+    if (render && state.screen === "queue") renderQueue();
+  }
+
+  function openPosts(tab) {
+    state.queueView = "list";
+    setQueueTab(tab, { render: false });
+    setScreen("queue");
   }
 
   function renderQueue() {
     const calendar = state.queueView === "calendar";
     if (els.calendarPanel) els.calendarPanel.hidden = !calendar;
     if (els.queueListPanels) els.queueListPanels.hidden = calendar;
+    if (els.queueListView) {
+      els.queueListView.classList.toggle("is-active", !calendar);
+      els.queueCalendarView?.classList.toggle("is-active", calendar);
+    }
+
+    const counts = {
+      scheduled: postsForTab("scheduled").length,
+      published: postsForTab("published").length,
+      failed: postsForTab("failed").length,
+    };
+    if (els.postsCountScheduled) els.postsCountScheduled.textContent = String(counts.scheduled);
+    if (els.postsCountPublished) els.postsCountPublished.textContent = String(counts.published);
+    if (els.postsCountFailed) els.postsCountFailed.textContent = String(counts.failed);
+    for (const button of els.postsTabButtons ?? []) {
+      const active = button.dataset.queueTab === state.queueTab;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    }
+
     if (calendar) {
       renderCalendar();
       return;
     }
-    const upcoming = state.queue.filter((job) => job.status === "pending" || job.status === "running");
-    const past = state.queue.filter((job) => job.status !== "pending" && job.status !== "running");
-    els.queueUpcomingCount.textContent = String(upcoming.length);
-    els.queuePastCount.textContent = String(past.length);
-    els.queueUpcoming.innerHTML = upcoming.length
-      ? upcoming.map(jobRowHtml).join("")
-      : emptyHtml({
-          icon: ICONS.clock,
-          title: "Nothing scheduled",
-          text: "Pick a date and time in the composer and Relay holds the draft here until the scheduler runs it.",
-          action: { label: "Compose a post", nav: "compose" },
-        });
-    els.queuePast.innerHTML = past.length
-      ? past.map(jobRowHtml).join("")
-      : emptyHtml({
-          icon: ICONS.queue,
-          title: "No past runs yet",
-          text: "Scheduled posts land here after they publish, fail, or get canceled.",
-        });
+
+    const tab = state.queueTab;
+    const rows = postsForTab(tab);
+    const copy = {
+      scheduled: { eyebrow: "Upcoming", title: "Scheduled posts", emptyTitle: "Nothing scheduled", emptyText: "Pick a date and time in the composer and Relay holds the draft here until the scheduler runs it." },
+      published: { eyebrow: "Published", title: "Published posts", emptyTitle: "No published posts yet", emptyText: "Posts that go out will appear here with a link to the live post and its cost." },
+      failed: { eyebrow: "Needs attention", title: "Failed posts", emptyTitle: "No failures", emptyText: "If a platform rejects a post, the real error will show here with a safe retry." },
+    }[tab];
+    if (els.postsListEyebrow) els.postsListEyebrow.textContent = copy.eyebrow;
+    if (els.postsListTitle) els.postsListTitle.textContent = copy.title;
+    if (els.postsListCount) els.postsListCount.textContent = String(rows.length);
+    if (!els.postsList) return;
+    if (rows.length === 0) {
+      els.postsList.innerHTML = emptyHtml({
+        icon: tab === "scheduled" ? ICONS.clock : tab === "failed" ? ICONS.alert : ICONS.history,
+        title: copy.emptyTitle,
+        text: copy.emptyText,
+        ...(tab === "scheduled" ? { action: { label: "Compose a post", nav: "compose" } } : {}),
+      });
+      return;
+    }
+    els.postsList.innerHTML = rows
+      .map((row) => (row.kind === "record" ? historyRowHtml(row.record) : jobRowHtml(row.job)))
+      .join("");
+  }
+
+  function calendarEntries() {
+    const entries = [];
+    for (const record of state.history) {
+      const results = record.results ?? [];
+      if (results.length === 0) continue;
+      const anyFailed = results.some((entry) => !entry.ok);
+      const anyOk = results.some((entry) => entry.ok);
+      const at = record.scheduledFor ?? record.createdAt;
+      const text = draftText(record.draft) || (record.kind === "article" ? record.article?.title : "") || "Media-only post";
+      entries.push({
+        id: `record:${record.id}`,
+        at,
+        tone: anyFailed ? "failed" : anyOk ? "done" : "failed",
+        statusLabel: anyFailed ? "Failed" : "Published",
+        tab: anyFailed ? "failed" : "published",
+        text,
+        platforms: record.draft?.platforms ?? [],
+        recurring: Boolean(record.draft?.recurrence),
+        label: draftLabel(record.draft),
+      });
+    }
+    for (const job of state.queue) {
+      if (job.status === "done" && jobHasHistory(job)) continue;
+      const tone = job.status === "done" ? "done" : job.status === "failed" ? "failed" : job.status === "canceled" ? "canceled" : "pending";
+      const text = draftText(job.draft) || (job.kind === "article" ? job.article?.title : "") || "Media-only post";
+      entries.push({
+        id: `job:${job.id}`,
+        at: job.scheduleAt,
+        tone,
+        statusLabel: tone === "done" ? "Done" : tone === "failed" ? "Failed" : tone === "canceled" ? "Canceled" : job.draft?.recurrence ? "Scheduled ↻" : "Scheduled",
+        tab: tone === "failed" ? "failed" : tone === "done" ? "published" : "scheduled",
+        text,
+        platforms: job.draft?.platforms ?? [],
+        recurring: Boolean(job.draft?.recurrence),
+        label: draftLabel(job.draft),
+        job,
+      });
+    }
+    return entries.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  }
+
+  function calendarEventHtml(entry) {
+    const time = new Date(entry.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    const platforms = entry.platforms.map((platform) => PLATFORM_META[platform]?.name ?? platform).join(" · ");
+    return `<button class="calendar-event" type="button" data-tone="${entry.tone}" data-open-posts="${entry.tab}" data-recurring="${entry.recurring ? "true" : "false"}" title="${escapeAttr(`${entry.statusLabel} · ${time} · ${entry.label ? `${entry.label} · ` : ""}${platforms} · ${entry.text}`)}">
+      <span class="calendar-event-time"><span class="calendar-event-status">${escapeHtml(entry.statusLabel)}</span>${entry.label ? `<strong class="source-label" data-source="${escapeAttr(entry.label.toLowerCase())}">${escapeHtml(entry.label)}</strong>` : ""}${escapeHtml(time)}</span>
+      <span class="calendar-event-title">${escapeHtml(entry.text)}</span>
+    </button>`;
   }
 
   function renderCalendar() {
@@ -1372,49 +1668,127 @@
     const cursor = state.calendarCursor instanceof Date && !Number.isNaN(state.calendarCursor.getTime())
       ? state.calendarCursor
       : new Date();
+    const week = state.calendarMode === "week";
+    const entries = calendarEntries();
+    const byDay = new Map();
+    const dayKey = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    if (week) {
+      const start = new Date(cursor);
+      start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      for (const entry of entries) {
+        const parsed = new Date(entry.at);
+        if (Number.isNaN(parsed.getTime()) || parsed < start || parsed > new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999)) continue;
+        const key = dayKey(parsed);
+        if (!byDay.has(key)) byDay.set(key, []);
+        byDay.get(key).push(entry);
+      }
+      els.calendarGrid.classList.add("is-week");
+      const monthLabel = start.getMonth() === end.getMonth()
+        ? start.toLocaleDateString(undefined, { month: "long", year: "numeric" })
+        : `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} - ${end.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+      els.calendarMonth.textContent = monthLabel;
+      els.calendarPrev.setAttribute("aria-label", "Previous week");
+      els.calendarNext.setAttribute("aria-label", "Next week");
+      for (const button of [els.calendarModeMonth, els.calendarModeWeek]) {
+        const active = button?.dataset.calendarMode === "week";
+        button?.classList.toggle("is-active", active);
+        button?.setAttribute("aria-pressed", String(active));
+      }
+      const headers = [];
+      const cells = [];
+      for (let index = 0; index < 7; index += 1) {
+        const date = new Date(start);
+        date.setDate(start.getDate() + index);
+        const today = new Date();
+        const isToday = date.toDateString() === today.toDateString();
+        headers.push(`<div class="calendar-weekday">${weekdays[index]}<span>${date.getDate()} ${monthShort(date)}</span></div>`);
+        const dayEntries = (byDay.get(dayKey(date)) ?? []).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+        cells.push(`<div class="calendar-day${isToday ? " is-today" : ""}${dayEntries.length ? " has-events" : ""}" data-day="${date.getDate()}">
+          <span class="calendar-day-number">${date.getDate()}</span>
+          <div class="calendar-events">${dayEntries.map(calendarEventHtml).join("") || '<span class="calendar-empty">No posts</span>'}</div>
+        </div>`);
+      }
+      els.calendarGrid.innerHTML = `${headers.join("")}${cells.join("")}`;
+      return;
+    }
+
+    els.calendarGrid.classList.remove("is-week");
+    for (const button of [els.calendarModeMonth, els.calendarModeWeek]) {
+      const active = button?.dataset.calendarMode === "month";
+      button?.classList.toggle("is-active", active);
+      button?.setAttribute("aria-pressed", String(active));
+    }
     const year = cursor.getFullYear();
     const month = cursor.getMonth();
     const first = new Date(year, month, 1);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const offset = (first.getDay() + 6) % 7; // Monday-first grid
-    const byDay = new Map();
-    for (const job of state.queue) {
-      const parsed = new Date(job.scheduleAt);
+    for (const entry of entries) {
+      const parsed = new Date(entry.at);
       if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() !== year || parsed.getMonth() !== month) continue;
-      const day = parsed.getDate();
-      if (!byDay.has(day)) byDay.set(day, []);
-      byDay.get(day).push(job);
+      const key = dayKey(parsed);
+      if (!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key).push(entry);
     }
     els.calendarMonth.textContent = first.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-    const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    els.calendarPrev.setAttribute("aria-label", "Previous month");
+    els.calendarNext.setAttribute("aria-label", "Next month");
     const cells = [];
     for (let index = 0; index < offset; index += 1) cells.push('<div class="calendar-day is-empty" aria-hidden="true"></div>');
     for (let day = 1; day <= daysInMonth; day += 1) {
-      const jobs = byDay.get(day) ?? [];
+      const date = new Date(year, month, day);
+      const dayEntries = (byDay.get(dayKey(date)) ?? []).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
       const isToday = new Date().getFullYear() === year && new Date().getMonth() === month && new Date().getDate() === day;
-      const events = jobs
-        .sort((a, b) => Date.parse(a.scheduleAt) - Date.parse(b.scheduleAt))
-        .map((job) => {
-          const recurring = Boolean(job.draft?.recurrence);
-          const tone = job.status === "done" ? "done" : job.status === "failed" ? "failed" : job.status === "canceled" ? "canceled" : "pending";
-          const statusLabel = tone === "done" ? "Done" : tone === "failed" ? "Failed" : tone === "canceled" ? "Canceled" : recurring ? "Scheduled ↻" : "Scheduled";
-          const platforms = (job.draft?.platforms ?? []).map((platform) => PLATFORM_META[platform]?.name ?? platform).join(" · ");
-          const text = draftText(job.draft) || (job.kind === "article" ? job.article?.title : "") || "Media-only post";
-          const time = new Date(job.scheduleAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-          const label = draftLabel(job.draft);
-          return `<div class="calendar-event" data-tone="${tone}" data-recurring="${recurring ? "true" : "false"}" title="${escapeAttr(`${statusLabel} · ${time} · ${label ? `${label} · ` : ""}${platforms} · ${text}`)}">
-            <span class="calendar-event-time"><span class="calendar-event-status">${escapeHtml(statusLabel)}</span>${labelBadge(job.draft)}${escapeHtml(time)}</span>
-            <span class="calendar-event-title">${escapeHtml(text)}</span>
-          </div>`;
-        });
-      const count = jobs.length > 3 ? `<div class="calendar-more">+${jobs.length - 3} more</div>` : "";
-      cells.push(`<div class="calendar-day${isToday ? " is-today" : ""}${jobs.length ? " has-events" : ""}" data-day="${day}">
+      const events = dayEntries
+        .slice(0, 3)
+        .map(calendarEventHtml);
+      const count = dayEntries.length > 3 ? `<button class="calendar-more" type="button" data-open-posts="${dayEntries.some((entry) => entry.tab === "failed") ? "failed" : "scheduled"}">+${dayEntries.length - 3} more</button>` : "";
+      cells.push(`<div class="calendar-day${isToday ? " is-today" : ""}${dayEntries.length ? " has-events" : ""}" data-day="${day}">
         <span class="calendar-day-number">${day}</span>
-        <div class="calendar-events">${events.slice(0, 3).join("")}${count}</div>
+        <div class="calendar-events">${events.join("")}${count}</div>
       </div>`);
     }
     while (cells.length % 7 !== 0) cells.push('<div class="calendar-day is-empty" aria-hidden="true"></div>');
     els.calendarGrid.innerHTML = `${weekdays.map((day) => `<div class="calendar-weekday">${day}</div>`).join("")}${cells.join("")}`;
+  }
+
+  async function retryPost({ recordId, jobId, button } = {}) {
+    const key = recordId ? `record:${recordId}` : `job:${jobId}`;
+    if (state.retrying.has(key)) return;
+    const confirmed = await openModal({
+      eyebrow: "Retry",
+      title: "Retry only the failed platforms?",
+      body: "Only failed platforms will be retried. Check the platform first if the first attempt may have gone through.",
+      confirmLabel: "Retry failed platforms",
+      tone: "danger",
+    });
+    if (!confirmed) return;
+    state.retrying.add(key);
+    if (button) button.disabled = true;
+    try {
+      const result = await api("/api/retry", { method: "POST", body: recordId ? { recordId } : { jobId } });
+      const names = (result.retried ?? []).map((platform) => PLATFORM_META[platform]?.name ?? platform).join(", ");
+      const failed = (result.results ?? []).filter((entry) => !entry.ok);
+      toast({
+        tone: failed.length ? "error" : "success",
+        title: failed.length ? "Retry finished with errors" : "Retry published",
+        text: failed.length
+          ? failed.map((entry) => `${PLATFORM_META[entry.platform]?.name ?? entry.platform}: ${entry.error ?? "failed"}`).join(" · ")
+          : `${names} went out on the new attempt.`,
+      });
+      await refreshAll();
+      setQueueTab(failed.length ? "failed" : "published");
+    } catch (error) {
+      toast({ tone: "error", title: "Could not retry", text: error.message });
+    } finally {
+      state.retrying.delete(key);
+      if (button) button.disabled = false;
+    }
   }
 
   async function cancelJob(jobId) {
@@ -1444,7 +1818,9 @@
     const costBadge = cost && anyOk
       ? `<span class="cost-badge" title="Total for this draft across its platforms"><strong>$${(Number(cost.total) / 1000).toFixed(2)}</strong><small>${Number(cost.parts) === 1 ? "1 part" : `${Number(cost.parts)} parts`}</small></span>`
       : "";
-    return `<div class="list-row">
+    const retrying = state.retrying.has(`record:${record.id}`);
+    const errorMessages = errors.map((entry) => `${PLATFORM_META[entry.platform]?.name ?? entry.platform}: ${entry.error ?? "failed"}`);
+    return `<div class="list-row" data-post-id="${escapeAttr(record.id)}">
       <div class="list-marker" data-tone="${allOk ? "done" : anyOk ? "pending" : "failed"}">
         <span>${validDate ? monthShort(date) : "—"}</span><strong>${validDate ? date.getDate() : "?"}</strong>
       </div>
@@ -1456,11 +1832,13 @@
           ${(record.draft?.platforms ?? []).map(platformChip).join("")}
           ${draftMediaCount(record.draft) ? `<span class="meta-text">${draftMediaCount(record.draft)} media</span>` : ""}
         </div>
-        ${errors.map((entry) => `<p class="result-note">${escapeHtml(`${PLATFORM_META[entry.platform]?.name ?? entry.platform}: ${entry.error ?? "failed"}`)}</p>`).join("")}
+        ${errorMessages.map((message) => `<p class="result-note">${escapeHtml(message)}</p>`).join("")}
+        ${errorDetailsHtml(errorMessages, "Raw provider message")}
       </div>
       <div class="row-actions">
         ${costBadge}
         ${links.slice(0, 1).map((entry) => `<a class="ghost-btn" href="${escapeAttr(entry.url)}" target="_blank" rel="noreferrer noopener">View post</a>`).join("")}
+        ${errors.length ? `<button class="ghost-btn retry-btn" type="button" data-retry-record="${escapeAttr(record.id)}" ${retrying ? "disabled" : ""}>${retrying ? "Retrying…" : "Retry failed"}</button>` : ""}
       </div>
     </div>`;
   }
@@ -1915,7 +2293,7 @@
   function renderAccounts() {
     const cards = [];
     let index = 0;
-    for (const platform of PLATFORMS) {
+    for (const platform of availablePlatforms()) {
       const accounts = state.accounts.filter((account) => account.platform === platform);
       if (accounts.length === 0) {
         cards.push(accountCardHtml(platform, index++, null));
@@ -2155,7 +2533,7 @@
     els.settingsLogoutBtn.hidden = !protectedMode;
 
     if (!skipForms) {
-      els.credentialForms.innerHTML = PLATFORMS.map((platform) => credentialFormHtml(platform)).join("");
+      els.credentialForms.innerHTML = availablePlatforms().map((platform) => credentialFormHtml(platform)).join("");
     }
 
     const configuredCount = (settings.platforms ?? []).filter((entry) => entry.configured).length;
@@ -2484,7 +2862,7 @@
     state.scheduler = data.scheduler ?? null;
     state.limits = data.limits ?? [];
     if (!state.seeded) {
-      const connected = state.accounts.map((account) => account.platform).filter((platform) => PLATFORMS.includes(platform));
+      const connected = state.accounts.map((account) => account.platform).filter((platform) => availablePlatforms().includes(platform));
       state.selected = new Set(connected.length ? connected : ["x"]);
       state.seeded = true;
     }
@@ -2534,6 +2912,11 @@
   }
 
   function setScreen(name, { updateHash = true } = {}) {
+    if (name === "history") {
+      state.queueView = "list";
+      setQueueTab("published", { render: false });
+      name = "queue";
+    }
     if (!SCREENS.includes(name)) name = "home";
     state.screen = name;
     for (const screen of els.screens) {
@@ -2541,8 +2924,9 @@
       screen.hidden = !active;
       screen.classList.toggle("is-active", active);
     }
+    const publishedShortcut = name === "queue" && state.queueTab === "published";
     for (const item of els.navItems) {
-      const active = item.dataset.nav === name;
+      const active = publishedShortcut ? item.dataset.nav === "history" : item.dataset.nav === name;
       item.classList.toggle("is-active", active);
       if (active) item.setAttribute("aria-current", "page");
       else item.removeAttribute("aria-current");
@@ -2651,7 +3035,7 @@
     const error = params.get("error");
     if (connected) {
       const meta = PLATFORM_META[connected];
-      if (PLATFORMS.includes(connected)) state.selected.add(connected);
+      if (availablePlatforms().includes(connected)) state.selected.add(connected);
       toast({ tone: "success", title: `Connected ${meta?.name ?? connected}`, text: "Account linked. You can publish to this platform now." });
       setComposeMode(state.role === "customer" ? "simple" : state.composeMode);
       setScreen("compose");
@@ -2757,17 +3141,24 @@
       queueCalendarView: $("#queueCalendarView"),
       calendarPanel: $("#calendarPanel"),
       queueListPanels: $("#queueListPanels"),
+      postsTabButtons: $$("[data-queue-tab]"),
+      postsCountScheduled: $("#postsCountScheduled"),
+      postsCountPublished: $("#postsCountPublished"),
+      postsCountFailed: $("#postsCountFailed"),
+      postsList: $("#postsList"),
+      postsListPanel: $("#postsListPanel"),
+      postsListEyebrow: $("#postsListEyebrow"),
+      postsListTitle: $("#postsListTitle"),
+      postsListCount: $("#postsListCount"),
       calendarGrid: $("#calendarGrid"),
       calendarMonth: $("#calendarMonth"),
       calendarPrev: $("#calendarPrev"),
       calendarNext: $("#calendarNext"),
       calendarToday: $("#calendarToday"),
+      calendarModeMonth: $("#calendarModeMonth"),
+      calendarModeWeek: $("#calendarModeWeek"),
       resultCard: $("#resultCard"),
       results: $("#results"),
-      queueUpcoming: $("#queueUpcoming"),
-      queuePast: $("#queuePast"),
-      queueUpcomingCount: $("#queueUpcomingCount"),
-      queuePastCount: $("#queuePastCount"),
       historyList: $("#historyList"),
       historyCount: $("#historyCount"),
       accountsGrid: $("#accountsGrid"),
@@ -2851,6 +3242,10 @@
   function wireEvents() {
     for (const item of els.navItems) {
       item.addEventListener("click", () => {
+        if (item.dataset.nav === "history") {
+          openPosts("published");
+          return;
+        }
         setScreen(item.dataset.nav);
         if (window.location.hash !== `#${item.dataset.nav}`) {
           window.history.replaceState(null, "", `#${item.dataset.nav}`);
@@ -3136,35 +3531,73 @@
     });
     els.queueListView.addEventListener("click", () => {
       state.queueView = "list";
-      els.queueListView.classList.add("is-active");
-      els.queueCalendarView.classList.remove("is-active");
       renderQueue();
     });
     els.queueCalendarView.addEventListener("click", () => {
       state.queueView = "calendar";
-      els.queueCalendarView.classList.add("is-active");
-      els.queueListView.classList.remove("is-active");
       renderQueue();
     });
+    for (const button of els.postsTabButtons ?? []) {
+      button.addEventListener("click", () => setQueueTab(button.dataset.queueTab));
+      button.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const tabs = els.postsTabButtons;
+        const current = tabs.indexOf(button);
+        const next = event.key === "ArrowRight" ? (current + 1) % tabs.length : (current - 1 + tabs.length) % tabs.length;
+        tabs[next].focus();
+        setQueueTab(tabs[next].dataset.queueTab);
+      });
+    }
     els.calendarPrev.addEventListener("click", () => {
-      state.calendarCursor = new Date(state.calendarCursor.getFullYear(), state.calendarCursor.getMonth() - 1, 1);
+      if (state.calendarMode === "week") {
+        state.calendarCursor = new Date(state.calendarCursor.getFullYear(), state.calendarCursor.getMonth(), state.calendarCursor.getDate() - 7);
+      } else {
+        state.calendarCursor = new Date(state.calendarCursor.getFullYear(), state.calendarCursor.getMonth() - 1, 1);
+      }
       renderCalendar();
     });
     els.calendarNext.addEventListener("click", () => {
-      state.calendarCursor = new Date(state.calendarCursor.getFullYear(), state.calendarCursor.getMonth() + 1, 1);
+      if (state.calendarMode === "week") {
+        state.calendarCursor = new Date(state.calendarCursor.getFullYear(), state.calendarCursor.getMonth(), state.calendarCursor.getDate() + 7);
+      } else {
+        state.calendarCursor = new Date(state.calendarCursor.getFullYear(), state.calendarCursor.getMonth() + 1, 1);
+      }
       renderCalendar();
     });
     els.calendarToday.addEventListener("click", () => {
       state.calendarCursor = new Date();
       renderCalendar();
     });
+    els.calendarModeMonth?.addEventListener("click", () => {
+      state.calendarMode = "month";
+      renderCalendar();
+    });
+    els.calendarModeWeek?.addEventListener("click", () => {
+      state.calendarMode = "week";
+      renderCalendar();
+    });
 
     els.publishBtn.addEventListener("click", () => void handlePublish());
     els.clearBtn.addEventListener("click", () => void clearDraft());
 
-    els.queueUpcoming.addEventListener("click", (event) => {
+    els.postsList.addEventListener("click", (event) => {
       const cancel = event.target.closest("[data-cancel]");
-      if (cancel) void cancelJob(cancel.dataset.cancel);
+      if (cancel) {
+        void cancelJob(cancel.dataset.cancel);
+        return;
+      }
+      const retryRecord = event.target.closest("[data-retry-record]");
+      if (retryRecord) {
+        void retryPost({ recordId: retryRecord.dataset.retryRecord, button: retryRecord });
+        return;
+      }
+      const retryJob = event.target.closest("[data-retry-job]");
+      if (retryJob) void retryPost({ jobId: retryJob.dataset.retryJob, button: retryJob });
+    });
+    els.calendarGrid.addEventListener("click", (event) => {
+      const open = event.target.closest("[data-open-posts]");
+      if (open) openPosts(open.dataset.openPosts);
     });
     els.previews.addEventListener("click", (event) => {
       const apply = event.target.closest("[data-apply-variant]");

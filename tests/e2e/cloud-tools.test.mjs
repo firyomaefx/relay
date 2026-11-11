@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
 import { CloudStore } from "../../packages/cloud/dist/index.js";
-import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helpers.mjs";
+import { cleanupTempDir, makeTempDir, repoRoot, sleep, spawnNode, waitFor } from "../helpers.mjs";
 
 const TOKEN_KEY = Buffer.alloc(32, 29).toString("base64");
 const PORT = 44995;
@@ -36,7 +36,7 @@ test("cloud surface exposes balance, usage and prices without changing the owner
   const key = store.createApiKey(customer.id, "tools");
   store.close();
 
-  const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
+  const child = spawnNode("apps/mcp/dist/cloud-entry.js", {
     cwd: repoRoot,
     env: {
       ...process.env,

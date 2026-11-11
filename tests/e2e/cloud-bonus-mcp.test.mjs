@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
 import { CloudStore } from "../../packages/cloud/dist/index.js";
-import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helpers.mjs";
+import { cleanupTempDir, makeTempDir, repoRoot, sleep, spawnNode, waitFor } from "../helpers.mjs";
 
 const PORT = 44989;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -34,7 +34,7 @@ test("bonus tools are owner-only, write type bonus, and customers never see them
   const customerKey = store.createApiKey(customer.id, "customer").key;
   store.close();
 
-  const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
+  const child = spawnNode("apps/mcp/dist/cloud-entry.js", {
     cwd: repoRoot,
     env: {
       ...process.env,

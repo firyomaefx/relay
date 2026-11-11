@@ -6,6 +6,7 @@
  * `node --test tests/` and `npm run smoke` can use it.
  */
 import { spawn } from "node:child_process";
+import { closeSync, mkdirSync, openSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
@@ -129,21 +130,46 @@ export async function listFiles(dir) {
   }
 }
 
-/** Spawns `node <entry>` with stdout/stderr captured (bounded tails for failures). */
+/**
+ * Spawns `node <entry>` with stdout/stderr captured (bounded tails for failures).
+ *
+ * Output goes to files rather than pipes. That keeps the helper working inside
+ * the Windows file sandbox used by this workspace, where creating a pipe for a
+ * child process is denied with EPERM.
+ */
+let spawnLogSeq = 0;
 export function spawnNode(entry, { cwd = repoRoot, env = {}, args = [] } = {}) {
+  const logDir = path.join(repoRoot, "tests", ".tmp", "process-logs");
+  mkdirSync(logDir, { recursive: true });
+  const stem = `${process.pid}-${++spawnLogSeq}`;
+  const stdoutPath = path.join(logDir, `${stem}.out.log`);
+  const stderrPath = path.join(logDir, `${stem}.err.log`);
+  const stdoutFd = openSync(stdoutPath, "w");
+  const stderrFd = openSync(stderrPath, "w");
   const child = spawn(process.execPath, [entry, ...args], {
     cwd,
     env: { ...process.env, ...env },
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", stdoutFd, stderrFd],
     windowsHide: true,
   });
   const captured = { stdout: "", stderr: "" };
   const MAX_CAPTURE = 512 * 1024;
-  child.stdout?.on("data", (chunk) => {
-    captured.stdout = (captured.stdout + chunk.toString()).slice(-MAX_CAPTURE);
-  });
-  child.stderr?.on("data", (chunk) => {
-    captured.stderr = (captured.stderr + chunk.toString()).slice(-MAX_CAPTURE);
+  function readLog(file) {
+    try {
+      return readFileSync(file, "utf8").slice(-MAX_CAPTURE);
+    } catch {
+      return "";
+    }
+  }
+  child.once("exit", () => {
+    captured.stdout = readLog(stdoutPath);
+    captured.stderr = readLog(stderrPath);
+    try {
+      closeSync(stdoutFd);
+      closeSync(stderrFd);
+    } catch {
+      /* already closed */
+    }
   });
   const exited = new Promise((resolve) => child.once("exit", (code, signal) => resolve({ code, signal })));
 
@@ -157,7 +183,15 @@ export function spawnNode(entry, { cwd = repoRoot, env = {}, args = [] } = {}) {
     get running() {
       return child.exitCode === null && child.signalCode === null;
     },
+    kill(signal) {
+      return child.kill(signal);
+    },
+    once(event, listener) {
+      return child.once(event, listener);
+    },
     tail(limit = 6000) {
+      captured.stdout = readLog(stdoutPath);
+      captured.stderr = readLog(stderrPath);
       const text = `stdout tail:\n${captured.stdout}\nstderr tail:\n${captured.stderr}`;
       return text.length > limit ? text.slice(-limit) : text;
     },
@@ -384,16 +418,81 @@ export async function readSchedulerLock(dataDir) {
   }
 }
 
+async function freeTcpPort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
 /**
- * Starts the MCP server over stdio with the official SDK client.
- * Returns the client plus a `tail()` of the server's stderr for diagnostics.
+ * Starts the MCP server with the official SDK client.
+ *
+ * The default transport is stdio. Inside the Windows file sandbox, stdio pipes
+ * are blocked with EPERM, so the helper falls back to the server's token-
+ * protected Streamable HTTP transport. Both transports expose the same tools.
  */
 export async function startMcpClient({ dataDir, env = {} } = {}) {
   const entry = path.join(repoRoot, "apps", "mcp", "dist", "index.js");
   await requireFile(entry, "The MCP server is not built yet.");
   const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
-  const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
 
+  if (process.env.DSH_SESSION_ID || process.env.RELAY_TEST_MCP_HTTP === "1") {
+    const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+    const token = `mcp-test-${process.pid}-${Date.now()}`;
+    const port = await freeTcpPort();
+    const proc = spawnNode(entry, {
+      env: { RELAY_DATA_DIR: dataDir, RELAY_MOCK: "1", RELAY_MCP_HTTP_TOKEN: token, ...env },
+      args: ["--http", "--port", String(port), "--token", token],
+    });
+    const tail = (limit = 6000) => proc.tail(limit);
+    try {
+      await waitFor(async () => {
+        try {
+          return (await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(1000) })).ok;
+        } catch {
+          return false;
+        }
+      }, { timeoutMs: 30000, label: "MCP HTTP health", onTimeout: () => tail() });
+    } catch (error) {
+      proc.kill("SIGKILL");
+      throw error;
+    }
+    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`), {
+      requestInit: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const client = new Client({ name: "relay-e2e-client", version: "1.0.0" });
+    try {
+      await client.connect(transport);
+    } catch (error) {
+      proc.kill("SIGKILL");
+      throw new Error(`MCP initialize handshake failed over HTTP: ${error.message}\nserver tail:\n${tail()}`);
+    }
+    const close = async () => {
+      try {
+        await client.close();
+      } catch {
+        // Best effort.
+      }
+      try {
+        await transport.close();
+      } catch {
+        // Best effort.
+      }
+      try {
+        proc.kill("SIGTERM");
+      } catch {
+        // Already gone.
+      }
+    };
+    return { client, transport, close, tail };
+  }
+
+  const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [entry],

@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
 import { CloudStore } from "../../packages/cloud/dist/index.js";
-import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helpers.mjs";
+import { cleanupTempDir, makeTempDir, repoRoot, sleep, spawnNode, waitFor } from "../helpers.mjs";
 
 const TOKEN_KEY = Buffer.alloc(32, 11).toString("base64");
 const PORT = 44991;
@@ -28,7 +28,7 @@ async function initialize(base, key) {
 }
 
 test("cloud MCP entry fails closed when cloud mode is off", async () => {
-  const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
+  const child = spawnNode("apps/mcp/dist/cloud-entry.js", {
     cwd: repoRoot,
     env: { ...process.env, RELAY_CLOUD_ENABLED: "0", RELAY_CLOUD_MCP_PORT: String(PORT + 1) },
     stdio: ["ignore", "pipe", "pipe"],
@@ -45,7 +45,7 @@ test("cloud MCP entry rejects missing keys and resolves a valid key to one custo
   const key = store.createApiKey(customer.id, "test");
   store.close();
 
-  const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
+  const child = spawnNode("apps/mcp/dist/cloud-entry.js", {
     cwd: repoRoot,
     env: {
       ...process.env,

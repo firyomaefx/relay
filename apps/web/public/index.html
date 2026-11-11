@@ -50,7 +50,7 @@
                 <path d="M4 16.5l8 4.4 8-4.4" />
               </svg>
             </span>
-            <span class="nav-label">Queue</span>
+            <span class="nav-label">Posts</span>
             <span class="nav-badge" id="navQueueBadge" hidden>0</span>
           </button>
           <button class="nav-item" type="button" data-nav="history">
@@ -60,7 +60,7 @@
                 <path d="M12 7.6V12l3.1 1.9" />
               </svg>
             </span>
-            <span class="nav-label">History</span>
+            <span class="nav-label">Published</span>
           </button>
           <button class="nav-item" type="button" data-nav="accounts">
             <span class="nav-icon" aria-hidden="true">
@@ -470,16 +470,23 @@
 
         <section class="screen" id="screen-queue" data-screen="queue" aria-labelledby="queueTitle" hidden>
           <div class="screen-intro">
-            <p class="eyebrow">Scheduler</p>
-            <h2 class="display" id="queueTitle">Queue<span class="display-dot">.</span></h2>
-            <p class="lede">Everything waiting for its moment, and a transparent log of what already ran. Cancel anything still pending.</p>
+            <p class="eyebrow">Posts</p>
+            <h2 class="display" id="queueTitle">Your posts<span class="display-dot">.</span></h2>
+            <p class="lede">Scheduled, published and failed posts in one place. Cancel a pending post, read the real error, or retry only the platforms that failed.</p>
           </div>
-          <div class="queue-viewbar">
-            <div class="segmented" role="group" aria-label="Queue layout">
+
+          <div class="posts-toolbar">
+            <div class="segmented posts-tabs" role="tablist" aria-label="Post status">
+              <button class="segmented-btn is-active" id="postsTabScheduled" type="button" role="tab" aria-selected="true" aria-controls="postsListPanel" data-queue-tab="scheduled">Scheduled <span class="tab-count" id="postsCountScheduled">0</span></button>
+              <button class="segmented-btn" id="postsTabPublished" type="button" role="tab" aria-selected="false" aria-controls="postsListPanel" data-queue-tab="published">Published <span class="tab-count" id="postsCountPublished">0</span></button>
+              <button class="segmented-btn" id="postsTabFailed" type="button" role="tab" aria-selected="false" aria-controls="postsListPanel" data-queue-tab="failed">Failed <span class="tab-count" id="postsCountFailed">0</span></button>
+            </div>
+            <div class="segmented" role="group" aria-label="Posts layout">
               <button class="segmented-btn is-active" id="queueListView" type="button">List</button>
               <button class="segmented-btn" id="queueCalendarView" type="button">Calendar</button>
             </div>
           </div>
+
           <div class="bezel reveal" id="calendarPanel" hidden>
             <section class="panel calendar-panel" aria-labelledby="calendarTitle">
               <header class="panel-head">
@@ -488,6 +495,10 @@
                   <h3 id="calendarTitle">Content calendar</h3>
                 </div>
                 <div class="calendar-nav">
+                  <div class="segmented calendar-mode" role="group" aria-label="Calendar scale">
+                    <button class="segmented-btn is-active" id="calendarModeMonth" type="button" aria-pressed="true">Month</button>
+                    <button class="segmented-btn" id="calendarModeWeek" type="button" aria-pressed="false">Week</button>
+                  </div>
                   <button class="ghost-btn icon-btn" id="calendarPrev" type="button" aria-label="Previous month">‹</button>
                   <span class="calendar-month" id="calendarMonth"></span>
                   <button class="ghost-btn icon-btn" id="calendarNext" type="button" aria-label="Next month">›</button>
@@ -504,31 +515,18 @@
               </div>
             </section>
           </div>
-          <div class="queue-layout" id="queueListPanels">
-            <div class="bezel" style="--i:0">
-              <section class="panel" aria-labelledby="upcomingTitle">
-                <header class="panel-head">
-                  <div>
-                    <p class="panel-eyebrow">Upcoming</p>
-                    <h3 id="upcomingTitle">Scheduled posts</h3>
-                  </div>
-                  <span class="count-badge" id="queueUpcomingCount">0</span>
-                </header>
-                <div class="list" id="queueUpcoming"></div>
-              </section>
-            </div>
-            <div class="bezel" style="--i:1">
-              <section class="panel" aria-labelledby="pastTitle">
-                <header class="panel-head">
-                  <div>
-                    <p class="panel-eyebrow">Past runs</p>
-                    <h3 id="pastTitle">Completed &amp; canceled</h3>
-                  </div>
-                  <span class="count-badge" id="queuePastCount">0</span>
-                </header>
-                <div class="list" id="queuePast"></div>
-              </section>
-            </div>
+
+          <div class="bezel" id="queueListPanels" style="--i:0">
+            <section class="panel" id="postsListPanel" role="tabpanel" aria-labelledby="postsTabScheduled">
+              <header class="panel-head">
+                <div>
+                  <p class="panel-eyebrow" id="postsListEyebrow">Upcoming</p>
+                  <h3 id="postsListTitle">Scheduled posts</h3>
+                </div>
+                <span class="count-badge" id="postsListCount">0</span>
+              </header>
+              <div class="list" id="postsList"></div>
+            </section>
           </div>
         </section>
 

@@ -5209,3 +5209,111 @@ body[data-role="customer"] .publish-panel{position:sticky;top:84px}
   .compose-mode-note{width:100%}
   .publish-panel .primary-btn{position:sticky;bottom:12px;z-index:5}
 }
+
+/* Posts dashboard, week calendar and safe retry */
+.posts-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 16px}
+.posts-tabs{flex-wrap:wrap}
+.posts-tabs .segmented-btn{display:inline-flex;align-items:center;gap:7px}
+.tab-count{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:rgba(15,23,20,.08);font-size:10px;line-height:1;font-weight:700}
+.segmented-btn.is-active .tab-count{background:rgba(15,23,20,.12)}
+.calendar-mode{display:inline-flex;margin-right:6px}
+.calendar-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.calendar-grid.is-week{grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:minmax(220px,auto)}
+.calendar-grid.is-week .calendar-weekday{display:flex;flex-direction:column;gap:2px;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0}
+.calendar-grid.is-week .calendar-weekday span{font-size:10px;font-weight:500;color:var(--text-mute);letter-spacing:.04em;text-transform:uppercase}
+.calendar-grid.is-week .calendar-day{min-height:220px;overflow:auto}
+.calendar-grid.is-week .calendar-events{max-height:none}
+.calendar-empty{display:block;padding:8px 0;font-size:11px;color:var(--text-mute)}
+.calendar-event{width:100%;text-align:left;border:1px solid transparent;font:inherit;cursor:pointer}
+.calendar-event:hover,.calendar-event:focus-visible{border-color:currentColor}
+.calendar-more{border:0;background:transparent;padding:4px 0;font:inherit;font-size:10px;color:var(--text-mute);cursor:pointer;text-align:left}
+.calendar-more:hover{color:var(--text)}
+.error-details{margin:8px 0 0}
+.error-details summary{cursor:pointer;font-size:11px;color:var(--text-mute);width:max-content}
+.error-details pre{margin:6px 0 0;padding:10px;border-radius:8px;background:var(--surface-2);border:1px solid var(--hairline);font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-mute)}
+.retry-btn{border-color:rgba(184,60,42,.3);color:#a33a2b}
+.retry-btn:hover{border-color:rgba(184,60,42,.55);color:#7d281d}
+@media(max-width:940px){
+  .posts-toolbar{align-items:stretch}
+  .posts-toolbar>.segmented{width:100%}
+  .posts-tabs .segmented-btn{flex:1 1 auto}
+  .calendar-grid.is-week{grid-template-columns:repeat(7,minmax(160px,1fr));overflow-x:auto}
+}
+
+/* Approximate native previews */
+.preview-card-native{padding-bottom:10px}
+.approximate-label{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-mute);margin-left:auto;margin-right:8px}
+.preview-mock{margin:12px 0 0;border:1px solid var(--hairline);border-radius:14px;background:#fff;color:#141915;overflow:hidden;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.preview-mock p{margin:0;white-space:normal}
+.mock-avatar{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:50%;background:linear-gradient(145deg,#2f6b4b,#173a29);color:#effff5;font-size:12px;font-weight:700;overflow:hidden}
+.mock-avatar img{width:100%;height:100%;object-fit:cover}
+.mock-media{position:relative;background:#eef1ee;overflow:hidden}
+.mock-media img,.mock-media video{display:block;width:100%;height:100%;object-fit:cover}
+.mock-media-empty{display:grid;place-items:center;min-height:120px;color:#7a867e;font-size:11px;text-align:center;padding:16px}
+.mock-play{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff}
+.mock-video-label{position:absolute;right:8px;top:8px;padding:3px 7px;border-radius:999px;background:rgba(0,0,0,.6);color:#fff;font-size:9px}
+.mock-x{padding:14px}
+.mock-thread{display:grid;gap:0}
+.mock-post-line{display:flex;gap:10px;align-items:flex-start}
+.mock-avatar-col{display:flex;flex-direction:column;align-items:center;align-self:stretch}
+.mock-thread-join{flex:1;width:2px;min-height:16px;background:#e3e8e4;margin:4px 0}
+.mock-post-body{min-width:0;flex:1;padding-bottom:14px}
+.mock-user{display:flex;gap:5px;align-items:baseline;flex-wrap:wrap;font-size:12px;color:#66736b}
+.mock-user strong{font-size:13px;color:#141915}
+.mock-user .mock-dot{color:#98a49c}
+.mock-post-body>p{font-size:13px;line-height:1.5;margin-top:3px}
+.mock-x-media,.mock-threads-media{margin-top:9px;border-radius:12px;min-height:130px;max-height:240px}
+.mock-post-actions{display:flex;gap:22px;margin-top:10px;color:#748179;font-size:10px}
+.mock-threads{padding:14px}
+.mock-threads .mock-post-body>p{font-size:13.5px}
+.mock-tiktok{background:#0b0d0c;padding:16px;display:grid;place-items:center}
+.mock-phone{position:relative;width:min(240px,100%);aspect-ratio:9/16;border-radius:22px;overflow:hidden;background:linear-gradient(160deg,#22342a,#0a0d0b)}
+.mock-tiktok-media{position:absolute;inset:0;width:100%;height:100%}
+.mock-tiktok-media video,.mock-tiktok-media img{width:100%;height:100%;object-fit:cover}
+.mock-tiktok-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),transparent 45%,rgba(0,0,0,.65))}
+.mock-tiktok-caption{position:absolute;left:12px;right:42px;bottom:20px;display:grid;gap:5px;color:#fff;font-size:11px;line-height:1.4;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+.mock-tiktok-caption strong{font-size:12px}
+.mock-tiktok-caption span{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.mock-tiktok-actions{position:absolute;right:8px;bottom:26px;display:grid;gap:10px;color:#fff;font-size:17px;text-align:center}
+.mock-tiktok-rail{position:absolute;left:12px;bottom:5px;color:rgba(255,255,255,.75);font-size:9px;letter-spacing:.02em}
+.mock-youtube{background:#fff}
+.mock-video-16x9{aspect-ratio:16/9;display:grid;place-items:center;background:#dfe5e1}
+.mock-yt-meta{display:flex;gap:10px;padding:12px}
+.mock-yt-meta strong{display:block;font-size:13px;line-height:1.35}
+.mock-yt-meta span{display:block;margin-top:3px;font-size:10.5px;color:#718077}
+.mock-yt-meta p{margin-top:7px;font-size:11px;line-height:1.45;color:#55635a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mock-instagram{background:#fff}
+.mock-ig-head{display:flex;align-items:center;gap:9px;padding:10px 12px}
+.mock-ig-head .mock-avatar{width:28px;height:28px;font-size:9px}
+.mock-ig-head strong{font-size:12px;flex:1}
+.mock-ig-head>span:last-child{color:#637069;letter-spacing:2px}
+.mock-square{aspect-ratio:1/1}
+.mock-ig-actions{display:flex;gap:13px;padding:9px 12px 3px;font-size:16px}
+.mock-save{margin-left:auto}
+.mock-ig-caption{padding:2px 12px 12px;font-size:11.5px;line-height:1.5}
+.mock-ig-caption strong{margin-right:4px}
+.mock-carousel-dots{display:flex;justify-content:center;gap:4px;padding:0 0 10px}
+.mock-carousel-dots i{width:5px;height:5px;border-radius:50%;background:#c8d0cb}
+.mock-carousel-dots i[data-active="true"]{background:#4c7a61}
+.mock-linkedin{padding:14px}
+.mock-li-head{display:flex;gap:9px;align-items:center}
+.mock-li-head .mock-avatar{width:40px;height:40px;font-size:11px;border-radius:6px}
+.mock-li-head strong{display:block;font-size:13px}
+.mock-li-head span{display:block;font-size:10px;color:#6a7870;margin-top:2px}
+.mock-linkedin>p{margin:10px 0 0;font-size:12.5px;line-height:1.5}
+.mock-li-media{margin-top:10px;border-radius:6px;min-height:130px;max-height:230px}
+.mock-li-actions{display:flex;gap:24px;margin-top:12px;padding-top:9px;border-top:1px solid #e6ebe7;color:#647269;font-size:10px}
+@media(max-width:640px){
+  .preview-card-native .preview-head{flex-wrap:wrap}
+  .approximate-label{order:4;width:100%;margin:4px 0 0}
+  .mock-x,.mock-threads,.mock-linkedin{padding:11px}
+}
+
+.mock-facebook{padding:14px}
+.mock-fb-head{display:flex;gap:9px;align-items:center}
+.mock-fb-head .mock-avatar{border-radius:8px;background:#1877f2}
+.mock-fb-head strong{display:block;font-size:13px}
+.mock-fb-head span{display:block;font-size:10px;color:#6a7870;margin-top:2px}
+.mock-facebook>p{margin:10px 0 0;font-size:12.5px;line-height:1.5}
+.mock-fb-media{margin-top:10px;border-radius:6px;min-height:130px;max-height:230px}
+.mock-fb-actions{display:flex;gap:24px;margin-top:12px;padding-top:9px;border-top:1px solid #e6ebe7;color:#647269;font-size:10px}

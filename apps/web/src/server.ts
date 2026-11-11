@@ -578,6 +578,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
         freeAllowancePosts: deps.pricing.free_allowance_posts ?? 0,
         freeAllowanceUnits: deps.pricing.free_allowance_units ?? deps.pricing.free_allowance_posts ?? 0,
         freeExcludedPlatforms: deps.pricing.free_excluded_platforms ?? [],
+        display: {
+          currency: deps.pricing.display_currency ?? "MYR",
+          usdMyrRate: deps.pricing.usd_myr_rate ?? null,
+          rateCheckedAt: deps.pricing.rate_checked_at ?? null,
+          note: "Billing is in US dollars. RM figures are estimates at the displayed rate.",
+        },
         prices: deps.pricing.prices,
       });
       return;
@@ -1030,6 +1036,18 @@ async function handleApi(
     }
     if (method === "POST" && resource === "posts") {
       await handleCreatePost(req, res, relay, deps, session);
+      return;
+    }
+    if (method === "POST" && resource === "retry") {
+      const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+      const result = await relay.retryFailed({
+        ...(typeof body.recordId === "string" ? { recordId: body.recordId } : {}),
+        ...(typeof body.jobId === "string" ? { jobId: body.jobId } : {}),
+      });
+      if (!result.scheduled && result.recordId) {
+        settleConsoleBilling(await relay.history(5), deps.cloudAdmin, deps.pricing, session.kind === "customer" ? session.customer.id : undefined);
+      }
+      sendJson(res, 200, result);
       return;
     }
     if (method === "POST" && resource === "validate") {

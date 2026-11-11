@@ -93,9 +93,9 @@ async function prepareTikTokVideo(
       ]);
       audio = String(probe.stdout ?? "").trim();
     } catch (error) {
-      const missing = typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT";
-      if (missing) {
-        ctx.logger("TikTok audio preparation skipped: ffmpeg/ffprobe is not installed on this host.");
+      const code = typeof error === "object" && error !== null && "code" in error ? (error as { code?: string }).code : undefined;
+      if (code === "ENOENT" || code === "EPERM") {
+        ctx.logger("TikTok audio preparation skipped: ffmpeg/ffprobe is not available on this host.");
         return original;
       }
       throw new RelayError(

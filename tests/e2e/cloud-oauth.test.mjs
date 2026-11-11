@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import test from "node:test";
 import { CloudStore } from "../../packages/cloud/dist/index.js";
-import { cleanupTempDir, makeTempDir, repoRoot, sleep, waitFor } from "../helpers.mjs";
+import { cleanupTempDir, makeTempDir, repoRoot, sleep, spawnNode, waitFor } from "../helpers.mjs";
 
 const TOKEN_KEY = Buffer.alloc(32, 41).toString("base64");
 const PORT = 44996;
@@ -22,7 +22,7 @@ test("cloud MCP supports OAuth discovery, registration and API-key authorization
   const connect = store.createConnectToken(customer.id, "one-click");
   store.close();
 
-  const child = spawn(process.execPath, ["apps/mcp/dist/cloud-entry.js"], {
+  const child = spawnNode("apps/mcp/dist/cloud-entry.js", {
     cwd: repoRoot,
     env: {
       ...process.env,
