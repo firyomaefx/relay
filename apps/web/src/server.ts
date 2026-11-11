@@ -698,14 +698,29 @@ async function handleApi(
       const body = asRecord(await readJsonBody(req, 16 * 1024));
       const email = typeof body.email === "string" ? body.email.trim() : "";
       const phone = typeof body.phone === "string" ? body.phone.trim() : "";
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!email || !phone) {
+        throw new RelayError("Add your email and phone before saving the profile.", "cloud_profile_incomplete", undefined, 400);
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         throw new RelayError("Enter a valid email address.", "cloud_email_invalid", undefined, 400);
+      }
+      if (phone.replace(/\D/g, "").length < 6) {
+        throw new RelayError("Enter a valid phone number.", "cloud_phone_invalid", undefined, 400);
       }
       deps.cloudAdmin.store.updateCustomerProfile(owner.id, { email, phone });
       sendJson(res, 200, profilePayload());
       return;
     }
     if (method === "POST" && segments.length === 4 && segments[3] === "api-key") {
+      const current = deps.cloudAdmin.store.getCustomer(owner.id);
+      if (!current?.email || !current.phone) {
+        throw new RelayError(
+          "Add your email and phone in Profile & API key, then save, before generating an API key.",
+          "cloud_profile_incomplete",
+          undefined,
+          400,
+        );
+      }
       const created = deps.cloudAdmin.store.createApiKey(owner.id, "Console profile");
       sendJson(res, 201, {
         ...profilePayload(),

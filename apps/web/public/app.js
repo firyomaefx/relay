@@ -2160,10 +2160,17 @@
     if (els.profileEmail) els.profileEmail.value = customer.email ?? "";
     if (els.profilePhone) els.profilePhone.value = customer.phone ?? "";
     const keys = Array.isArray(data?.keys) ? data.keys : [];
+    const complete = Boolean(customer.email && customer.phone);
+    if (els.profileKeyBtn) {
+      els.profileKeyBtn.disabled = !complete;
+      els.profileKeyBtn.title = complete ? "" : "Add and save your email and phone first.";
+    }
     if (els.profileKeyStatus) {
-      els.profileKeyStatus.textContent = keys.length
-        ? `${keys.length} active key${keys.length === 1 ? "" : "s"} · latest ${keys[keys.length - 1].prefix}…`
-        : "No active key yet.";
+      els.profileKeyStatus.textContent = !complete
+        ? "Add your email and phone, then save, to enable key generation."
+        : keys.length
+          ? `${keys.length} active key${keys.length === 1 ? "" : "s"} · latest ${keys[keys.length - 1].prefix}…`
+          : "No active key yet.";
     }
   }
 
@@ -2178,14 +2185,20 @@
 
   async function saveProfile() {
     if (!els.profileEmail) return;
+    const email = els.profileEmail.value.trim();
+    const phone = els.profilePhone.value.trim();
+    if (!email || !phone) {
+      if (els.profileMessage) els.profileMessage.textContent = "Enter both email and phone before saving.";
+      return;
+    }
     els.profileSaveBtn.disabled = true;
     if (els.profileMessage) els.profileMessage.textContent = "";
     try {
       renderProfile(await api("/api/cloud/profile", {
         method: "POST",
-        body: { email: els.profileEmail.value.trim(), phone: els.profilePhone.value.trim() },
+        body: { email, phone },
       }));
-      if (els.profileMessage) els.profileMessage.textContent = "Profile saved.";
+      if (els.profileMessage) els.profileMessage.textContent = "Profile saved. You can generate a key now.";
       toast({ tone: "success", title: "Profile saved", text: "Your email and phone are updated." });
     } catch (error) {
       if (els.profileMessage) els.profileMessage.textContent = error.message;
@@ -2196,6 +2209,10 @@
 
   async function generateProfileKey() {
     if (!els.profileKeyBtn) return;
+    if (els.profileKeyBtn.disabled) {
+      if (els.profileMessage) els.profileMessage.textContent = "Add your email and phone, then save, before generating a key.";
+      return;
+    }
     els.profileKeyBtn.disabled = true;
     if (els.profileMessage) els.profileMessage.textContent = "";
     try {
@@ -2208,7 +2225,8 @@
     } catch (error) {
       if (els.profileMessage) els.profileMessage.textContent = error.message;
     } finally {
-      els.profileKeyBtn.disabled = false;
+      const complete = Boolean(els.profileEmail?.value.trim() && els.profilePhone?.value.trim());
+      els.profileKeyBtn.disabled = !complete;
     }
   }
 
