@@ -5162,7 +5162,7 @@ body { font-size: 17px; }
 .profile-key-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .profile-key-head .kv-value{overflow-wrap:anywhere}
 .profile-key-head .ghost-btn{flex:none}
-.profile-key-section .field-hint{margin:7px 0 0}
+.profile-key-section .field-hint{display:block !important;margin:7px 0 0}
 .profile-key-box{margin-top:14px;padding:14px;border:1px solid var(--hairline);border-radius:14px;background:#fbfbfc}
 .profile-key-box code{display:block;margin:8px 0 10px;padding:10px;border-radius:9px;background:#fff;border:1px solid var(--hairline);font:12px/1.6 var(--font-mono);word-break:break-all;color:var(--text)}
 .profile-key-box .ghost-btn{width:auto}
