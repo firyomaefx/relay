@@ -5176,3 +5176,5 @@ body { font-size: 17px; }
 .history-billing-note{font-size:11px;color:var(--text-mute)}
 .row-actions .cost-badge{display:inline-flex;align-items:baseline;gap:5px;padding:7px 10px;border:1px solid var(--hairline);border-radius:999px;background:var(--surface-2);color:var(--text);font-size:12px;font-weight:600;white-space:nowrap}
 .row-actions .cost-badge small{font-size:10px;font-weight:400;color:var(--text-mute)}
+
+.history-billing + .history-billing-note{margin:-6px 0 14px}
