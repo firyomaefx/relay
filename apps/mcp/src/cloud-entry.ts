@@ -65,7 +65,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
     publicBaseUrl: process.env.RELAY_CLOUD_PUBLIC_URL?.trim() || "https://cloud-mcp.duitpoket.fun",
     secret: oauthSecret,
     credentialLabel: "Relay Cloud API key",
-    credentialHelp: "Your key starts with rly_. You were given it when your Relay Cloud access was set up. Lost it? Ask at relay.duitpoket.fun/contact.",
+    credentialHelp: "Your key starts with rly_. Generate or copy it at relay.duitpoket.fun/login, then Settings, then Profile and API key.",
     authenticate: async (credential) => {
       try {
         const resolved = store.resolveApiKey(credential);
