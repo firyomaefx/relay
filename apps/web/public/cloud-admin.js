@@ -56,9 +56,9 @@ async function waitlistAction(id, action) {
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) { alert(data.error || 'Could not update this request'); return; }
-  const inviteUrl = data.connectUrl || '';
+  const inviteUrl = data.setupUrl || data.connectUrl || '';
   const subject = encodeURIComponent('Your Relay Cloud invite');
-  const body = encodeURIComponent(`Hi ${entry.name},\n\nYour Relay Cloud place is ready. Use this private connection link:\n\n${inviteUrl}\n\nTreat this link like a password.\n\nRelay`);
+  const body = encodeURIComponent(`Hi ${entry.name},\n\nYour Relay Cloud account is ready. Set your password here:\n\n${inviteUrl}\n\nTreat this link like a password.\n\nRelay`);
   $('waitlistInvite').innerHTML = `<div class="invite-box">
     <strong>Invite ready for ${esc(entry.name)} <${esc(entry.email)}></strong>
     <div class="muted" style="margin-top:4px">${data.emailSent ? 'The invite email was sent automatically. You can resend the link below.' : 'Automatic email is not configured. Copy this private link or open an email draft.'} It acts as their account; do not post it publicly.</div>

@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRelay } from "@relay/platforms";
-import { PLATFORM_IDS, type RelayService } from "@relay/core";
+import { PLATFORM_IDS, type PlatformCredentials, type PlatformId, type RelayService } from "@relay/core";
 import type { CloudConfig } from "./config.js";
 import type { CloudStore, Customer } from "./db.js";
 
@@ -14,6 +14,7 @@ export interface TenantManagerOptions {
   forceMock?: boolean;
   consoleUrl?: string;
   logger?: (message: string) => void;
+  credentials?: () => Partial<Record<PlatformId, PlatformCredentials>>;
 }
 
 /**
@@ -23,6 +24,7 @@ export interface TenantManagerOptions {
  */
 export class TenantManager {
   private readonly services = new Map<string, Promise<RelayService>>();
+  private readonly credentialed = new Set<string>();
   private readonly env: NodeJS.ProcessEnv;
   private readonly forceMock: boolean;
   private readonly consoleUrl: string;
@@ -37,7 +39,11 @@ export class TenantManager {
 
   async get(customer: Customer): Promise<RelayService> {
     const existing = this.services.get(customer.id);
-    if (existing) return existing;
+    if (existing) {
+      const relay = await existing;
+      await this.ensureSharedCredentials(customer, relay);
+      return relay;
+    }
     const pending = this.open(customer);
     this.services.set(customer.id, pending);
     try {
@@ -59,7 +65,13 @@ export class TenantManager {
     if (!customer.owner) await this.ensureTenantSecret(dataDir, customer.id);
     const tenantEnv = { ...this.env };
     // A platform-wide owner key must never satisfy a tenant's own API-key gate.
-    if (!customer.owner) delete tenantEnv.DEEPSEEK_API_KEY;
+    if (!customer.owner) {
+      delete tenantEnv.DEEPSEEK_API_KEY;
+      // The public /media route is served from the installation media folder.
+      tenantEnv.RELAY_MEDIA_DIR = path.join(this.options.config.ownerDataDir, "media");
+      tenantEnv.RELAY_PUBLIC_MEDIA_BASE_URL = tenantEnv.RELAY_PUBLIC_MEDIA_BASE_URL
+        || this.consoleUrl;
+    }
     const relay = await createRelay({
       dataDir,
       forceMock: this.forceMock,
@@ -69,8 +81,23 @@ export class TenantManager {
       env: customer.owner ? this.env : { ...tenantEnv, THREADS_AUTOREPLY_ENABLED: "true" },
       logger: (message) => this.logger(`[tenant ${customer.id}] ${message}`),
     });
+    await this.ensureSharedCredentials(customer, relay);
     await this.recordMappings(customer, relay);
     return relay;
+  }
+
+  private async ensureSharedCredentials(customer: Customer, relay: RelayService): Promise<void> {
+    if (customer.owner || this.credentialed.has(customer.id)) return;
+    const shared = this.options.credentials?.() ?? {};
+    for (const platform of PLATFORM_IDS) {
+      const credentials = shared[platform];
+      if (credentials?.clientId && credentials.clientSecret) {
+        await relay.saveCredentials(platform, credentials).catch((error: unknown) => {
+          this.logger(`[tenant ${customer.id}] credential bootstrap failed for ${platform}: ${String(error)}`);
+        });
+      }
+    }
+    this.credentialed.add(customer.id);
   }
 
   /** Customer tokens use a per-tenant key derived from RELAY_CLOUD_TOKEN_KEY. */

@@ -919,17 +919,20 @@ async function handleApi(
     const owner = operator
       ? deps.cloudAdmin.store.ensureOwnerCustomer("Relay Cloud")
       : session.customer;
-    const profilePayload = () => ({
-      customer: {
-        id: owner.id,
-        displayName: owner.displayName,
-        email: owner.email,
-        phone: owner.phone,
-      },
-      keys: deps.cloudAdmin!.store.listApiKeys(owner.id)
-        .filter((key) => key.status === "active")
-        .map((key) => ({ id: key.id, prefix: key.prefix, label: key.label, createdAt: key.createdAt, lastUsedAt: key.lastUsedAt })),
-    });
+    const profilePayload = () => {
+      const current = deps.cloudAdmin!.store.getCustomer(owner.id) ?? owner;
+      return {
+        customer: {
+          id: current.id,
+          displayName: current.displayName,
+          email: current.email,
+          phone: current.phone,
+        },
+        keys: deps.cloudAdmin!.store.listApiKeys(current.id)
+          .filter((key) => key.status === "active")
+          .map((key) => ({ id: key.id, prefix: key.prefix, label: key.label, createdAt: key.createdAt, lastUsedAt: key.lastUsedAt })),
+      };
+    };
     if (method === "GET" && segments.length === 3) {
       sendJson(res, 200, profilePayload());
       return;
@@ -986,7 +989,7 @@ async function handleApi(
         relay.accounts(),
         relay.listQueue(),
         relay.history(50),
-        operator ? Promise.resolve(relay.credentialInfos()) : Promise.resolve([]),
+        Promise.resolve(relay.credentialInfos()),
         relay.schedulerStatus(),
       ]);
       settleConsoleBilling(history, deps.cloudAdmin, deps.pricing, session.kind === "customer" ? session.customer.id : undefined);
@@ -1463,6 +1466,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   } catch (error) {
     logger(`cloud admin disabled: ${errorMessage(error)}`);
   }
+  let relay: RelayService | null = null;
   let tenantManager: TenantManager | undefined;
   if (cloudAdmin) {
     tenantManager = new TenantManager({
@@ -1472,10 +1476,9 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       forceMock,
       consoleUrl: options.consoleUrl ?? config.consoleUrl ?? env.RELAY_CONSOLE_URL?.trim() ?? "https://relay.duitpoket.fun",
       logger,
+      credentials: () => relay?.credentialValues() ?? {},
     });
   }
-
-  let relay: RelayService | null = null;
   const server = createServer(
     createHandler({
       session,

@@ -1949,6 +1949,11 @@ export class RelayService {
     };
   }
 
+  /** Internal bootstrap for tenant isolation; never expose over HTTP. */
+  credentialValues(): Partial<Record<PlatformId, PlatformCredentials>> {
+    return this.credentials.values();
+  }
+
   async saveCredentials(platform: PlatformId, credentials: PlatformCredentials): Promise<void> {
     this.getAdapter(platform);
     await this.credentials.save(platform, credentials);

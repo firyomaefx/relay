@@ -93,6 +93,16 @@ export class CredentialStore {
     return { platform, configured: true, source: fromSettings ? "settings" : "env" };
   }
 
+  /** Installation-wide client credentials, used to bootstrap isolated tenants. */
+  values(): Partial<Record<PlatformId, PlatformCredentials>> {
+    const values: Partial<Record<PlatformId, PlatformCredentials>> = {};
+    for (const platform of PLATFORM_IDS) {
+      const credentials = this.get(platform);
+      if (credentials.clientId && credentials.clientSecret) values[platform] = credentials;
+    }
+    return values;
+  }
+
   list(): CredentialInfo[] {
     return PLATFORM_IDS.map((platform) => this.info(platform));
   }
