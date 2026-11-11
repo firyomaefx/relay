@@ -14,6 +14,7 @@ import {
   isPlatformId,
   RelayError,
   type PlatformId,
+  type PostRecord,
   type RelayService,
 } from "@relay/core";
 import { createRelay } from "@relay/platforms";
@@ -40,6 +41,78 @@ import {
 const MAX_JSON_BYTES = 2 * 1024 * 1024;
 const MAX_MEDIA_JSON_BYTES = 90 * 1024 * 1024;
 const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
+
+/** Local console posts created after this point are settled against the owner ledger. */
+const CONSOLE_BILLING_SINCE = "2026-11-11T14:20:00.000Z";
+
+/** Charge newly recorded console posts once, idempotently, using the same list prices. */
+function settleConsoleBilling(records: PostRecord[], cloudAdmin: CloudAdminDeps | undefined, config: CloudPrices | null): void {
+  if (!cloudAdmin || !config) return;
+  const owner = cloudAdmin.store.ensureOwnerCustomer("Owner");
+  const prices = PriceTable.fromConfig(config);
+  const freeLimit = Number(config.free_allowance_milli_usd ?? 0);
+  const excluded = new Set(config.free_excluded_platforms ?? []);
+  const ordered = [...records].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  for (const record of ordered) {
+    const createdAt = Date.parse(record.createdAt);
+    if (!Number.isFinite(createdAt) || createdAt < Date.parse(CONSOLE_BILLING_SINCE)) continue;
+    const succeeded = new Set(record.results.filter((entry) => entry.ok).map((entry) => entry.platform));
+    if (succeeded.size === 0) continue;
+    try {
+      const quote = prices.quote(record.draft, record.draft.platforms ?? []);
+      let freeRemaining = freeLimit > 0 ? cloudAdmin.ledger.freeRemaining(owner.id, freeLimit) : 0;
+      let paid = 0;
+      let free = 0;
+      const successfulLines = quote.quotes.filter((line) => succeeded.has(line.platform));
+      for (const line of successfulLines) {
+        const freeAmount = freeLimit > 0 && !excluded.has(line.platform) ? Math.min(line.amount, freeRemaining) : 0;
+        freeRemaining -= freeAmount;
+        free += freeAmount;
+        paid += line.amount - freeAmount;
+      }
+      if (paid === 0 && free === 0) continue;
+      const reservation = cloudAdmin.ledger.reserve({
+        customerId: owner.id,
+        amount: paid,
+        freeUnits: free,
+        freeLimit,
+        freeJson: JSON.stringify(quote.quotes),
+        idempotencyKey: `console-post:${record.id}`,
+        ttlMs: 24 * 60 * 60 * 1000,
+      });
+      if (reservation.status === "held") {
+        const postId = record.results.find((entry) => entry.ok)?.postId;
+        cloudAdmin.ledger.commit(reservation.id, paid, postId, free);
+      }
+    } catch {
+      // Do not block history or a published post on billing reconciliation.
+    }
+  }
+}
+
+/** Add the list-price cost of each recorded draft without mutating history. */
+function historyWithCost(records: PostRecord[], config: CloudPrices | null): Array<PostRecord & { cost?: { currency: string; total: number; parts: number; lines: Array<{ platform: string; parts: number; amount: number }> } }> {
+  if (!config) return records;
+  const prices = PriceTable.fromConfig(config);
+  return records.map((record) => {
+    try {
+      const platforms = Array.isArray(record.draft?.platforms) ? record.draft.platforms : [];
+      if (platforms.length === 0) return record;
+      const quote = prices.quote(record.draft, platforms);
+      return {
+        ...record,
+        cost: {
+          currency: quote.currency,
+          total: quote.total,
+          parts: quote.quotes.reduce((sum, line) => sum + line.parts, 0),
+          lines: quote.quotes.map((line) => ({ platform: line.platform, parts: line.parts, amount: line.amount })),
+        },
+      };
+    } catch {
+      return record;
+    }
+  });
+}
 
 function waitlistLimit(): number {
   const parsed = Number(process.env.RELAY_WAITLIST_LIMIT ?? "100");
@@ -749,11 +822,12 @@ async function handleApi(
         Promise.resolve(relay.credentialInfos()),
         relay.schedulerStatus(),
       ]);
+      settleConsoleBilling(history, deps.cloudAdmin, deps.pricing);
       sendJson(res, 200, {
         settings: { ...settings, passwordProtected: deps.session.enabled },
         accounts,
         queue,
-        history,
+        history: historyWithCost(history, deps.pricing),
         credentials,
         scheduler,
         limits: relay.platformLimits(),
@@ -771,11 +845,13 @@ async function handleApi(
     if (method === "GET" && resource === "history") {
       const raw = url.searchParams.get("limit");
       const limit = raw !== null && /^\d+$/.test(raw) ? Number(raw) : 50;
-      sendJson(res, 200, { history: await relay.history(limit) });
+      const records = await relay.history(limit);
+      settleConsoleBilling(records, deps.cloudAdmin, deps.pricing);
+      sendJson(res, 200, { history: historyWithCost(records, deps.pricing) });
       return;
     }
     if (method === "POST" && resource === "posts") {
-      await handleCreatePost(req, res, relay);
+      await handleCreatePost(req, res, relay, deps);
       return;
     }
     if (method === "POST" && resource === "validate") {
@@ -961,12 +1037,15 @@ async function handleApi(
   throw new RelayError("Not found", "not_found", undefined, 404);
 }
 
-async function handleCreatePost(req: IncomingMessage, res: ServerResponse, relay: RelayService): Promise<void> {
+async function handleCreatePost(req: IncomingMessage, res: ServerResponse, relay: RelayService, deps: Parameters<typeof createHandler>[0]): Promise<void> {
   const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
   const draftValue = Object.prototype.hasOwnProperty.call(body, "draft") ? body.draft : body;
   const draft = relay.parseDraftFromJson(draftValue);
   const force = body.force === true;
   const result = await relay.createPost(draft, { force });
+  if (!result.scheduled && result.recordId) {
+    settleConsoleBilling(await relay.history(5), deps.cloudAdmin, deps.pricing);
+  }
   // Validation failures are a domain outcome, not a transport error: the client
   // renders `report.issues` and `results` directly. Only malformed JSON is a 400.
   sendJson(res, 200, result);

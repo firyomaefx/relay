@@ -681,6 +681,8 @@ export type BeginConnectResult =
 export interface CreatePostResult {
   scheduled: boolean;
   jobId?: string;
+  /** History record created for an immediate post. */
+  recordId?: string;
   results: PostResult[];
   report: ValidationReport;
 }

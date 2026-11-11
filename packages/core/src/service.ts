@@ -604,7 +604,7 @@ export class RelayService {
     const record = await this.beginPostRecord(draft, undefined);
     const results = await this.publishResolved(report.normalized, record.id);
     await this.finalizePostRecord(record.id, results);
-    return { scheduled: false, results, report };
+    return { scheduled: false, results, report, recordId: record.id };
   }
 
   private assertRecurrenceValid(draft: PostDraft, scheduleAt: number | undefined): void {

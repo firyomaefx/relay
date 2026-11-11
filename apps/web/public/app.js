@@ -540,6 +540,12 @@
       els.creditFree.textContent = Number.isFinite(freeRemaining)
         ? `\u00a0·\u00a0$${(Math.max(0, freeRemaining) / 1000).toFixed(2)} free`
         : "";
+      if (els.historyCredit) els.historyCredit.textContent = `$${(Math.max(0, total) / 1000).toFixed(2)}`;
+      if (els.historyCreditFree) {
+        els.historyCreditFree.textContent = Number.isFinite(freeRemaining)
+          ? `$${(Math.max(0, freeRemaining) / 1000).toFixed(2)} starter credit included`
+          : "";
+      }
       els.creditCard.hidden = false;
       creditFetchedAt = Date.now();
     } catch {
@@ -1384,6 +1390,10 @@
     const text = draftText(record.draft);
     const links = results.filter((entry) => entry.ok && entry.url);
     const errors = results.filter((entry) => !entry.ok);
+    const cost = record.cost;
+    const costBadge = cost && anyOk
+      ? `<span class="cost-badge" title="Total for this draft across its platforms"><strong>$${(Number(cost.total) / 1000).toFixed(2)}</strong><small>${Number(cost.parts) === 1 ? "1 part" : `${Number(cost.parts)} parts`}</small></span>`
+      : "";
     return `<div class="list-row">
       <div class="list-marker" data-tone="${allOk ? "done" : anyOk ? "pending" : "failed"}">
         <span>${validDate ? monthShort(date) : "—"}</span><strong>${validDate ? date.getDate() : "?"}</strong>
@@ -1399,6 +1409,7 @@
         ${errors.map((entry) => `<p class="result-note">${escapeHtml(`${PLATFORM_META[entry.platform]?.name ?? entry.platform}: ${entry.error ?? "failed"}`)}</p>`).join("")}
       </div>
       <div class="row-actions">
+        ${costBadge}
         ${links.slice(0, 1).map((entry) => `<a class="ghost-btn" href="${escapeAttr(entry.url)}" target="_blank" rel="noreferrer noopener">View post</a>`).join("")}
       </div>
     </div>`;
@@ -1406,6 +1417,11 @@
 
   function renderHistory() {
     els.historyCount.textContent = String(state.history.length);
+    const shownCost = state.history.reduce((sum, record) => {
+      const published = (record.results ?? []).some((entry) => entry.ok);
+      return sum + (published ? Number(record.cost?.total) || 0 : 0);
+    }, 0);
+    if (els.historyCostTotal) els.historyCostTotal.textContent = `$${(shownCost / 1000).toFixed(2)}`;
     els.historyList.innerHTML = state.history.length
       ? state.history.map(historyRowHtml).join("")
       : emptyHtml({
@@ -2475,7 +2491,10 @@
     if (name === "home") renderHome();
     else if (name === "compose") renderCompose();
     else if (name === "queue") renderQueue();
-    else if (name === "history") renderHistory();
+    else if (name === "history") {
+      renderHistory();
+      void loadCreditBalance(true);
+    }
     else if (name === "accounts") renderAccounts();
     else if (name === "settings") {
       renderSettings();
@@ -2727,6 +2746,9 @@
       creditCard: $("#creditCard"),
       creditBalance: $("#creditBalance"),
       creditFree: $("#creditFree"),
+      historyCredit: $("#historyCredit"),
+      historyCreditFree: $("#historyCreditFree"),
+      historyCostTotal: $("#historyCostTotal"),
       billingSummary: $("#billingSummary"),
       billingTopups: $("#billingTopups"),
       billingPayments: $("#billingPayments"),

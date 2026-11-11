@@ -96,6 +96,10 @@ function partsFor(draft: PostDraft, platform: string): ThreadPartDraft[] {
 export class PriceTable {
   private constructor(private readonly config: CloudPrices) {}
 
+  static fromConfig(config: CloudPrices): PriceTable {
+    return new PriceTable(config);
+  }
+
   static load(filePath: string): PriceTable {
     let parsed: unknown;
     try {
