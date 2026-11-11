@@ -27,6 +27,7 @@ input,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);bac
 input:focus,textarea:focus{border-color:rgba(184,245,208,.45)}textarea{min-height:120px;resize:vertical}
 button{margin-top:18px;padding:11px 16px;border:0;border-radius:999px;background:var(--mint);color:#06110a;font:inherit;font-weight:700;cursor:pointer}
 button:disabled{opacity:.6;cursor:wait}.msg{font-size:13px;margin-top:14px;color:var(--mint)}.err{color:#ff9d8a}.back{display:inline-block;margin-top:22px;font-size:12px;text-decoration:none}
+.site-nav{display:flex;flex-wrap:wrap;gap:14px;margin:16px 0 0;font-size:13px;color:var(--muted)}.site-nav a{color:var(--muted);text-decoration:none}.site-nav a:hover{color:var(--ink)}
 
 /* ---- Mobile and touch pass ---- */
 body{padding:20px max(16px,env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));font-size:16px}
@@ -43,6 +44,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{
 </head>
 <body><main>
   <a class="brand" href="/"><img class="brand-lockup" src="/brand/relay-cloud-lockup-light.png" alt="Relay Cloud"></a>
+  <nav class="site-nav" aria-label="Relay Cloud">
+    <a href="/">Home</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/about">About</a><a href="/connect">Connect</a><a href="/login">Log in</a>
+  </nav>
   <span class="eyebrow">Relay Cloud</span>
   <h1>Talk to us.</h1>
   <p>Agency plans, volume pricing, API access or a customer account. Leave a note and we will reply. Prefer the first-100 queue? <a href="/waitlist">Join the waitlist</a>.</p>
