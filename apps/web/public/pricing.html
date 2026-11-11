@@ -79,7 +79,7 @@
   .menu-btn span{display:block;width:20px;height:1px;background:var(--ink);margin:4px 0;transition:transform .4s var(--ease),opacity .4s var(--ease)}
   .mobile-menu{display:none}
   @media(max-width:820px){
-    .links,.nav-cta{display:none}.menu-btn{display:block}
+    .links,.nav-login,.nav-cta{display:none}.menu-btn{display:block}
     .mobile-menu{display:grid;position:fixed;inset:0;z-index:49;background:rgba(5,7,6,.96);backdrop-filter:blur(30px);padding:110px 28px 40px;gap:4px;opacity:0;pointer-events:none;transition:opacity .5s var(--ease)}
     .mobile-menu.open{opacity:1;pointer-events:auto}
     .mobile-menu a{text-decoration:none;font-family:"Sora",sans-serif;font-size:30px;letter-spacing:-.04em;padding:14px 0;border-bottom:1px solid var(--line-soft);opacity:0;transform:translateY(18px);transition:all .7s var(--ease)}
@@ -280,10 +280,11 @@
 <body>
 <div class="nav-shell">
   <nav class="nav" aria-label="Main">
-    <a class="brand" href="/pricing"><img class="brand-lockup" src="/brand/relay-cloud-lockup-light.png" alt="Relay Cloud"></a>
+    <a class="brand" href="/"><img class="brand-lockup" src="/brand/relay-cloud-lockup-light.png" alt="Relay Cloud"></a>
     <div class="links">
       <a href="#plans">Plans</a><a href="#rates">Rates</a><a href="#how">How it works</a><a href="#developers">Developers</a>
     </div>
+    <a class="nav-login" href="/login">Log in</a>
     <a class="nav-cta" href="/waitlist">Join waitlist <span class="arrow">↗</span></a>
     <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
   </nav>
@@ -303,6 +304,7 @@
           <a class="btn btn-primary" href="#plans">Find your plan <span class="arrow">↗</span></a>
           <a class="btn btn-secondary" href="#rates">View live rates</a>
         </div>
+        <p class="login-note">Already approved? <a href="/login">Log in to the console</a>.</p>
         <div class="trust"><span class="avatars" aria-hidden="true"><i></i><i></i><i></i></span><span>Built for operators, agencies and AI agents.</span></div>
       </div>
       <aside class="hero-side">
