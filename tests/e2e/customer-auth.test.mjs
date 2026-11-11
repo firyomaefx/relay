@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { CloudStore } from "@relay/cloud";
 import { startServer } from "../../apps/web/dist/server.js";
-import { hashCustomerPassword } from "../../apps/web/dist/customer-auth.js";
+import { createInviteToken, hashCustomerPassword } from "../../apps/web/dist/customer-auth.js";
 import { cleanupTempDir, makeTempDir } from "../helpers.mjs";
 
 function cookieFrom(response) {
@@ -20,6 +20,8 @@ test("customer session is isolated from operator admin routes", async () => {
   const store = CloudStore.open(dbPath);
   const customer = store.createCustomer({ displayName: "HTTP Customer", email: "http-customer@example.com" });
   store.setCustomerPassword(customer.id, await hashCustomerPassword("customer-password-2026"));
+  const invite = createInviteToken();
+  store.createCustomerInvite(customer.id, invite.tokenHash, 60_000);
   store.close();
 
   const env = {
@@ -53,8 +55,35 @@ test("customer session is isolated from operator admin routes", async () => {
     assert.equal(state.status, 200);
     assert.equal((await state.json()).role, "customer");
 
+    const profile = await fetch(`${base}/api/cloud/profile`, { headers: { cookie: customerCookie } });
+    assert.equal(profile.status, 200);
+    assert.equal((await profile.json()).customer.email, "http-customer@example.com");
+    const me = await fetch(`${base}/api/cloud/me`, { headers: { cookie: customerCookie } });
+    assert.equal(me.status, 200);
+    assert.equal((await me.json()).customer.id, customer.id);
+    const billing = await fetch(`${base}/api/cloud/billing`, { headers: { cookie: customerCookie } });
+    assert.equal(billing.status, 200);
     const adminAsCustomer = await fetch(`${base}/api/cloud/admin/customers`, { headers: { cookie: customerCookie } });
     assert.equal(adminAsCustomer.status, 403);
+
+    const accepted = await fetch(`${base}/api/customer/accept-invite`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: invite.token, password: "customer-password-2026b" }),
+    });
+    assert.equal(accepted.status, 200);
+    const replay = await fetch(`${base}/api/customer/accept-invite`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: invite.token, password: "customer-password-2026c" }),
+    });
+    assert.equal(replay.status, 400);
+    const relogin = await fetch(`${base}/api/customer/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "http-customer@example.com", password: "customer-password-2026b" }),
+    });
+    assert.equal(relogin.status, 200);
 
     const operatorLogin = await fetch(`${base}/api/login`, {
       method: "POST",
