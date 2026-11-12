@@ -369,6 +369,13 @@
     const advanced = state.composeMode === "advanced";
     if (els.advancedOptions) els.advancedOptions.hidden = !advanced;
     if (els.advancedThreadTools) els.advancedThreadTools.hidden = !advanced;
+    document.body.dataset.composeMode = state.composeMode;
+    if (els.composeModeLabel) els.composeModeLabel.textContent = advanced ? "Advanced" : "Simple";
+    if (els.composeModeNote) {
+      els.composeModeNote.textContent = advanced
+        ? "Power tools on. Threads, repeats, replies, quote posts and platform-specific controls are visible."
+        : "One focused post. Thread parts, repeats and reply controls are hidden.";
+    }
     for (const button of els.composeModeButtons ?? []) {
       const active = button.dataset.composeMode === state.composeMode;
       button.classList.toggle("is-active", active);
@@ -3106,6 +3113,8 @@
       newPostBtn: $("#newPostBtn"),
       firstRunPanel: $("#firstRunPanel"),
       advancedOptions: $("#advancedOptions"),
+      composeModeLabel: $("#composeModeLabel"),
+      composeModeNote: $("#composeModeNote"),
       advancedThreadTools: $("#advancedThreadTools"),
       tiktokPrivacyField: $("#tiktokPrivacyField"),
       youtubePrivacyField: $("#youtubePrivacyField"),

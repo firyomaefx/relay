@@ -5193,7 +5193,13 @@ body[data-role="customer"] #screen-settings .settings-col:last-child { display: 
 .hero-actions{margin:22px 0 0;align-items:center}
 .hero-actions .primary-btn,.hero-actions .ghost-btn{width:auto}
 .compose-modebar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 18px}
-.compose-mode-note{margin:0;color:var(--text-mute);font-size:12px;max-width:52ch}
+.compose-mode-state{display:flex;align-items:center;gap:9px;min-width:0;flex:1}
+.compose-mode-label{display:inline-flex;align-items:center;min-height:24px;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;flex:none}
+body[data-compose-mode="advanced"] .compose-mode-label{background:rgba(255,159,10,.1);color:#a85f00}
+.compose-mode-note{margin:0;color:var(--text-mute);font-size:12px;max-width:52ch;line-height:1.45}
+.advanced-options-head{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 2px}
+.advanced-options-head span:first-child{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.advanced-options-head span:last-child{font-size:10px;color:var(--text-mute)}
 .first-run{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 0 18px;border-color:rgba(24, 122, 78, .24);background:linear-gradient(120deg, rgba(24,122,78,.06), transparent 70%)}
 .first-run h3{margin:4px 0 6px;font-size:18px;letter-spacing:-.02em}
 .first-run .primary-btn{width:auto;flex:none}
@@ -5206,7 +5212,10 @@ body[data-role="customer"] .publish-panel{position:sticky;top:84px}
   .first-run{display:block;padding:18px}
   .first-run .primary-btn{width:100%;margin-top:14px}
   .compose-modebar{align-items:flex-start;gap:8px}
-  .compose-mode-note{width:100%}
+  .compose-mode-state{width:100%;align-items:flex-start}
+  .compose-mode-note{width:auto;flex:1}
+  .advanced-options-head{display:block}
+  .advanced-options-head span:last-child{display:block;margin-top:3px}
   .publish-panel .primary-btn{position:sticky;bottom:12px;z-index:5}
 }
 

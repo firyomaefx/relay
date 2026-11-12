@@ -277,7 +277,10 @@
               <button class="segmented-btn is-active" type="button" data-compose-mode="simple" aria-pressed="true">Simple</button>
               <button class="segmented-btn" type="button" data-compose-mode="advanced" aria-pressed="false">Advanced</button>
             </div>
-            <p class="compose-mode-note" id="composeModeNote">Simple keeps the basics. Advanced adds thread parts, repeats and reply settings.</p>
+            <div class="compose-mode-state">
+              <span class="compose-mode-label" id="composeModeLabel">Simple</span>
+              <p class="compose-mode-note" id="composeModeNote" aria-live="polite">One focused post. Thread parts, repeats and reply controls are hidden.</p>
+            </div>
           </div>
 
           <section class="panel first-run" id="firstRunPanel" hidden aria-labelledby="firstRunTitle">
@@ -353,6 +356,10 @@
                   </div>
 
                   <div class="options-grid advanced-options advanced-only" id="advancedOptions" hidden>
+                    <div class="advanced-options-head">
+                      <span>Power tools</span>
+                      <span>Threads, repeats, replies and platform-specific controls</span>
+                    </div>
                     <label class="field" for="replySetting">
                       <span class="field-label">Replies</span>
                       <select class="select" id="replySetting">
