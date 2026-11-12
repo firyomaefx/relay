@@ -376,6 +376,16 @@
         ? "Power tools on. Threads, repeats, replies, quote posts and platform-specific controls are visible."
         : "One focused post. Thread parts, repeats and reply controls are hidden.";
     }
+    if (els.composeModeFeatures) {
+      const features = advanced
+        ? ["Threads", "Repeats", "Replies", "Quote posts", "Platform controls"]
+        : ["Single post", "Schedule", "Preview", "All platforms"];
+      els.composeModeFeatures.replaceChildren(...features.map((label) => {
+        const chip = document.createElement("span");
+        chip.textContent = label;
+        return chip;
+      }));
+    }
     for (const button of els.composeModeButtons ?? []) {
       const active = button.dataset.composeMode === state.composeMode;
       button.classList.toggle("is-active", active);
@@ -3115,6 +3125,7 @@
       advancedOptions: $("#advancedOptions"),
       composeModeLabel: $("#composeModeLabel"),
       composeModeNote: $("#composeModeNote"),
+      composeModeFeatures: $("#composeModeFeatures"),
       advancedThreadTools: $("#advancedThreadTools"),
       tiktokPrivacyField: $("#tiktokPrivacyField"),
       youtubePrivacyField: $("#youtubePrivacyField"),
