@@ -366,7 +366,7 @@
       saved = "";
     }
     if (saved === "simple" || saved === "advanced") return saved;
-    return state.role === "customer" ? "simple" : "advanced";
+    return "simple";
   }
 
   function setComposeMode(mode, { persist = true } = {}) {

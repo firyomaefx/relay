@@ -5562,3 +5562,36 @@ body[data-role="customer"] .publish-panel{position:sticky;top:84px}
   #screen-compose .composer-schedule-btn { min-width: 92px; }
   #screen-compose .preview-panel { display: none; }
 }
+
+
+/* Compact destination chips */
+#screen-compose .target {
+  flex-direction: row;
+  min-height: 0;
+  height: auto;
+  align-items: center;
+  padding: 6px 11px 6px 6px;
+  gap: 7px;
+  border-radius: 999px;
+}
+#screen-compose .target::before { display: none; }
+#screen-compose .target > div:nth-child(2) {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+#screen-compose .target-top { gap: 0; }
+#screen-compose .target .glyph {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+#screen-compose .target .glyph svg { width: 14px; height: 14px; }
+#screen-compose .target-name { font-size: 12px; line-height: 1; }
+#screen-compose .target[aria-pressed="true"] .target-name { color: #fff; }
+#screen-compose .target[aria-pressed="true"] .glyph {
+  color: #fff;
+  background: rgba(255,255,255,0.15);
+  border-color: transparent;
+}
