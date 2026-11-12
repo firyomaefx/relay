@@ -33,12 +33,12 @@ test("public waitlist accepts requests, dedupes email, and admin approval stops 
     assert.equal(first.json.ok, true);
     assert.equal(first.json.position, 1);
 
-    const missingPhone = await httpJson(server.baseUrl, "/api/waitlist", {
+    const minimal = await httpJson(server.baseUrl, "/api/waitlist", {
       method: "POST",
       body: { name: "No Phone", email: "nophone@example.com" },
     });
-    assert.equal(missingPhone.status, 400, requestSummary(missingPhone));
-    assert.match(missingPhone.json.error, /phone number/i);
+    assert.equal(minimal.status, 201, requestSummary(minimal));
+    assert.equal(minimal.json.ok, true);
 
     const duplicate = await httpJson(server.baseUrl, "/api/waitlist", {
       method: "POST",
@@ -61,8 +61,10 @@ test("public waitlist accepts requests, dedupes email, and admin approval stops 
 
     const list = await httpJson(server.baseUrl, "/api/cloud/admin/waitlist?status=pending");
     assert.equal(list.status, 200, requestSummary(list));
-    assert.equal(list.json.entries.length, 2);
-    const [aina, ben] = list.json.entries;
+    assert.equal(list.json.entries.length, 3);
+    const aina = list.json.entries.find((entry) => entry.name === "Aina");
+    const ben = list.json.entries.find((entry) => entry.name === "Ben");
+    assert.ok(aina && ben);
 
     const approved = await httpJson(server.baseUrl, `/api/cloud/admin/waitlist/${aina.id}/approve`, {
       method: "POST",

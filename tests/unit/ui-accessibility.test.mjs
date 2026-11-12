@@ -36,15 +36,18 @@ test("setup and customer login land approved users in the composer", async () =>
   assert.match(login, /window\.location\.replace\("\/#compose"\)/);
 });
 
-test("waitlist asks how the person wants to post without implying an agent is required", async () => {
+test("waitlist is a minimal, conversion-focused registration page", async () => {
   const html = await readFile(path.join(process.cwd(), "apps", "web", "public", "waitlist.html"), "utf8");
   const js = await readFile(path.join(process.cwd(), "apps", "web", "public", "waitlist.js"), "utf8");
 
-  assert.match(html, /How do you want to post\?/);
-  assert.match(html, /<option>Web app<\/option>/);
-  assert.match(html, /<option>AI agent<\/option>/);
-  assert.match(html, /<option>Both<\/option>/);
-  assert.match(html, /No AI agent needed/);
-  assert.match(html, /name="agent"/);
-  assert.match(js, /Posting preference:/);
+  assert.match(html, /Write once\./);
+  assert.match(html, /One calm composer/);
+  assert.match(html, /Name and email only/);
+  assert.match(html, /id="name"[^>]*required/);
+  assert.match(html, /id="email"[^>]*required/);
+  assert.doesNotMatch(html, /How do you want to post\?/);
+  assert.doesNotMatch(html, /name="phone"/);
+  assert.match(js, /Reserving/);
+  assert.match(js, /successCard/);
+  assert.match(html, /Join the waitlist/);
 });

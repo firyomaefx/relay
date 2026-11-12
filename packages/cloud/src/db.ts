@@ -734,8 +734,8 @@ export class CloudStore {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new RelayError("A valid email is required.", "waitlist_email_invalid", undefined, 400);
     }
-    if (!phone) {
-      throw new RelayError("A valid phone number with country code is required.", "waitlist_phone_invalid", undefined, 400);
+    if (input.phone?.trim() && !phone) {
+      throw new RelayError("Enter a valid phone number with country code, or leave it blank.", "waitlist_phone_invalid", undefined, 400);
     }
     const existing = this.db.prepare("SELECT * FROM waitlist WHERE email_normalized = ?").get(emailNormalized) as
       | Record<string, unknown>
