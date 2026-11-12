@@ -10,6 +10,23 @@ To avoid showing a broken Facebook button to users, the production flag is back 
 
 **Blocked on:** a valid Facebook app (not the Instagram-only app), its `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET`, a Facebook Login for Business `FACEBOOK_CONFIG_ID`, Page admin access, and Meta App Review / Business Verification.
 
+## Meta setup progress — 12 Nov 2026
+
+- Existing Meta app found: **Relay Threads**, App ID `1116133960897314`. It is a valid Facebook app and already has Facebook Login for Business.
+- Added the **Manage everything on your Page** use case.
+- Saved App domains `relay.duitpoket.fun`, Privacy URL `https://relay.duitpoket.fun/privacy`, Terms URL `https://relay.duitpoket.fun/terms`, and Category `Education`.
+- Added the valid OAuth redirect URI `https://relay.duitpoket.fun/auth/callback/facebook`.
+- App credentials were set on production and the Facebook card was enabled for a live test.
+- The live OAuth test failed with Meta's developer error:
+  `Invalid Scopes: pages_read_engagement, pages_manage_posts`.
+  These are advanced Page permissions and are not available to the app until App Review approves them.
+- The `DuitPoket` business portfolio is still **Unverified**.
+- The app is still **ineligible for submission** because it is missing a valid 1024x1024 App icon.
+- Production was returned to `RELAY_ENABLE_FACEBOOK=0`; the broken button is not exposed.
+- The app secret was retrieved only for configuration and is not recorded here.
+
+**Next exact steps:** upload a 1024x1024 app icon and save Basic settings; start Business Verification for DuitPoket; submit App Review for `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts` with a screencast that creates/edits/deletes a Page post; confirm the Page admin Page ID; then set production credentials and flag and retest.
+
 
 Meta does not allow a third-party app to publish to a personal Facebook timeline. The supported business path is a **Facebook Page** owned or managed by the customer. Relay already has a Page adapter; it is feature-flagged and off in production.
 
