@@ -5631,3 +5631,6 @@ body[data-role="customer"] .publish-panel{position:sticky;top:84px}
   #screen-compose .basic-options { display: none; }
 }
 #screen-compose .basic-options { display: none !important; }
+@media (max-width: 760px) {
+  #screen-compose .preflight-panel { display: none; }
+}
