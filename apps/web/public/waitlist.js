@@ -112,7 +112,10 @@
             ? "Check your inbox. We sent a confirmation. We will email you again when your private setup link is ready."
             : "We have your request. We will contact you when your Relay Cloud account is ready.";
         successCard.focus({ preventScroll: true });
-        successCard.scrollIntoView({ block: "start", behavior: "smooth" });
+        requestAnimationFrame(() => {
+          const top = window.scrollY + successCard.getBoundingClientRect().top - 96;
+          window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        });
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Could not reserve your spot.", true);
         submit.disabled = false;
