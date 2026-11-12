@@ -5215,9 +5215,11 @@ body[data-role="customer"] .publish-panel{position:sticky;top:84px}
   .first-run{display:block;padding:18px}
   .first-run .primary-btn{width:100%;margin-top:14px}
   .compose-modebar{align-items:flex-start;gap:8px}
-  .compose-mode-state{width:100%;align-items:flex-start}
-  .compose-mode-note{width:auto;flex:1}
-  .compose-mode-features{flex-basis:100%}
+  .compose-modebar .segmented{width:100%;display:flex}
+  .compose-modebar .segmented-btn{flex:1}
+  .compose-mode-state{flex:1 0 100%;width:100%;display:grid;grid-template-columns:auto 1fr;gap:5px 9px;align-items:start}
+  .compose-mode-note{width:auto;max-width:none}
+  .compose-mode-features{grid-column:1/-1;flex-basis:auto}
   .advanced-options-head{display:block}
   .advanced-options-head span:last-child{display:block;margin-top:3px}
   .publish-panel .primary-btn{position:sticky;bottom:12px;z-index:5}
