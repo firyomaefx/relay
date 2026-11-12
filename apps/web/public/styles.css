@@ -4527,7 +4527,7 @@ code {
 
 /* Simulated banner, if it appears */
 .sim-banner { border: 1px solid var(--hairline); border-radius: 14px; background: #fff; margin: 0 0 22px; }
-.sim-banner-core { padding: 14px 16px; }
+.sim-banner-core { padding: 14px 16px; background: transparent; }
 .sim-banner-title { color: var(--text); font-size: 13px; font-weight: 550; }
 .sim-banner-text { display: none; }
 
