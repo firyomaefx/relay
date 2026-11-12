@@ -2900,7 +2900,7 @@
     state.limits = data.limits ?? [];
     if (!state.seeded) {
       const connected = state.accounts.map((account) => account.platform).filter((platform) => availablePlatforms().includes(platform));
-      state.selected = new Set(connected.length ? connected : ["x"]);
+      state.selected = new Set(connected.length ? [connected[0]] : ["x"]);
       state.seeded = true;
     }
   }
