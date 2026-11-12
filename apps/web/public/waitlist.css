@@ -113,6 +113,8 @@ h3{font-size:clamp(20px,2vw,25px);line-height:1.15;letter-spacing:-.035em;font-w
 /* Join */
 .join-section{padding-top:64px;padding-bottom:86px;border-top:1px solid var(--line-soft)}
 .join-grid{display:grid;grid-template-columns:1fr .86fr;gap:56px;align-items:start}
+.join-grid.is-success{grid-template-columns:minmax(0,560px);justify-content:center}
+.join-grid.is-success .form-shell{width:100%}
 .join-copy h2{margin-bottom:16px;max-width:12ch}
 .join-copy p:not(.eyebrow){color:var(--muted);max-width:46ch;font-size:16px;line-height:1.65}
 .join-list{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:11px}

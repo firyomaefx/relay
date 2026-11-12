@@ -13,6 +13,8 @@
   const position = document.getElementById("position");
   const successText = document.getElementById("successText");
   const badge = document.querySelector(".form-badge");
+  const joinGrid = document.querySelector(".join-grid");
+  const joinCopy = document.querySelector(".join-copy");
 
   function closeNav({ restoreFocus = true } = {}) {
     body.classList.remove("nav-open");
@@ -58,6 +60,8 @@
       if (!data.open) {
         if (form) form.hidden = true;
         if (fullCard) fullCard.hidden = false;
+        if (joinCopy) joinCopy.hidden = true;
+        joinGrid?.classList.add("is-success");
         if (badge) badge.textContent = "Batch full";
         return;
       }
@@ -99,6 +103,8 @@
         if (!response.ok) throw new Error(data.error || "Could not reserve your spot. Try again.");
         form.hidden = true;
         successCard.hidden = false;
+        if (joinCopy) joinCopy.hidden = true;
+        joinGrid?.classList.add("is-success");
         position.textContent = data.position ? "#" + data.position : "Received";
         successText.textContent = data.duplicate
           ? "You were already on the list. We have your request and will email you when your spot opens."
