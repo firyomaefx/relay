@@ -8,8 +8,8 @@
   <meta name="description" content="Relay publishing console." />
   <title>Relay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/styles.css?v=20261112compose" />
-  <script src="/app.js?v=20261112compose" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20261112logout" />
+  <script src="/app.js?v=20261112logout" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -142,6 +142,13 @@
             <span class="mode-dot"></span>
             <span id="modeBadgeText">Simulated</span>
           </div>
+          <button class="ghost-btn topbar-logout" id="topbarLogoutBtn" type="button" aria-label="Sign out" title="Sign out" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10 5H6.8A1.8 1.8 0 0 0 5 6.8v10.4A1.8 1.8 0 0 0 6.8 19H10" />
+              <path d="M14.5 8.5 18 12l-3.5 3.5M18 12H9" />
+            </svg>
+            <span>Sign out</span>
+          </button>
           <button class="icon-btn" id="refreshBtn" type="button" aria-label="Refresh data" title="Refresh">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M19.4 5.6v4.2h-4.2" />

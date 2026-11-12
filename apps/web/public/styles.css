@@ -5190,6 +5190,9 @@ body[data-role="customer"] #screen-settings .settings-col:last-child { display: 
 /* Simple web flow */
 .topbar-new{width:auto;height:36px;padding:0 15px;border-radius:999px;background:var(--ink);color:var(--bg);border-color:transparent;font-weight:650}
 .topbar-new:hover{background:#fff;color:#071009}
+.topbar-logout{display:inline-flex;align-items:center;gap:6px;width:auto;height:36px;padding:0 13px;border-radius:999px;color:var(--text-dim);font-size:12px;font-weight:600;white-space:nowrap}
+.topbar-logout:hover{color:var(--text);border-color:var(--hairline-strong);background:#fff}
+.topbar-logout svg{width:15px;height:15px;flex:none}
 .hero-actions{margin:22px 0 0;align-items:center}
 .hero-actions .primary-btn,.hero-actions .ghost-btn{width:auto}
 .compose-modebar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 18px}
@@ -5212,6 +5215,8 @@ body[data-compose-mode="advanced"] .compose-mode-label{background:rgba(255,159,1
 body[data-role="customer"] .publish-panel{position:sticky;top:84px}
 @media(max-width:940px){
   .topbar-new{display:none}
+  .topbar-logout{width:36px;height:36px;padding:0;justify-content:center;border-radius:50%}
+  .topbar-logout span{display:none}
   .first-run{display:block;padding:18px}
   .first-run .primary-btn{width:100%;margin-top:14px}
   .compose-modebar{align-items:flex-start;gap:8px}

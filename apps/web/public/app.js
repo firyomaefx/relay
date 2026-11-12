@@ -685,6 +685,7 @@
 
     const protectedMode = Boolean(state.session.protected);
     els.logoutBtn.hidden = !protectedMode;
+    if (els.topbarLogoutBtn) els.topbarLogoutBtn.hidden = !protectedMode;
     els.sessionRow.hidden = !protectedMode;
     els.settingsLogoutBtn.hidden = !protectedMode;
     void loadCreditBalance();
@@ -3043,7 +3044,7 @@
     } catch {
       /* Even if the request fails, send the browser to the login screen. */
     }
-    window.location.replace("/login");
+    window.location.replace(state.session?.role === "operator" ? "/admin" : "/login");
   }
 
   function handleAuthQuery() {
@@ -3235,6 +3236,7 @@
       tiktokWebSnippet: $("#tiktokWebSnippet"),
       copyTiktokWebBtn: $("#copyTiktokWebBtn"),
       logoutBtn: $("#logoutBtn"),
+      topbarLogoutBtn: $("#topbarLogoutBtn"),
       creditCard: $("#creditCard"),
       creditBalance: $("#creditBalance"),
       creditFree: $("#creditFree"),
@@ -3667,6 +3669,7 @@
     els.copyTiktokWebBtn.addEventListener("click", () => void copyTiktokWebConfig());
 
     els.logoutBtn.addEventListener("click", () => void logout());
+    els.topbarLogoutBtn?.addEventListener("click", () => void logout());
     els.settingsLogoutBtn.addEventListener("click", () => void logout());
     els.profileSaveBtn?.addEventListener("click", () => void saveProfile());
     els.profileKeyBtn?.addEventListener("click", () => void generateProfileKey());

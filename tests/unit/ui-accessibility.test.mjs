@@ -11,6 +11,8 @@ test("seller home gives keyboard users a clear path to write or open the calenda
   assert.match(html, /<button class="primary-btn" type="button" data-goto="compose">Write a post<\/button>/);
   assert.match(html, /<button class="ghost-btn" type="button" data-goto="queue">See calendar<\/button>/);
   assert.match(html, /<button class="ghost-btn topbar-new" id="newPostBtn" type="button">New post<\/button>/);
+  assert.match(html, /id="topbarLogoutBtn"[^>]*hidden/);
+  assert.match(html, /id="topbarLogoutBtn"[\s\S]*?Sign out/);
   assert.doesNotMatch(html, /data-connect-relay/, "MCP setup no longer dominates the customer home");
   assert.doesNotMatch(html, /id="dashIntegrations"/, "MCP setup is kept in Settings and docs");
 });
