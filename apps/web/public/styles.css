@@ -5634,3 +5634,25 @@ body[data-role="customer"] .publish-panel{position:sticky;top:84px}
 @media (max-width: 760px) {
   #screen-compose .preflight-panel { display: none; }
 }
+
+
+/* Counters are also destination toggles */
+#screen-compose .counter {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.2;
+  min-height: 26px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+#screen-compose .counter[aria-pressed="false"] { opacity: 0.62; }
+#screen-compose .counter[aria-pressed="false"]:hover { opacity: 1; border-color: var(--text-dim); }
+#screen-compose .counter[aria-pressed="true"] {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+#screen-compose .counter[aria-pressed="true"] b { color: #fff; }
+#screen-compose .counter.is-warn { opacity: 1; }
+#screen-compose .counter.is-over { opacity: 1; }

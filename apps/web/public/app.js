@@ -774,7 +774,8 @@
     if (active && length > limit) extra = " is-over";
     else if (active && length > limit * 0.9) extra = " is-warn";
     const activeClass = active ? " is-active" : "";
-    return `<span class="counter${activeClass}${extra}" data-platform="${platform}" title="${escapeAttr(meta.name)} limit: ${limit} characters"><b>${escapeHtml(meta.name)}</b>${length}/${limit}</span>`;
+    const action = active ? "remove" : "add";
+    return `<button class="counter${activeClass}${extra}" type="button" data-platform="${platform}" data-target="${platform}" aria-pressed="${active}" title="${escapeAttr(meta.name)}: click to ${action}. Limit ${limit} characters."><b>${escapeHtml(meta.name)}</b>${length}/${limit}</button>`;
   }
 
   function mediaStripHtml(part) {
