@@ -5704,3 +5704,20 @@ body[data-role="customer"] .publish-panel{position:sticky;top:84px}
   #screen-compose .composer-intro .display { max-width: 18ch; }
   #screen-compose .composer-intro .lede { display: none; }
 }
+
+
+/* Keep the moved Compose hero actions compact */
+#screen-compose .composer-intro-actions {
+  width: max-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+#screen-compose .composer-intro-actions .primary-btn,
+#screen-compose .composer-intro-actions .ghost-btn {
+  flex: 0 0 auto;
+  width: auto;
+  white-space: nowrap;
+}
+#screen-compose .composer-intro-actions .primary-btn {
+  justify-content: center;
+}

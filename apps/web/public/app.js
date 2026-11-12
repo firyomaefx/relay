@@ -2230,15 +2230,15 @@
     els.dashTop.textContent = topPlatform ? PLATFORM_META[topPlatform]?.name ?? topPlatform : "—";
     els.dashAccounts.textContent = String(state.accounts.length);
     const hasAccounts = state.accounts.length > 0;
-    if (els.homeNextTitle) els.homeNextTitle.textContent = hasAccounts ? "Write your next post" : "Connect your first account";
+    if (els.homeNextTitle) els.homeNextTitle.textContent = hasAccounts ? "Your posting queue" : "Connect your first account";
     if (els.homeNextCopy) {
       els.homeNextCopy.textContent = hasAccounts
-        ? "Your accounts are ready. Start a draft, check the preview, then post now or schedule it."
+        ? "See what is scheduled or already published, and open the calendar when you need the week at a glance."
         : "Pick a platform and sign in. Your posts stay in your workspace, and you only pay when one goes out.";
     }
     if (els.homeNextBtn) {
-      els.homeNextBtn.textContent = hasAccounts ? "Write a post" : "Connect an account";
-      els.homeNextBtn.dataset.goto = hasAccounts ? "compose" : "accounts";
+      els.homeNextBtn.textContent = hasAccounts ? "See calendar" : "Connect an account";
+      els.homeNextBtn.dataset.goto = hasAccounts ? "queue" : "accounts";
     }
   }
 
