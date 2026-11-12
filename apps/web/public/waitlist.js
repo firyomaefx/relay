@@ -28,7 +28,7 @@
     if (mobilePanel) {
       mobilePanel.setAttribute("aria-hidden", "false");
       mobilePanel.inert = false;
-      window.setTimeout(() => mobileLinks[0]?.focus(), 80);
+      window.setTimeout(() => mobilePanel.focus({ preventScroll: true }), 80);
     }
   }
   if (navToggle && mobilePanel) {

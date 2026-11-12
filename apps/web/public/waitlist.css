@@ -51,6 +51,7 @@ h3{font-size:clamp(20px,2vw,25px);line-height:1.15;letter-spacing:-.035em;font-w
 .nav-open .nav-toggle span:nth-child(1){transform:translateY(5px) rotate(45deg)}
 .nav-open .nav-toggle span:nth-child(2){opacity:0;transform:scaleX(.3)}
 .nav-open .nav-toggle span:nth-child(3){transform:translateY(-5px) rotate(-45deg)}
+.mobile-panel:focus{outline:none}
 .mobile-panel{position:fixed;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:100px 24px 30px;background:rgba(4,8,6,.95);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);opacity:0;visibility:hidden;transition:opacity .5s var(--ease),visibility .5s}
 .nav-open .mobile-panel{opacity:1;visibility:visible}
 .mobile-links{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;max-width:440px}
@@ -103,11 +104,11 @@ h3{font-size:clamp(20px,2vw,25px);line-height:1.15;letter-spacing:-.035em;font-w
 .fake-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line-soft);padding-top:11px}
 .fake-schedule{font-size:9.5px;color:var(--dim)}.fake-publish{font-size:10px;font-weight:750;color:#04110a;background:var(--mint);border-radius:999px;padding:5px 10px}
 .float-card{position:absolute;border:1px solid var(--line);border-radius:15px;background:rgba(8,15,11,.93);padding:11px 13px;box-shadow:0 20px 50px -26px #000}
-.float-queue{left:-26px;bottom:-24px;width:170px}
+.float-queue{left:-22px;bottom:-28px;width:170px}
 .float-eyebrow{display:block;color:var(--dim);font-size:8px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
 .mini-week{display:flex;gap:4px;margin-bottom:8px}.mini-week i{display:block;height:18px;flex:1;border-radius:3px;background:rgba(255,255,255,.06)}.mini-week i.done{background:rgba(184,245,208,.55)}
 .float-queue strong{display:block;font-size:11px;color:var(--ink)}.float-queue small{display:block;color:var(--dim);font-size:9px;margin-top:2px}
-.float-live{right:-20px;top:38px;display:flex;align-items:center;gap:8px}
+.float-live{right:-18px;top:-16px;display:flex;align-items:center;gap:8px}
 .live-dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px rgba(184,245,208,.1)}
 .float-live strong{display:block;font-size:10px}.float-live small{display:block;color:var(--dim);font-size:9px}
 
