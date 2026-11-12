@@ -108,9 +108,7 @@ h3{font-size:clamp(20px,2vw,25px);line-height:1.15;letter-spacing:-.035em;font-w
 .float-eyebrow{display:block;color:var(--dim);font-size:8px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
 .mini-week{display:flex;gap:4px;margin-bottom:8px}.mini-week i{display:block;height:18px;flex:1;border-radius:3px;background:rgba(255,255,255,.06)}.mini-week i.done{background:rgba(184,245,208,.55)}
 .float-queue strong{display:block;font-size:11px;color:var(--ink)}.float-queue small{display:block;color:var(--dim);font-size:9px;margin-top:2px}
-.float-live{right:-18px;top:-16px;display:flex;align-items:center;gap:8px}
-.live-dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px rgba(184,245,208,.1)}
-.float-live strong{display:block;font-size:10px}.float-live small{display:block;color:var(--dim);font-size:9px}
+.success-card{scroll-margin-top:100px}
 
 /* Join */
 .join-section{padding-top:64px;padding-bottom:86px;border-top:1px solid var(--line-soft)}

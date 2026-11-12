@@ -14,13 +14,14 @@
   const successText = document.getElementById("successText");
   const badge = document.querySelector(".form-badge");
 
-  function closeNav() {
+  function closeNav({ restoreFocus = true } = {}) {
     body.classList.remove("nav-open");
     if (navToggle) navToggle.setAttribute("aria-expanded", "false");
     if (mobilePanel) {
       mobilePanel.setAttribute("aria-hidden", "true");
       mobilePanel.inert = true;
     }
+    if (restoreFocus && navToggle) navToggle.focus({ preventScroll: true });
   }
   function openNav() {
     body.classList.add("nav-open");
@@ -105,7 +106,7 @@
             ? "Check your inbox. We sent a confirmation. We will email you again when your private setup link is ready."
             : "We have your request. We will contact you when your Relay Cloud account is ready.";
         successCard.focus({ preventScroll: true });
-        successCard.scrollIntoView({ block: "center", behavior: "smooth" });
+        successCard.scrollIntoView({ block: "start", behavior: "smooth" });
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Could not reserve your spot.", true);
         submit.disabled = false;

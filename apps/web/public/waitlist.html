@@ -61,7 +61,7 @@
 
 <main id="main">
   <section class="hero shell">
-    <div class="hero-copy" data-reveal>
+    <div class="hero-copy">
       <p class="eyebrow"><span class="pulse"></span> Founding access · first 100</p>
       <h1>Write once.<br>Show up<br><span class="mint">everywhere.</span></h1>
       <p class="lede">One calm composer for Instagram, Threads, TikTok, YouTube, X and LinkedIn. Write it, check every preview, schedule it, and pay only for posts that actually publish.</p>
@@ -78,13 +78,13 @@
       </div>
     </div>
 
-    <div class="hero-visual" data-reveal style="--delay:120ms" role="img" aria-label="Relay Cloud composer showing one post ready for six platforms and a scheduled week">
+    <div class="hero-visual" role="img" aria-label="Relay Cloud composer showing one post ready for six platforms and a scheduled week">
       <div class="visual-shell">
         <div class="visual-core">
           <div class="visual-bar">
             <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
             <span class="visual-title">New post</span>
-            <span class="visual-status">Draft</span>
+            <span class="visual-status">6 / 6 ready</span>
           </div>
           <div class="fake-composer">
             <div class="fake-meta"><span class="fake-avatar">R</span><span><strong>Relay Cloud</strong><small>Publishing to 6 platforms</small></span></div>
@@ -100,10 +100,6 @@
             <div class="mini-week" aria-hidden="true"><i></i><i class="done"></i><i></i><i class="done"></i><i></i><i class="done"></i><i></i></div>
             <strong>4 posts queued</strong>
             <small>across 6 platforms</small>
-          </div>
-          <div class="float-card float-live">
-            <span class="live-dot"></span>
-            <div><strong>Published 6/6</strong><small>0 failed</small></div>
           </div>
         </div>
       </div>
@@ -141,7 +137,7 @@
             <p class="privacy">No spam. We email you only about your access. Read the <a href="/privacy">privacy note</a>.</p>
           </form>
 
-          <div class="success-card" id="successCard" hidden tabindex="-1">
+          <div class="success-card" id="successCard" hidden tabindex="-1" aria-live="polite">
             <span class="success-mark" aria-hidden="true">✓</span>
             <p class="eyebrow">You're in the queue</p>
             <h3>Spot reserved.</h3>
