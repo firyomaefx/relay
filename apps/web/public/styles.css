@@ -5615,3 +5615,18 @@ body[data-role="customer"] .publish-panel{position:sticky;top:84px}
 #screen-compose .publish-summary .summary-value { font-size: 11px; }
 #screen-compose .targets-panel { margin-bottom: -2px; }
 #screen-compose .editor-panel { padding-top: 14px; }
+
+/* Mobile composer containment */
+#screen-compose .compose-rail { grid-template-columns: minmax(0, 1fr); }
+#screen-compose .compose-rail > .bezel,
+#screen-compose .compose-main > .bezel { min-width: 0; }
+#screen-compose .publish-panel { width: 100%; min-width: 0; }
+#screen-compose .composer-actions { min-width: 0; }
+#screen-compose .composer-actions .primary-btn { min-width: 0; }
+#screen-compose .compose-modebar .segmented { width: auto; display: inline-flex; }
+#screen-compose .compose-modebar { display: flex; }
+@media (max-width: 760px) {
+  #screen-compose .composer-actions .primary-btn { font-size: 14px; padding: 0 14px; }
+  #screen-compose .composer-actions .composer-schedule-btn { min-width: 96px; }
+  #screen-compose .basic-options { display: none; }
+}
