@@ -65,7 +65,7 @@
         if (badge) badge.textContent = "Batch full";
         return;
       }
-      if (badge && Number.isFinite(data.remaining)) badge.textContent = data.remaining + " places left";
+      if (badge && Number.isFinite(data.remaining)) badge.textContent = data.remaining + (data.remaining === 1 ? " place left" : " places left");
     } catch {
       // The form remains usable if the status call is unavailable.
     }
