@@ -5595,3 +5595,23 @@ body[data-role="customer"] .publish-panel{position:sticky;top:84px}
   background: rgba(255,255,255,0.15);
   border-color: transparent;
 }
+
+/* Keep only the preflight line in the lightweight composer */
+#screen-compose .publish-summary {
+  padding: 0;
+  margin: 0 0 6px;
+  background: transparent;
+  gap: 0;
+}
+#screen-compose .publish-summary .summary-row { display: none; }
+#screen-compose .publish-summary .summary-row:last-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
+}
+#screen-compose .publish-summary .summary-key { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+#screen-compose .publish-summary .summary-value { font-size: 11px; }
+#screen-compose .targets-panel { margin-bottom: -2px; }
+#screen-compose .editor-panel { padding-top: 14px; }
