@@ -25,6 +25,11 @@ test("public waitlist accepts requests, dedupes email, and admin approval stops 
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Join the waitlist/);
 
+    const pageResponse = await fetch(`${server.baseUrl}/waitlist`);
+    assert.equal(pageResponse.headers.get("cache-control"), "no-store");
+    const assetResponse = await fetch(`${server.baseUrl}/waitlist.css?v=cache-test`);
+    assert.equal(assetResponse.headers.get("cache-control"), "public, max-age=31536000, immutable");
+
     const first = await httpJson(server.baseUrl, "/api/waitlist", {
       method: "POST",
       body: { name: "Aina", email: "Aina@example.com", phone: "+60123456789", platforms: ["Threads", "TikTok"], volume: "1–20" },

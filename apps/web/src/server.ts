@@ -1449,7 +1449,12 @@ async function serveStatic(
   const extension = path.extname(filePath).toLowerCase();
   if (!STATIC_EXTENSIONS.has(extension)) return false;
   if (!allowHtml && extension === ".html") return false;
-  return sendFile(req, res, filePath, { html: extension === ".html" });
+  // Versioned static assets can be cached at the CDN and in the browser.
+  // HTML stays no-store so auth and page data are never cached.
+  return sendFile(req, res, filePath, {
+    html: extension === ".html",
+    cacheControl: extension === ".html" ? "no-store" : "public, max-age=31536000, immutable",
+  });
 }
 
 function normalizeDisplayHost(host: string): string {
