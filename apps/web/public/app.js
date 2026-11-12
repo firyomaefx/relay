@@ -3450,6 +3450,13 @@
         return;
       }
 
+      const startWriting = event.target.closest("[data-start-writing]");
+      if (startWriting) {
+        const editor = document.querySelector("[data-part-text]");
+        editor?.scrollIntoView({ block: "center", behavior: "smooth" });
+        editor?.focus();
+        return;
+      }
       const goto = event.target.closest("[data-goto]");
       if (goto) {
         setScreen(goto.dataset.goto);

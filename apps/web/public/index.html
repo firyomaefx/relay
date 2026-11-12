@@ -8,8 +8,8 @@
   <meta name="description" content="Relay publishing console." />
   <title>Relay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/styles.css?v=20261113compose10" />
-  <script src="/app.js?v=20261113compose10" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20261113homecompose" />
+  <script src="/app.js?v=20261113homecompose" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -181,15 +181,7 @@
       <section class="screens" aria-label="Relay console">
 
         <section class="screen is-active" id="screen-home" data-screen="home" aria-labelledby="homeTitle">
-          <div class="screen-intro">
-            <p class="eyebrow">Workspace</p>
-            <h1 id="homeTitle">Write it once. Post it everywhere.</h1>
-            <p class="lede">Relay works in your browser. Connect an account, write one post, then publish now or pick a time. No AI agent needed.</p>
-            <div class="actions hero-actions">
-              <button class="primary-btn" type="button" data-goto="compose">Write a post</button>
-              <button class="ghost-btn" type="button" data-goto="queue">See calendar</button>
-            </div>
-          </div>
+          <h1 id="homeTitle" class="visually-hidden">Workspace</h1>
           <div class="dash-grid">
             <section class="panel dash-card dash-activity" aria-label="Activity">
               <div class="dash-head">
@@ -275,7 +267,12 @@
         <section class="screen" id="screen-compose" data-screen="compose" aria-labelledby="composeTitle">
           <div class="screen-intro composer-intro">
             <p class="eyebrow">New post</p>
-            <h2 class="display" id="composeTitle">Compose<span class="display-dot">.</span></h2>
+            <h2 class="display" id="composeTitle">Write it once. Post it everywhere.</h2>
+            <p class="lede">One post, every network. Choose destinations, write once, then post now or schedule.</p>
+            <div class="actions composer-intro-actions">
+              <button class="primary-btn" id="startWritingBtn" type="button" data-start-writing>Start writing</button>
+              <button class="ghost-btn" type="button" data-goto="queue">See calendar</button>
+            </div>
           </div>
 
           <div class="compose-modebar">
