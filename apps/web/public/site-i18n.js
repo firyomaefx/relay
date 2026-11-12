@@ -21,7 +21,7 @@
       "hero.sub": "Write a post in your browser and send it to Instagram, Threads, TikTok, YouTube, X and LinkedIn. Pay only when a post goes out.",
       "hero.cta": "Join the waitlist",
       "hero.pricing": "See pricing",
-      "hero.note": "Facebook Pages is available for eligible Pages. Connect a Page, then publish text, photos or video.",
+      "hero.note": "Facebook Pages is built and waiting on Meta review. It turns on when the app and Page permissions are approved.",
 
       "proof.browserValue": "Browser first",
       "proof.browserLabel": "no agent needed",
@@ -54,7 +54,7 @@
 
       "platforms.eyebrow": "Platforms",
       "platforms.title": "One draft. Six places to put it.",
-      "platforms.note": "Facebook Pages is available for eligible Pages. A Page is required, not a personal profile.",
+      "platforms.note": "Facebook Pages joins the list after Meta review. The code is ready; the approval is not.",
 
       "short.eyebrow": "Pricing in short",
       "short.title": "Pay for posts that go out.",
@@ -169,7 +169,7 @@
       "hero.sub": "Tulis kiriman dalam pelayar dan hantar ke Instagram, Threads, TikTok, YouTube, X dan LinkedIn. Bayar hanya apabila kiriman berjaya diterbitkan.",
       "hero.cta": "Sertai senarai menunggu",
       "hero.pricing": "Lihat harga",
-      "hero.note": "Facebook Pages tersedia untuk Page yang layak. Sambungkan Page, kemudian terbitkan teks, foto atau video.",
+      "hero.note": "Facebook Pages sudah siap tetapi masih menunggu semakan Meta. Ia akan dihidupkan selepas aplikasi dan kebenaran Page diluluskan.",
 
       "proof.browserValue": "Pelayar dahulu",
       "proof.browserLabel": "tanpa ejen",
@@ -202,7 +202,7 @@
 
       "platforms.eyebrow": "Platform",
       "platforms.title": "Satu draf. Enam tempat untuk terbit.",
-      "platforms.note": "Facebook Pages tersedia untuk Page yang layak. Page diperlukan, bukan profil peribadi.",
+      "platforms.note": "Facebook Pages akan menyertai senarai selepas semakan Meta. Kod sudah sedia; kelulusan belum.",
 
       "short.eyebrow": "Harga ringkas",
       "short.title": "Bayar untuk kiriman yang keluar.",
