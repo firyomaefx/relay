@@ -2,6 +2,15 @@
 
 **Answer: Yes — for Facebook Pages. No — for personal Facebook profiles.**
 
+## Production attempt — 12 Nov 2026
+
+The code path and feature flag were deployed and exercised. The existing saved Meta/Instagram app ID was accepted by Relay but Facebook rejected the OAuth dialog with `PLATFORM__INVALID_APP_ID`. That means it is not a valid Facebook app ID for Facebook Login; it is the Instagram app credential.
+
+To avoid showing a broken Facebook button to users, the production flag is back to `RELAY_ENABLE_FACEBOOK=0` and the public “available” copy was reverted. The enablement code remains deployed and tested.
+
+**Blocked on:** a valid Facebook app (not the Instagram-only app), its `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET`, a Facebook Login for Business `FACEBOOK_CONFIG_ID`, Page admin access, and Meta App Review / Business Verification.
+
+
 Meta does not allow a third-party app to publish to a personal Facebook timeline. The supported business path is a **Facebook Page** owned or managed by the customer. Relay already has a Page adapter; it is feature-flagged and off in production.
 
 ## Current state
