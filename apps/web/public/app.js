@@ -1016,7 +1016,8 @@
 
   function updatePublishAvailability() {
     if (!els.publishBtn) return;
-    const disabled = state.publishing || state.selected.size === 0;
+    const invalid = state.validation ? !state.validation.ok : false;
+    const disabled = state.publishing || state.selected.size === 0 || invalid;
     els.publishBtn.disabled = disabled;
     if (els.scheduleBtn) els.scheduleBtn.disabled = disabled;
     updatePublishLabel();
