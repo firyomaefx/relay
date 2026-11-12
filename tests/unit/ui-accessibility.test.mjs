@@ -4,12 +4,15 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-test("seller home gives keyboard users a clear path to write or open the calendar", async () => {
+test("Compose owns the hero while Home stays a dashboard", async () => {
   const html = await readFile(path.join(process.cwd(), "apps", "web", "public", "index.html"), "utf8");
 
-  assert.match(html, /<h1 id="homeTitle">Write it once\. Post it everywhere\.<\/h1>/);
-  assert.match(html, /<button class="primary-btn" type="button" data-goto="compose">Write a post<\/button>/);
+  assert.match(html, /<h1 id="homeTitle" class="visually-hidden">Workspace<\/h1>/);
+  assert.match(html, /<h2 class="display" id="composeTitle">Write it once\. Post it everywhere\.<\/h2>/);
+  assert.match(html, /id="startWritingBtn"[^>]*data-start-writing/);
   assert.match(html, /<button class="ghost-btn" type="button" data-goto="queue">See calendar<\/button>/);
+  const home = html.match(/<section[^>]*id="screen-home"[\s\S]*?<\/section>\s*<section[^>]*id="screen-compose"/)?.[0] ?? "";
+  assert.doesNotMatch(home, /Write a post|hero-actions|Write it once/, "Home must not duplicate the composer hero");
   assert.match(html, /<button class="ghost-btn topbar-new" id="newPostBtn" type="button">New post<\/button>/);
   assert.match(html, /id="topbarLogoutBtn"[^>]*hidden/);
   assert.match(html, /id="topbarLogoutBtn"[\s\S]*?Sign out/);
