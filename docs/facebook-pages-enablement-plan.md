@@ -27,6 +27,18 @@ To avoid showing a broken Facebook button to users, the production flag is back 
 
 **Next exact steps:** upload a 1024x1024 app icon and save Basic settings; start Business Verification for DuitPoket; submit App Review for `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts` with a screencast that creates/edits/deletes a Page post; confirm the Page admin Page ID; then set production credentials and flag and retest.
 
+## Icon and permission requests — 13 Nov 2026
+
+- Uploaded the new Relay Cloud logo as a 1024x1024 PNG and saved it in App Settings → Basic. The "currently ineligible for submission" warning cleared.
+- Added `pages_read_engagement` and `pages_manage_posts` to the **Manage everything on your Page** use case. Both now show **Ready for testing**.
+- Both permissions now appear in **App Review → New requests**, alongside `pages_show_list`. The review has **not** been submitted.
+- Remaining before submission:
+  - Business Verification for DuitPoket is still outstanding.
+  - Each permission needs a written use-case description, a screencast, and a completed API test call.
+  - `pages_manage_posts` review expects create/edit/delete; Relay currently implements create only.
+  - The Page ID and admin access still need to be confirmed.
+- Production stays at `RELAY_ENABLE_FACEBOOK=0` until review is approved.
+
 
 Meta does not allow a third-party app to publish to a personal Facebook timeline. The supported business path is a **Facebook Page** owned or managed by the customer. Relay already has a Page adapter; it is feature-flagged and off in production.
 
