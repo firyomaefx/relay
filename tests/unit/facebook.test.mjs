@@ -223,3 +223,38 @@ test("a flagged Facebook platform can connect and publish in mock mode", async (
     await cleanupTempDir(dataDir);
   }
 });
+
+test("Facebook edits and deletes a published Page post with the Page token", async () => {
+  const { ctx, calls } = makeContext({
+    onFetch: (call) => {
+      const method = call.init?.method ?? "GET";
+      if (method === "POST") return { success: true };
+      if (method === "DELETE") return { success: true };
+      throw new Error(`Unexpected Facebook request: ${method} ${call.url}`);
+    },
+  });
+  const adapter = new FacebookAdapter();
+  const edited = await adapter.updatePost(ctx, "page-1_123", {
+    account: input().account,
+    tokens: input().tokens,
+    text: "Updated Page copy",
+  });
+  assert.deepEqual(edited, { updated: true, mock: false });
+  assert.equal(new URL(calls[0].url).pathname, "/v23.0/page-1_123");
+  assert.equal(formBodyOf(calls[0]).message, "Updated Page copy");
+  assert.equal(formBodyOf(calls[0]).access_token, "page-token");
+
+  const deleted = await adapter.deletePost(ctx, "page-1_123", {
+    account: input().account,
+    tokens: input().tokens,
+  });
+  assert.deepEqual(deleted, { deleted: true, mock: false });
+  assert.equal(calls[1].init.method, "DELETE");
+  assert.equal(formBodyOf(calls[1]).access_token, "page-token");
+});
+
+test("Facebook publish sends the Page token on every publish request", async () => {
+  const { ctx, calls } = makeContext({ onFetch: () => ({ id: "post-1" }) });
+  await new FacebookAdapter().publish(ctx, input());
+  assert.equal(formBodyOf(calls[0]).access_token, "page-token");
+});

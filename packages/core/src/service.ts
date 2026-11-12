@@ -49,6 +49,7 @@ import type {
   CreatePostResult,
   DeletePostOutcome,
   DeleteTarget,
+  UpdatePostOutcome,
   RemoveQueueJobResult,
   ResolvedArticle,
   OAuthTokens,
@@ -80,6 +81,16 @@ const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
 const DUPLICATE_WINDOW_MS = 30 * 60 * 1000;
 /** A reply reservation older than this (crash mid-send) no longer blocks a retry. */
 const PENDING_REPLY_TTL_MS = 15 * 60 * 1000;
+
+const UNSUPPORTED_EDIT_REASON: Record<PlatformId, string> = {
+  x: "X edit is not available in this build.",
+  threads: "Threads edit is not available in this build.",
+  tiktok: "Unsupported: the TikTok Content Posting API has no edit endpoint Relay can use.",
+  instagram: "Unsupported: the Instagram API has no endpoint to edit posts.",
+  youtube: "Unsupported: Relay's YouTube login cannot edit uploaded videos.",
+  linkedin: "LinkedIn edit is not available in this build.",
+  facebook: "Facebook Page edit is not available in this build.",
+};
 
 const UNSUPPORTED_DELETE_REASON: Record<PlatformId, string> = {
   x: "X delete is not available in this build.",
@@ -1328,6 +1339,67 @@ export class RelayService {
         ...(error instanceof RelayError ? { code: error.code } : {}),
       };
     }
+  }
+
+  /**
+   * EXPLICIT-ONLY: edits the text of one published post. Facebook Pages are
+   * supported; other platforms return status "unsupported" with the reason.
+   * The scheduler never calls this.
+   */
+  async editPublishedPost(platform: PlatformId, postId: string, text: string): Promise<UpdatePostOutcome> {
+    await this.store.refresh();
+    const base = { platform, postId };
+    const adapter = this.getAdapter(platform);
+    if (!adapter.updatePost) {
+      return { ...base, status: "unsupported", mock: false, error: UNSUPPORTED_EDIT_REASON[platform] };
+    }
+    const message = text.trim();
+    if (!message) {
+      return { ...base, status: "failed", mock: false, error: "Edited post text cannot be empty.", code: "edit_text_required" };
+    }
+    const stored = this.store.read((db) => db.accounts[platform]);
+    if (!stored) {
+      return { ...base, status: "failed", mock: false, error: `No ${platform} account is connected.`, code: "account_missing" };
+    }
+    const ctx = this.adapterContext();
+    let tokens = stored.secret ? this.box.decrypt<OAuthTokens>(stored.secret) : null;
+    try {
+      let result;
+      try {
+        result = await adapter.updatePost(ctx, postId, { account: stored.account, tokens, text: message });
+      } catch (error) {
+        if (error instanceof AuthError && tokens?.refreshToken && adapter.refresh) {
+          tokens = await adapter.refresh(ctx, tokens);
+          await this.persistRefreshedTokens(platform, tokens);
+          result = await adapter.updatePost(ctx, postId, { account: stored.account, tokens, text: message });
+        } else {
+          throw error;
+        }
+      }
+      await this.markPostEdited(platform, postId, message, result.mock);
+      return { ...base, status: "updated", mock: result.mock };
+    } catch (error) {
+      return {
+        ...base,
+        status: "failed",
+        mock: stored.account.mode === "mock",
+        error: errorMessage(error),
+        ...(error instanceof RelayError ? { code: error.code } : {}),
+      };
+    }
+  }
+
+  private async markPostEdited(platform: PlatformId, postId: string, text: string, mock: boolean): Promise<void> {
+    await this.store.mutate((db) => {
+      for (const record of db.posts) {
+        for (const result of record.results) {
+          if (result.platform !== platform) continue;
+          const owns = result.postId === postId || result.publishedParts?.some((part) => part.postId === postId);
+          if (!owns) continue;
+          result.edits = [...(result.edits ?? []), { postId, text, editedAt: this.now().toISOString(), ...(mock ? { mock: true } : {}) }];
+        }
+      }
+    });
   }
 
   private async markPostDeleted(platform: PlatformId, postId: string, mock: boolean): Promise<void> {

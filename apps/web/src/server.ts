@@ -995,6 +995,26 @@ async function handleApi(
   }
   const resource = segments[1] ?? "";
 
+  if (method === "POST" && segments.length === 3 && resource === "posts" && segments[2] === "edit") {
+    requireOperator(session);
+    const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+    const platform = requirePlatform(typeof body.platform === "string" ? body.platform : undefined);
+    const postId = typeof body.postId === "string" ? body.postId.trim() : "";
+    const text = typeof body.text === "string" ? body.text : "";
+    if (!postId) throw new RelayError("A post id is required.", "post_id_required", undefined, 400);
+    sendJson(res, 200, { outcome: await relay.editPublishedPost(platform, postId, text) });
+    return;
+  }
+  if (method === "POST" && segments.length === 3 && resource === "posts" && segments[2] === "delete") {
+    requireOperator(session);
+    const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+    const platform = requirePlatform(typeof body.platform === "string" ? body.platform : undefined);
+    const postId = typeof body.postId === "string" ? body.postId.trim() : "";
+    if (!postId) throw new RelayError("A post id is required.", "post_id_required", undefined, 400);
+    sendJson(res, 200, { outcome: await relay.deletePublishedPost(platform, postId) });
+    return;
+  }
+
   if (segments.length === 2) {
     if (method === "GET" && resource === "state") {
       const [settings, accounts, queue, history, credentials, scheduler] = await Promise.all([

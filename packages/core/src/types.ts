@@ -209,6 +209,27 @@ export interface DeletePostInput {
   tokens: OAuthTokens | null;
 }
 
+export interface UpdatePostInput {
+  account: Account;
+  tokens: OAuthTokens | null;
+  /** Replacement message for the published post. */
+  text: string;
+}
+
+export interface UpdatePostResult {
+  updated: boolean;
+  mock: boolean;
+}
+
+export interface UpdatePostOutcome {
+  platform: PlatformId;
+  postId: string;
+  status: "updated" | "unsupported" | "failed";
+  mock: boolean;
+  error?: string;
+  code?: string;
+}
+
 export interface DeletePostResult {
   deleted: boolean;
   /** True when the delete was simulated (mock mode). */
@@ -561,6 +582,11 @@ export interface PlatformAdapter {
    * scheduler never calls this.
    */
   deletePost?(ctx: AdapterContext, postId: string, input: DeletePostInput): Promise<DeletePostResult>;
+  /**
+   * EXPLICIT-ONLY: edit the text of one published post. Implemented by Facebook.
+   * The scheduler never calls this.
+   */
+  updatePost?(ctx: AdapterContext, postId: string, input: UpdatePostInput): Promise<UpdatePostResult>;
 }
 
 export interface ValidationIssue {
@@ -628,6 +654,8 @@ export interface PostResult {
   details?: Record<string, unknown>;
   /** Posts deleted on the platform through relay_delete. */
   deletions?: { postId: string; deletedAt: string; mock?: boolean }[];
+  /** Explicit edits made after publishing (currently Facebook Page posts). */
+  edits?: { postId: string; text: string; editedAt: string; mock?: boolean }[];
   publishedAt: string;
 }
 

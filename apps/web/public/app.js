@@ -1857,6 +1857,11 @@
       ? `<span class="cost-badge" title="Total for this draft across its platforms"><strong>$${(Number(cost.total) / 1000).toFixed(2)}</strong><small>${Number(cost.parts) === 1 ? "1 part" : `${Number(cost.parts)} parts`}</small></span>`
       : "";
     const retrying = state.retrying.has(`record:${record.id}`);
+    const facebookPost = results.find((entry) => entry.ok && entry.platform === "facebook" && entry.postId);
+    const facebookActions = facebookPost
+      ? `<button class="ghost-btn" type="button" data-edit-post="${escapeAttr(record.id)}" data-platform="facebook" data-post-id="${escapeAttr(facebookPost.postId)}">Edit</button>
+         <button class="ghost-btn" type="button" data-delete-post="${escapeAttr(record.id)}" data-platform="facebook" data-post-id="${escapeAttr(facebookPost.postId)}">Delete</button>`
+      : "";
     const errorMessages = errors.map((entry) => `${PLATFORM_META[entry.platform]?.name ?? entry.platform}: ${entry.error ?? "failed"}`);
     return `<div class="list-row" data-post-id="${escapeAttr(record.id)}">
       <div class="list-marker" data-tone="${allOk ? "done" : anyOk ? "pending" : "failed"}">
@@ -1876,6 +1881,7 @@
       <div class="row-actions">
         ${costBadge}
         ${links.slice(0, 1).map((entry) => `<a class="ghost-btn" href="${escapeAttr(entry.url)}" target="_blank" rel="noreferrer noopener">View post</a>`).join("")}
+        ${facebookActions}
         ${errors.length ? `<button class="ghost-btn retry-btn" type="button" data-retry-record="${escapeAttr(record.id)}" ${retrying ? "disabled" : ""}>${retrying ? "Retrying…" : "Retry failed"}</button>` : ""}
       </div>
     </div>`;
@@ -3450,6 +3456,51 @@
         return;
       }
 
+      const editPost = event.target.closest("[data-edit-post]");
+      if (editPost) {
+        const record = state.history.find((entry) => entry.id === editPost.dataset.editPost);
+        const current = record?.draft?.text ?? "";
+        const next = window.prompt("Edit the Facebook Page post", current);
+        if (next === null || next.trim() === current.trim()) return;
+        if (!next.trim()) {
+          toast({ tone: "error", title: "Edit not saved", text: "The post text cannot be empty." });
+          return;
+        }
+        editPost.disabled = true;
+        api("/api/posts/edit", {
+          method: "POST",
+          body: { platform: editPost.dataset.platform, postId: editPost.dataset.postId, text: next },
+        })
+          .then(() => refreshAll())
+          .then(() => toast({ tone: "success", title: "Post updated", text: "The live Facebook Page post was edited." }))
+          .catch((error) => toast({ tone: "error", title: "Edit failed", text: error.message }))
+          .finally(() => { editPost.disabled = false; });
+        return;
+      }
+      const deletePost = event.target.closest("[data-delete-post]");
+      if (deletePost) {
+        const row = deletePost.closest(".list-row");
+        const title = row?.querySelector(".list-excerpt")?.textContent?.trim() || "this Facebook Page post";
+        void openModal({
+          eyebrow: "Published",
+          title: "Delete this Facebook Page post?",
+          body: `This removes the live post from the Page and cannot be undone. ${title}`,
+          confirmLabel: "Delete post",
+          tone: "danger",
+        }).then((confirmed) => {
+          if (!confirmed) return;
+          deletePost.disabled = true;
+          return api("/api/posts/delete", {
+            method: "POST",
+            body: { platform: deletePost.dataset.platform, postId: deletePost.dataset.postId },
+          })
+            .then(() => refreshAll())
+            .then(() => toast({ tone: "success", title: "Post deleted", text: "The Facebook Page post was removed." }))
+            .catch((error) => toast({ tone: "error", title: "Delete failed", text: error.message }))
+            .finally(() => { deletePost.disabled = false; });
+        });
+        return;
+      }
       const startWriting = event.target.closest("[data-start-writing]");
       if (startWriting) {
         const editor = document.querySelector("[data-part-text]");

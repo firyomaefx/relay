@@ -6,12 +6,16 @@ import type {
   AuthorizeRequest,
   AuthorizeResult,
   ConnectResult,
+  DeletePostInput,
+  DeletePostResult,
   ExchangeRequest,
   OAuthTokens,
   PlatformAdapter,
   PlatformLimits,
   PublishInput,
   PublishResult,
+  UpdatePostInput,
+  UpdatePostResult,
 } from "@relay/core";
 import { mockProfile, mockPublish, mockScopes } from "../mock.js";
 import {
@@ -246,6 +250,7 @@ export class FacebookAdapter implements PlatformAdapter {
             file_url: publicMediaUrl(ctx, video, "Facebook Page"),
             description: message || undefined,
             title,
+            access_token: input.tokens.accessToken,
           }),
         });
         const id = getString(asObject(created), "id");
@@ -261,6 +266,7 @@ export class FacebookAdapter implements PlatformAdapter {
           body: formBody({
             url: publicMediaUrl(ctx, image, "Facebook Page"),
             message: message || undefined,
+            access_token: input.tokens.accessToken,
           }),
         });
         const id = getString(asObject(created), "id") ?? getString(asObject(created), "post_id");
@@ -277,13 +283,17 @@ export class FacebookAdapter implements PlatformAdapter {
             body: formBody({
               url: publicMediaUrl(ctx, image, "Facebook Page"),
               published: "false",
+              access_token: input.tokens.accessToken,
             }),
           });
           const id = getString(asObject(created), "id");
           if (!id) throw new RelayError("Facebook did not return an unpublished photo id", "facebook_photo_id_missing", created, 502);
           photoIds.push(id);
         }
-        const fields: Record<string, string | undefined> = { message: message || undefined };
+        const fields: Record<string, string | undefined> = {
+          message: message || undefined,
+          access_token: input.tokens.accessToken,
+        };
         photoIds.forEach((id, index) => {
           fields[`attached_media[${index}]`] = JSON.stringify({ media_fbid: id });
         });
@@ -304,6 +314,7 @@ export class FacebookAdapter implements PlatformAdapter {
         body: formBody({
           message: message || undefined,
           link,
+          access_token: input.tokens.accessToken,
         }),
       });
       const id = getString(asObject(created), "id");
@@ -312,5 +323,49 @@ export class FacebookAdapter implements PlatformAdapter {
     } catch (error) {
       throw pagePermissionError(error);
     }
+  }
+
+  async deletePost(ctx: AdapterContext, postId: string, input: DeletePostInput): Promise<DeletePostResult> {
+    if (!this.isLive(ctx) || !input.tokens) return { deleted: true, mock: true };
+    if (!postId.trim()) {
+      throw new RelayError("A Facebook post id is required", "facebook_post_id_missing", undefined, 400);
+    }
+    try {
+      await providerFetch(ctx, "Facebook delete post", `${GRAPH_URL}/${postId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formBody({ access_token: input.tokens.accessToken }),
+      });
+    } catch (error) {
+      if (error instanceof RelayError && error.statusCode === 404) {
+        return { deleted: true, mock: false, alreadyGone: true };
+      }
+      throw pagePermissionError(error);
+    }
+    return { deleted: true, mock: false };
+  }
+
+  async updatePost(ctx: AdapterContext, postId: string, input: UpdatePostInput): Promise<UpdatePostResult> {
+    if (!this.isLive(ctx) || !input.tokens) return { updated: true, mock: true };
+    const message = input.text.trim();
+    if (!message) {
+      throw new RelayError("Facebook Page edits need non-empty text", "facebook_edit_text_required", undefined, 400);
+    }
+    if (!postId.trim()) {
+      throw new RelayError("A Facebook post id is required", "facebook_post_id_missing", undefined, 400);
+    }
+    try {
+      const result = await providerFetch(ctx, "Facebook update post", `${GRAPH_URL}/${postId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formBody({ message, access_token: input.tokens.accessToken }),
+      });
+      if (asObject(result)?.success !== true) {
+        throw new RelayError("Facebook did not confirm the edit", "facebook_edit_not_confirmed", result, 502);
+      }
+    } catch (error) {
+      throw pagePermissionError(error);
+    }
+    return { updated: true, mock: false };
   }
 }
