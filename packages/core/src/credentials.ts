@@ -75,7 +75,11 @@ export class CredentialStore {
       clientId: firstEnv(this.env, keys.id),
       clientSecret: firstEnv(this.env, keys.secret),
     };
-    const saved = this.saved[platform] ?? {};
+    // Facebook Pages and Instagram are commonly the same Meta app. The env
+    // fallback above already accepts the Instagram app keys; mirror that for
+    // credentials saved through the console so enabling the Pages flag does
+    // not require re-entering the same Meta app secret.
+    const saved = this.saved[platform] ?? (platform === "facebook" ? this.saved.instagram : undefined) ?? {};
     return {
       clientId: saved.clientId ?? fromEnv.clientId,
       clientSecret: saved.clientSecret ?? fromEnv.clientSecret,

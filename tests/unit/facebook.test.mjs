@@ -74,6 +74,20 @@ test("Facebook authorize requests the three Page permissions and the callback", 
   assert.equal(url.searchParams.get("state"), "state-1");
 });
 
+test("Facebook authorize uses a Login for Business configuration id when provided", async () => {
+  const { ctx } = makeContext({ onFetch: () => ({}), env: { FACEBOOK_CONFIG_ID: "config-123" } });
+  const result = await new FacebookAdapter().authorize(ctx, {
+    state: "state-2",
+    codeVerifier: "verifier",
+    redirectUri: "https://relay.test/auth/callback/facebook",
+  });
+  assert.equal(result.kind, "redirect");
+  const url = new URL(result.url);
+  assert.equal(url.searchParams.get("config_id"), "config-123");
+  assert.equal(url.searchParams.get("scope"), null);
+  assert.equal(url.searchParams.get("state"), "state-2");
+});
+
 test("Facebook code exchange stores the Page id, name and Page token", async () => {
   const { ctx, calls } = makeContext({
     onFetch: (call) => {

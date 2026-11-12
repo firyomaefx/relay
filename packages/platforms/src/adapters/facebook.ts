@@ -108,7 +108,15 @@ export class FacebookAdapter implements PlatformAdapter {
     url.searchParams.set("client_id", clientId);
     url.searchParams.set("redirect_uri", req.redirectUri);
     url.searchParams.set("response_type", "code");
-    url.searchParams.set("scope", SCOPES.join(","));
+    // Facebook Login for Business uses a dashboard configuration ID. Keep the
+    // legacy scope flow as a fallback for an existing Meta app that has not
+    // created a configuration yet.
+    const configId = ctx.env.FACEBOOK_CONFIG_ID?.trim();
+    if (configId) {
+      url.searchParams.set("config_id", configId);
+    } else {
+      url.searchParams.set("scope", SCOPES.join(","));
+    }
     url.searchParams.set("state", req.state);
     return { kind: "redirect", url: url.toString() };
   }
@@ -151,12 +159,31 @@ export class FacebookAdapter implements PlatformAdapter {
     }
 
     const pagesUrl = new URL(`${GRAPH_URL}/me/accounts`);
-    pagesUrl.searchParams.set("fields", "id,name,access_token,picture{url}");
+    pagesUrl.searchParams.set("fields", "id,name,access_token,picture{url},tasks");
     pagesUrl.searchParams.set("access_token", userToken);
     const pagesJson = await providerFetch(ctx, "Facebook Page list", pagesUrl.toString(), { method: "GET" });
-    const page = asArray(asObject(pagesJson)?.data)
+    const pages = asArray(asObject(pagesJson)?.data)
       .map((entry) => asObject(entry))
-      .find((entry) => Boolean(entry && getString(entry, "id") && getString(entry, "access_token")));
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry && getString(entry, "id") && getString(entry, "access_token")));
+    const preferredPageId = ctx.env.FACEBOOK_PAGE_ID?.trim();
+    const canPublishTo = (entry: Record<string, unknown>): boolean => {
+      const tasks = asArray(entry.tasks)
+        .map((task) => (typeof task === "string" ? task : getString(asObject(task) ?? {}, "task") ?? ""))
+        .filter(Boolean);
+      if (tasks.length === 0) return true;
+      return tasks.some((task) => /CREATE_CONTENT|MANAGE/i.test(task));
+    };
+    const page = preferredPageId
+      ? pages.find((entry) => getString(entry, "id") === preferredPageId)
+      : pages.find((entry) => canPublishTo(entry)) ?? pages[0];
+    if (preferredPageId && !page) {
+      throw new RelayError(
+        `The configured Facebook Page ${preferredPageId} was not returned for this account. Check the Page admin role and FACEBOOK_PAGE_ID.`,
+        "facebook_page_not_found",
+        undefined,
+        400,
+      );
+    }
     if (!page) {
       throw new RelayError(
         "No Facebook Page was returned. Make sure this person is a Page admin and grants pages_show_list, then reconnect.",

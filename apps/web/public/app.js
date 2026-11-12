@@ -341,8 +341,13 @@
   }
 
   function availablePlatforms() {
-    const configured = new Set((state.settings?.platforms ?? []).map((entry) => entry.platform));
-    return PLATFORMS.filter((platform) => platform !== "facebook" || configured.has(platform));
+    const statuses = state.settings?.platforms ?? [];
+    const enabled = new Set(
+      statuses
+        .filter((entry) => entry.platform !== "facebook" || entry.configured)
+        .map((entry) => entry.platform),
+    );
+    return PLATFORMS.filter((platform) => platform !== "facebook" || enabled.has(platform));
   }
 
   function selectedPlatforms() {
