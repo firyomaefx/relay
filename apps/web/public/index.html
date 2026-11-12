@@ -8,8 +8,8 @@
   <meta name="description" content="Relay publishing console." />
   <title>Relay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/styles.css?v=20261112facebook" />
-  <script src="/app.js?v=20261112facebook" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20261113compose" />
+  <script src="/app.js?v=20261113compose" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -273,10 +273,9 @@
         </section>
 
         <section class="screen" id="screen-compose" data-screen="compose" aria-labelledby="composeTitle">
-          <div class="screen-intro">
+          <div class="screen-intro composer-intro">
             <p class="eyebrow">New post</p>
             <h2 class="display" id="composeTitle">Compose<span class="display-dot">.</span></h2>
-            <p class="lede">Write once, check the preview, then publish or schedule. Relay adapts the post for each network.</p>
           </div>
 
           <div class="compose-modebar">
@@ -338,11 +337,6 @@
                   <div class="divider" role="separator"></div>
 
                   <div class="options-grid basic-options" id="basicOptions">
-                    <label class="field field-wide" for="scheduleAt">
-                      <span class="field-label">Schedule <span class="field-label-dim">(local time)</span></span>
-                      <input class="input" id="scheduleAt" type="datetime-local" />
-                      <span class="field-hint" id="scheduleHint">Leave empty to publish now. Past times publish immediately.</span>
-                    </label>
                     <label class="field platform-option" id="tiktokPrivacyField" for="tiktokPrivacy" hidden>
                       <span class="field-label">TikTok privacy</span>
                       <select class="select" id="tiktokPrivacy">
@@ -432,13 +426,24 @@
                     </div>
                   </header>
                   <div class="publish-summary" id="publishSummary"></div>
-                  <button class="primary-btn" id="publishBtn" type="button">
-                    <span id="publishLabel">Publish now</span>
-                    <span class="btn-orb" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9.5 7H17v7.5" /></svg>
-                    </span>
-                  </button>
-                  <button class="ghost-btn" id="clearBtn" type="button">Clear draft</button>
+                  <div class="composer-actions">
+                    <button class="primary-btn composer-post" id="publishBtn" type="button">
+                      <span id="publishLabel">Post now</span>
+                      <span class="btn-orb" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9.5 7H17v7.5" /></svg>
+                      </span>
+                    </button>
+                    <button class="ghost-btn composer-schedule-btn" id="scheduleBtn" type="button">Schedule</button>
+                  </div>
+                  <details class="composer-schedule" id="scheduleSheet">
+                    <summary>Schedule for later</summary>
+                    <label class="field" for="scheduleAt">
+                      <span class="field-label">Date &amp; time <span class="field-label-dim">(local)</span></span>
+                      <input class="input" id="scheduleAt" type="datetime-local" />
+                      <span class="field-hint" id="scheduleHint">Pick a future time, then press Schedule. Empty means Post now.</span>
+                    </label>
+                  </details>
+                  <button class="ghost-btn composer-clear" id="clearBtn" type="button">Clear draft</button>
                   <p class="fine-print">Drafts are never stored. Scheduled posts live in the local queue until they run.</p>
                 </section>
               </div>

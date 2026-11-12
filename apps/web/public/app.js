@@ -1010,13 +1010,15 @@
   function updatePublishLabel() {
     if (!els.publishLabel) return;
     if (state.publishing) return;
-    const schedule = scheduleIso();
-    els.publishLabel.textContent = isFutureSchedule(schedule) ? "Schedule post" : "Publish now";
+    els.publishLabel.textContent = "Post now";
+    if (els.scheduleBtn) els.scheduleBtn.textContent = "Schedule";
   }
 
   function updatePublishAvailability() {
     if (!els.publishBtn) return;
-    els.publishBtn.disabled = state.publishing || state.selected.size === 0;
+    const disabled = state.publishing || state.selected.size === 0;
+    els.publishBtn.disabled = disabled;
+    if (els.scheduleBtn) els.scheduleBtn.disabled = disabled;
     updatePublishLabel();
   }
 
@@ -1346,12 +1348,13 @@
   /* ------------------------------------------------------------------ *
    * Publishing
    * ------------------------------------------------------------------ */
-  function setPublishing(active) {
+  function setPublishing(active, mode = "now") {
     state.publishing = active;
     els.publishBtn.disabled = active || state.selected.size === 0;
+    if (els.scheduleBtn) els.scheduleBtn.disabled = active || state.selected.size === 0;
     if (active) {
-      const scheduled = isFutureSchedule(scheduleIso());
-      els.publishLabel.textContent = scheduled ? "Scheduling…" : "Publishing…";
+      els.publishLabel.textContent = mode === "schedule" ? "Scheduling…" : "Publishing…";
+      if (els.scheduleBtn) els.scheduleBtn.textContent = mode === "schedule" ? "Scheduling…" : "Schedule";
     } else {
       updatePublishLabel();
     }
@@ -1373,14 +1376,24 @@
     updatePublishAvailability();
   }
 
-  async function handlePublish() {
+  async function handlePublish(mode = "now") {
     if (state.publishing) return;
     if (state.selected.size === 0) {
       toast({ tone: "error", title: "Pick a destination", text: "Choose at least one platform before publishing." });
       return;
     }
+    if (mode === "now") {
+      state.scheduleInput = "";
+      if (els.scheduleAt) els.scheduleAt.value = "";
+    }
+    if (mode === "schedule" && !isFutureSchedule(scheduleIso())) {
+      if (els.scheduleSheet) els.scheduleSheet.open = true;
+      els.scheduleAt?.focus();
+      toast({ tone: "info", title: "Pick a time", text: "Choose a future date and time, then press Schedule." });
+      return;
+    }
     const draft = buildDraft();
-    setPublishing(true);
+    setPublishing(true, mode);
     try {
       const result = await api("/api/posts", { method: "POST", body: { draft } });
       state.lastResult = result;
@@ -3158,6 +3171,8 @@
       recurrenceHint: $("#recurrenceHint"),
       publishBtn: $("#publishBtn"),
       publishLabel: $("#publishLabel"),
+      scheduleBtn: $("#scheduleBtn"),
+      scheduleSheet: $("#scheduleSheet"),
       clearBtn: $("#clearBtn"),
       publishSummary: $("#publishSummary"),
       preflight: $("#preflight"),
@@ -3609,7 +3624,8 @@
       renderCalendar();
     });
 
-    els.publishBtn.addEventListener("click", () => void handlePublish());
+    els.publishBtn.addEventListener("click", () => void handlePublish("now"));
+    els.scheduleBtn?.addEventListener("click", () => void handlePublish("schedule"));
     els.clearBtn.addEventListener("click", () => void clearDraft());
 
     els.postsList.addEventListener("click", (event) => {
