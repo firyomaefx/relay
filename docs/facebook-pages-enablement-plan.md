@@ -258,3 +258,28 @@ Record one uninterrupted flow:
 5. **Page token expiry/revocation** must produce a reconnect path, not a failed publish.
 6. **No delete/edit** may cause review friction because the permission’s screencast asks for them.
 7. **Media must be publicly fetchable** by Facebook; private or local URLs will fail.
+
+
+## Facebook Page edit/delete implementation — 13 Nov 2026
+
+- Added `updatePost` and `deletePost` to the Facebook Pages adapter.
+- Added `editPublishedPost` to `RelayService`, with edit history recorded on the post result.
+- Added operator-only `POST /api/posts/edit` and `POST /api/posts/delete` routes.
+- Added **Edit** and **Delete** actions on Published Facebook Page rows.
+- Facebook publish calls now include the Page access token (previously omitted).
+- Added adapter tests for edit, delete, and publish token use.
+- Deployed as `3e3a714` (`fbadmin`); `npm test` passes 261 tests.
+
+### Meta progress and remaining blockers
+
+- App icon is uploaded and saved.
+- App domains now contains `duitpoket.fun`.
+- `pages_read_engagement` and `pages_manage_posts` are attached to the Page use case and listed in App Review.
+- Business Verification was started in the Security Centre but stopped at the legal business-type step. It needs the real legal entity type and documents for DuitPoket.
+- The App Review submission is still not submitted. It needs:
+  - Business Verification completed.
+  - A screencast of create → edit → delete on a real Page.
+  - One completed API test call per permission.
+  - Allowed usage, Data handling, and Reviewer instructions completed.
+- Page ID/admin is still unconfirmed. Graph API Explorer token generation did not return a token, so the Page connection test is still pending.
+- Production remains at `RELAY_ENABLE_FACEBOOK=0`.
