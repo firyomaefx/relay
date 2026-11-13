@@ -33,12 +33,12 @@ test("manual cloud top-up records one payment and is idempotent", async () => {
     const me = await httpJson(server.baseUrl, "/api/cloud/admin/me");
     assert.equal(me.status, 200, requestSummary(me));
     assert.equal(me.json.balance.available, 0);
-    assert.equal(me.json.freeCredit.limit, 500);
-    assert.equal(me.json.freeCredit.remaining, 500);
+    assert.equal(me.json.freeCredit.limit, 10_000);
+    assert.equal(me.json.freeCredit.remaining, 10_000);
 
     const billing = await httpJson(server.baseUrl, "/api/cloud/admin/billing");
     assert.equal(billing.status, 200, requestSummary(billing));
-    assert.equal(billing.json.totalAvailable, 500);
+    assert.equal(billing.json.totalAvailable, 10_000);
     assert.equal(billing.json.payments.length, 0);
     assert.equal(billing.json.providers.stripe, false);
     assert.equal(billing.json.providers.polar, false);

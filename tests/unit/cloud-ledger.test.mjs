@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
-import { CloudLedger, CloudStore } from "../../packages/cloud/dist/index.js";
+import { CloudLedger, CloudStore, effectiveFreeLimit } from "../../packages/cloud/dist/index.js";
 import { cleanupTempDir, makeTempDir } from "../helpers.mjs";
 
 test("ledger keeps whole-unit balances and reserves atomically", async () => {
@@ -89,4 +89,28 @@ test("insufficient balance, idempotency and the last-balance race are safe", asy
   }
 });
 
-
+test("operator free credit is $10 after normal allowance usage", async () => {
+  const dir = await makeTempDir("relay-cloud-operator-");
+  const dbPath = path.join(dir, "cloud.sqlite");
+  const store = CloudStore.open(dbPath);
+  const owner = store.ensureOwnerCustomer("Operator");
+  store.close();
+  const ledger = new CloudLedger(dbPath);
+  try {
+    const reservation = ledger.reserve({
+      customerId: owner.id,
+      amount: 0,
+      freeUnits: 380,
+      freeLimit: 500,
+      idempotencyKey: "operator-free-usage",
+      ttlMs: 60_000,
+    });
+    assert.equal(reservation.status, "held");
+    ledger.commit(reservation.id, 0, "post-1", 380);
+    const limit = effectiveFreeLimit(ledger, owner, 500);
+    assert.equal(limit, 10_380);
+    assert.equal(ledger.freeRemaining(owner.id, limit), 10_000);
+  } finally {
+    ledger.close();
+  }
+});

@@ -2,6 +2,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import { RelayError } from "@relay/core";
+import type { Customer } from "./db.js";
 
 export type LedgerType = "topup" | "charge" | "refund" | "adjustment" | "bonus";
 export type ReservationStatus = "held" | "committed" | "released";
@@ -62,6 +63,22 @@ export interface PaymentEvent {
  * integer units; credits are positive, charges negative. Available balance is
  * ledger sum minus active holds.
  */
+/** Operator accounts get $10 of starter credit instead of the customer allowance. */
+export const OPERATOR_FREE_CREDIT_MILLI_USD = 10_000;
+
+/**
+ * The effective free-credit limit for a customer. Owner/operator accounts get
+ * $10 on top of whatever they have already consumed from the normal allowance,
+ * so the remaining free credit is exactly $10. Customers keep the configured
+ * starter allowance.
+ */
+export function effectiveFreeLimit(ledger: CloudLedger, customer: Customer, baseLimit: number): number {
+  if (!customer.owner) return baseLimit;
+  const baseRemaining = baseLimit > 0 ? ledger.freeRemaining(customer.id, baseLimit) : 0;
+  const alreadyUsed = Math.max(0, baseLimit - baseRemaining);
+  return alreadyUsed + OPERATOR_FREE_CREDIT_MILLI_USD;
+}
+
 export class CloudLedger {
   private readonly db: DatabaseSync;
 

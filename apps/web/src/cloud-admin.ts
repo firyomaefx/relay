@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { RelayError, errorMessage } from "@relay/core";
-import { CloudLedger, CloudStore, PriceTable, defaultPricePath, loadCloudConfig } from "@relay/cloud";
+import { CloudLedger, CloudStore, PriceTable, defaultPricePath, effectiveFreeLimit, loadCloudConfig } from "@relay/cloud";
 import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
 import { createPolarCheckout, loadPolarConfig, type PolarConfig } from "./polar.js";
 import { customerSetupEmail, loadEmailConfig, sendEmail, type EmailConfig } from "@relay/cloud";
@@ -102,7 +102,8 @@ export async function handleCloudAdmin(
   try {
     if (method === "GET" && resource === "billing") {
       const owner = deps.store.ensureOwnerCustomer("Owner");
-      const freeLimit = deps.pricing?.list().free_allowance_milli_usd ?? 0;
+      const baseFreeLimit = deps.pricing?.list().free_allowance_milli_usd ?? 0;
+      const freeLimit = effectiveFreeLimit(deps.ledger, owner, baseFreeLimit);
       const freeCredit = freeLimit > 0
         ? { limit: freeLimit, remaining: deps.ledger.freeRemaining(owner.id, freeLimit), currency: "USD" }
         : null;
@@ -125,7 +126,8 @@ export async function handleCloudAdmin(
 
     if (method === "GET" && resource === "me") {
       const owner = deps.store.ensureOwnerCustomer("Owner");
-      const freeLimit = deps.pricing?.list().free_allowance_milli_usd ?? 0;
+      const baseFreeLimit = deps.pricing?.list().free_allowance_milli_usd ?? 0;
+      const freeLimit = effectiveFreeLimit(deps.ledger, owner, baseFreeLimit);
       send(res, 200, {
         customer: { id: owner.id, displayName: owner.displayName },
         balance: deps.ledger.balanceWithHold(owner.id),

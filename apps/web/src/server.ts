@@ -18,7 +18,7 @@ import {
   type RelayService,
 } from "@relay/core";
 import { createRelay } from "@relay/platforms";
-import { PriceTable, TenantManager, authenticateApiKey, defaultPricePath, loadCloudConfig, type CloudPrices, type Customer } from "@relay/cloud";
+import { PriceTable, TenantManager, authenticateApiKey, defaultPricePath, effectiveFreeLimit, loadCloudConfig, type CloudPrices, type Customer } from "@relay/cloud";
 import { CLIENT_MATRIX, generateArtifact, type ClientId } from "@relay/connector";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { createConnectSession, lookupConnectSession, verifyConnectSession } from "./connect-session.js";
@@ -61,7 +61,8 @@ function settleConsoleBilling(records: PostRecord[], cloudAdmin: CloudAdminDeps 
     : cloudAdmin.store.ensureOwnerCustomer("Owner");
   if (!owner) return;
   const prices = PriceTable.fromConfig(config);
-  const freeLimit = Number(config.free_allowance_milli_usd ?? 0);
+  const baseFreeLimit = Number(config.free_allowance_milli_usd ?? 0);
+  const freeLimit = effectiveFreeLimit(cloudAdmin.ledger, owner, baseFreeLimit);
   const excluded = new Set(config.free_excluded_platforms ?? []);
   const ordered = [...records].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   for (const record of ordered) {
@@ -894,7 +895,11 @@ async function handleApi(
   if (segments[1] === "cloud" && segments[2] === "me" && segments.length === 3 && method === "GET") {
     if (!deps.cloudAdmin || !billingCustomerId) throw new RelayError("Cloud billing is not configured.", "cloud_unavailable", undefined, 503);
     const balance = deps.cloudAdmin.ledger.balanceWithHold(billingCustomerId);
-    const freeLimit = deps.pricing?.free_allowance_milli_usd ?? 0;
+    const baseFreeLimit = deps.pricing?.free_allowance_milli_usd ?? 0;
+    const billingCustomer = deps.cloudAdmin.store.getCustomer(billingCustomerId);
+    const freeLimit = billingCustomer
+      ? effectiveFreeLimit(deps.cloudAdmin.ledger, billingCustomer, baseFreeLimit)
+      : baseFreeLimit;
     const freeRemaining = freeLimit > 0 ? deps.cloudAdmin.ledger.freeRemaining(billingCustomerId, freeLimit) : 0;
     sendJson(res, 200, {
       customer: { id: billingCustomerId },
@@ -909,7 +914,8 @@ async function handleApi(
     if (!deps.cloudAdmin || !billingCustomerId) throw new RelayError("Cloud billing is not configured.", "cloud_unavailable", undefined, 503);
     const customer = deps.cloudAdmin.store.getCustomer(billingCustomerId);
     if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
-    const freeLimit = deps.pricing?.free_allowance_milli_usd ?? 0;
+    const baseFreeLimit = deps.pricing?.free_allowance_milli_usd ?? 0;
+    const freeLimit = effectiveFreeLimit(deps.cloudAdmin.ledger, customer, baseFreeLimit);
     const freeCredit = freeLimit > 0
       ? { limit: freeLimit, remaining: deps.cloudAdmin.ledger.freeRemaining(customer.id, freeLimit), currency: "USD" }
       : null;
