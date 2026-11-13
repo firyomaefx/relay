@@ -283,3 +283,11 @@ Record one uninterrupted flow:
   - Allowed usage, Data handling, and Reviewer instructions completed.
 - Page ID/admin is still unconfirmed. Graph API Explorer token generation did not return a token, so the Page connection test is still pending.
 - Production remains at `RELAY_ENABLE_FACEBOOK=0`.
+
+## Operator free credit — 14 Nov 2026
+
+- Operator/owner accounts now receive **$10.00 of free credit** on sign-in.
+- Implemented as an effective operator free limit: the normal starter allowance is topped up so exactly $10.00 remains after prior free usage.
+- Customer accounts keep the configured $0.50 starter allowance.
+- Verified in the production console: `$10.02 · $10.00 free`.
+- Deployed as `bf1bd09` (`operatorcredit`); tests: 262 pass.
