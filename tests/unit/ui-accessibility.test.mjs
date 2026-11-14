@@ -45,14 +45,22 @@ test("waitlist is a minimal, conversion-focused registration page", async () => 
   const html = await readFile(path.join(process.cwd(), "apps", "web", "public", "waitlist.html"), "utf8");
   const js = await readFile(path.join(process.cwd(), "apps", "web", "public", "waitlist.js"), "utf8");
 
-  assert.match(html, /Write once\./);
-  assert.match(html, /One calm composer/);
-  assert.match(html, /Name and email only/);
+  assert.match(html, /One post\./);
+  assert.match(html, /A week of showing up\./);
+  assert.match(html, /Manual or AI/);
+  assert.match(html, /Content first/);
+  assert.match(html, /ChatGPT/);
+  assert.match(html, /Request early access/);
+  assert.equal((html.match(/<h1\b/g) || []).length, 1);
   assert.match(html, /id="name"[^>]*required/);
   assert.match(html, /id="email"[^>]*required/);
   assert.doesNotMatch(html, /How do you want to post\?/);
   assert.doesNotMatch(html, /name="phone"/);
-  assert.match(js, /Reserving/);
+  assert.match(js, /Sending…/);
   assert.match(js, /successCard/);
-  assert.match(html, /Join the waitlist/);
+  assert.match(js, /batch === "next"/);
+  assert.doesNotMatch(html, /\$0\.02|\$0\.04/);
+  assert.match(html, /<noscript>/);
+  const css = await readFile(path.join(process.cwd(), "apps", "web", "public", "waitlist.css"), "utf8");
+  assert.ok(Buffer.byteLength(html) + Buffer.byteLength(css) <= 24 * 1024, "waitlist HTML + CSS stays under 24 KiB");
 });

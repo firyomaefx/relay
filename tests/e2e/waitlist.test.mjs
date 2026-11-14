@@ -23,7 +23,12 @@ test("public waitlist accepts requests, dedupes email, and admin approval stops 
   try {
     const page = await fetch(`${server.baseUrl}/waitlist`);
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /Join the waitlist/);
+    const pageText = await page.text();
+    assert.match(pageText, /One post\./);
+    assert.match(pageText, /Request early access/);
+    assert.match(pageText, /ChatGPT/);
+    assert.match(pageText, /Content first/);
+    assert.match(pageText, /id="waitlistForm"/);
 
     const pageResponse = await fetch(`${server.baseUrl}/waitlist`);
     assert.equal(pageResponse.headers.get("cache-control"), "no-store");
@@ -63,6 +68,8 @@ test("public waitlist accepts requests, dedupes email, and admin approval stops 
     assert.equal(status.json.accepted, 0);
     assert.equal(status.json.limit, 2);
     assert.equal(status.json.open, true);
+    assert.equal(status.json.acceptingRequests, true);
+    assert.equal(status.json.batch, "founding");
 
     const list = await httpJson(server.baseUrl, "/api/cloud/admin/waitlist?status=pending");
     assert.equal(list.status, 200, requestSummary(list));
@@ -89,8 +96,13 @@ test("public waitlist accepts requests, dedupes email, and admin approval stops 
       method: "POST",
       body: { name: "Third", email: "third@example.com", phone: "+60111222333" },
     });
-    assert.equal(full.status, 409, requestSummary(full));
-    assert.match(full.json.error, /first waitlist batch is full/i);
+    assert.equal(full.status, 201, requestSummary(full));
+    assert.equal(full.json.batch, "next");
+
+    const fullStatus = await httpJson(server.baseUrl, "/api/waitlist");
+    assert.equal(fullStatus.json.open, false);
+    assert.equal(fullStatus.json.acceptingRequests, true);
+    assert.equal(fullStatus.json.batch, "next");
 
     const customers = await httpJson(server.baseUrl, "/api/cloud/admin/customers");
     assert.equal(customers.status, 200);

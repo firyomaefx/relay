@@ -454,6 +454,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
         const accepted = deps.cloudAdmin.store.waitlistAcceptedCount();
         sendJson(res, 200, {
           open: accepted < limit,
+          acceptingRequests: true,
+          batch: accepted < limit ? "founding" : "next",
           accepted,
           limit,
           remaining: Math.max(0, limit - accepted),
@@ -465,18 +467,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       const body = asRecord(await readJsonBody(req, 32 * 1024));
       // Bots fill hidden fields; humans leave this empty.
       if (String(body.website ?? "").trim()) {
-        sendJson(res, 201, { ok: true, position: 0, duplicate: false, status: "pending" });
+        sendJson(res, 201, { ok: true, position: 0, duplicate: false, status: "pending", batch: "founding" });
         return;
       }
       const accepted = deps.cloudAdmin.store.waitlistAcceptedCount();
-      if (accepted >= limit) {
-        throw new RelayError(
-          "The first waitlist batch is full. Public access is opening next.",
-          "waitlist_full",
-          undefined,
-          409,
-        );
-      }
+      const batch = accepted < limit ? "founding" : "next";
       const platforms = Array.isArray(body.platforms)
         ? body.platforms.map((item) => String(item)).filter(Boolean).join(", ")
         : String(body.platforms ?? "");
@@ -503,7 +498,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       const emailResult = result.duplicate
         ? { sent: false }
         : await sendEmail(deps.cloudAdmin.email, {
-            ...waitlistConfirmationEmail({ name: result.entry.name, position }),
+            ...waitlistConfirmationEmail({ name: result.entry.name, position, batch }),
             to: result.entry.email,
           });
       sendJson(res, result.duplicate ? 200 : 201, {
@@ -511,6 +506,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
         position,
         duplicate: result.duplicate,
         status: result.entry.status,
+        batch,
         emailSent: emailResult.sent,
       });
       return;

@@ -33,7 +33,7 @@ test("email client posts a Resend message and reports the provider id", async ()
       RELAY_RESEND_API_BASE: `http://127.0.0.1:${port}`,
     });
     assert.ok(config);
-    const message = waitlistConfirmationEmail({ name: "Aina", position: 4 });
+    const message = waitlistConfirmationEmail({ name: "Aina", position: 4, batch: "founding" });
     const result = await sendEmail(config, { ...message, to: "aina@example.com" });
     assert.deepEqual(result, { sent: true, id: "em_test_1" });
     assert.equal(captured.method, "POST");
@@ -41,8 +41,9 @@ test("email client posts a Resend message and reports the provider id", async ()
     assert.equal(captured.contentType, "application/json");
     assert.deepEqual(captured.body.to, ["aina@example.com"]);
     assert.equal(captured.body.reply_to, "support@example.com");
-    assert.match(captured.body.subject, /waitlist/);
+    assert.match(captured.body.subject, /early-access/);
     assert.match(captured.body.text, /#4/);
+    assert.match(captured.body.text, /manual queue is complete/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

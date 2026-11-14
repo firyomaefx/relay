@@ -95,25 +95,34 @@ function layout(title: string, body: string): string {
   </div></body></html>`;
 }
 
-export function waitlistConfirmationEmail(input: { name: string; position: number }): EmailMessage {
+export function waitlistConfirmationEmail(input: {
+  name: string;
+  position: number;
+  batch?: "founding" | "next";
+}): EmailMessage {
   const name = input.name.trim() || "there";
   const position = Math.max(1, input.position);
+  const next = input.batch === "next";
+  const list = next ? "next-batch list" : "founding list";
   const text = [
     `Hi ${name},`,
     "",
-    `You're on the Relay Cloud waitlist. Your place is #${position}.`,
+    `You're on the Relay Cloud early-access ${list}. Your place is #${position}.`,
     "",
-    "We're onboarding the first 100 operators by hand. We'll email you when your private access is ready.",
+    "We review requests personally and will email you when a spot opens.",
+    "",
+    "While you wait, gather the content you want to schedule: a caption, photo, video or link. Relay works manually, and ChatGPT or Claude can schedule through MCP if you use them. AI is optional; the manual queue is complete.",
     "",
     "— Relay",
   ].join("\n");
   return {
     to: "",
-    subject: "You're on the Relay Cloud waitlist",
+    subject: "You're on the Relay Cloud early-access list",
     text,
-    html: layout("You're on the list.", `<p style="margin:0 0 12px">Hi ${escapeHtml(name)},</p>
-      <p style="margin:0 0 12px">You're on the Relay Cloud waitlist. Your place is <strong>#${position}</strong>.</p>
-      <p style="margin:0">We're onboarding the first 100 operators by hand. We'll email you when your private access is ready.</p>`),
+    html: layout("You're on the early-access list.", `<p style="margin:0 0 12px">Hi ${escapeHtml(name)},</p>
+      <p style="margin:0 0 12px">You're on the Relay Cloud early-access <strong>${escapeHtml(list)}</strong>. Your place is <strong>#${position}</strong>.</p>
+      <p style="margin:0 0 12px">We review requests personally and will email you when a spot opens.</p>
+      <p style="margin:0">While you wait, gather the content you want to schedule: a caption, photo, video or link. Relay works manually, and ChatGPT or Claude can schedule through MCP if you use them. AI is optional; the manual queue is complete.</p>`),
   };
 }
 
