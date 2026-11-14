@@ -41,6 +41,13 @@ test("setup and customer login land approved users in the composer", async () =>
   assert.match(login, /window\.location\.replace\("\/#compose"\)/);
 });
 
+test("login pages version the scripts that submit Turnstile tokens", async () => {
+  const operatorPage = await readFile(path.join(process.cwd(), "apps", "web", "public", "login.html"), "utf8");
+  const customerPage = await readFile(path.join(process.cwd(), "apps", "web", "public", "customer-login.html"), "utf8");
+  assert.match(operatorPage, /login\.js\?v=\d{8}/);
+  assert.match(customerPage, /customer-login\.js\?v=\d{8}/);
+});
+
 test("waitlist is a minimal, conversion-focused registration page", async () => {
   const html = await readFile(path.join(process.cwd(), "apps", "web", "public", "waitlist.html"), "utf8");
   const js = await readFile(path.join(process.cwd(), "apps", "web", "public", "waitlist.js"), "utf8");
