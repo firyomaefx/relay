@@ -40,13 +40,18 @@
       showError("Enter the console password.");
       return;
     }
+    const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value ?? "";
+    if (!turnstileToken) {
+      showError("Complete the verification challenge.");
+      return;
+    }
     submitButton.disabled = true;
     if (submitLabel) submitLabel.textContent = "Unlocking…";
     try {
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, turnstileToken }),
       });
       let payload = null;
       try {

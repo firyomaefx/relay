@@ -18,6 +18,7 @@
 <meta name="twitter:image" content="https://relay.duitpoket.fun/og.png">
 
   <link rel="stylesheet" href="/styles.css" />
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="/login.js" defer></script>
   <style>
   .auth-back{display:inline-flex;align-items:center;gap:6px;margin-top:18px;color:#5f6b63;font-size:13px;text-decoration:none}
@@ -40,6 +41,7 @@
             <label class="auth-label" for="password">Password</label>
             <input class="input" id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required autofocus />
           </div>
+          <div class="cf-turnstile" data-sitekey="0x4AAAAAAGApt-I6nXwVv73D" data-theme="light" data-size="flexible"></div>
           <p class="auth-error" id="loginError" role="alert" hidden></p>
           <button class="primary-btn" id="loginBtn" type="submit">
             <span id="loginLabel">Continue</span>

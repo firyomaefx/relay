@@ -35,6 +35,23 @@ The $5 is a base subscription, not a credit. Relay currently gets almost no valu
 - Keep the GCP VM as the source of truth for posts, accounts, scheduler and SQLite.
 - Every phase must have a rollback path.
 
+## Baseline captured — 14 Nov 2026
+
+Cloudflare zone analytics for the last 30 days (15 Oct–14 Nov):
+
+| Metric | Value |
+|---|---:|
+| Requests | 128,743 |
+| Edge response bytes | 2,243,748,622 (~2.24 GB) |
+| 5xx responses | 298 |
+| Top path by bytes | `/api/state` — 1.59 GB across 18,801 requests |
+| `/media/*` sample | ~600 MB combined in the top paths |
+| `/api/health` + `/health` | ~50 MB across ~60k probes |
+
+The dominant avoidable cost is `/api/state`, not media. The client polls every
+20 seconds and received the full 50-post history each time. Phase 2 therefore
+includes a light polling mode (`/api/state?light=1`) that omits history.
+
 ## Phase 0 — Baseline and guardrails (1–2 days)
 
 1. Record current metrics:
@@ -49,7 +66,7 @@ The $5 is a base subscription, not a credit. Relay currently gets almost no valu
 
 **Exit:** one page of baseline numbers and alert thresholds.
 
-## Phase 1 — Move media to R2 (highest value, 2–4 days)
+## Phase 1 — Move media to R2 (highest value, 2–4 days) — implemented 14 Nov 2026
 
 This is the clearest use of the paid account and directly improves Relay.
 
@@ -87,7 +104,7 @@ This is the clearest use of the paid account and directly improves Relay.
 
 Likely **$0 extra** at current volume; beyond the free tier, storage is about $0.015/GB-month and reads $0.36/million.
 
-## Phase 2 — Edge caching, rate limits and bot protection (2–3 days)
+## Phase 2 — Edge caching, rate limits and bot protection (2–3 days) — in progress
 
 1. Add Cache Rules:
    - `/assets/*`, `/app.js`, `/styles.css`: long-lived immutable cache (already correct).

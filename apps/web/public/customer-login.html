@@ -12,6 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="/styles.css" />
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="/customer-login.js" defer></script>
 </head>
 <body class="auth-page">
@@ -30,6 +31,7 @@
             <label class="auth-label" for="password">Password</label>
             <input class="input" id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
           </div>
+          <div class="cf-turnstile" data-sitekey="0x4AAAAAAGApt-I6nXwVv73D" data-theme="light" data-size="flexible"></div>
           <p class="auth-error" id="customerLoginError" role="alert" hidden></p>
           <button class="primary-btn" id="customerLoginBtn" type="submit"><span id="customerLoginLabel">Continue</span></button>
         </form>

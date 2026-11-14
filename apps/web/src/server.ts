@@ -1351,11 +1351,39 @@ function clientKey(req: IncomingMessage): string {
   return req.socket.remoteAddress?.trim() || "unknown";
 }
 
+async function verifyTurnstile(req: IncomingMessage, token: string): Promise<void> {
+  const secret = process.env.RELAY_TURNSTILE_SECRET_KEY?.trim();
+  if (!secret) return;
+  if (!token.trim()) {
+    throw new RelayError("Complete the verification challenge.", "turnstile_required", undefined, 400);
+  }
+  const form = new URLSearchParams({
+    secret,
+    response: token,
+    remoteip: clientKey(req),
+  });
+  let result: unknown;
+  try {
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form,
+    });
+    result = await response.json();
+  } catch {
+    throw new RelayError("Verification is temporarily unavailable. Try again.", "turnstile_unavailable", undefined, 503);
+  }
+  if (asRecord(result).success !== true) {
+    throw new RelayError("Verification failed. Try again.", "turnstile_failed", undefined, 403);
+  }
+}
+
 async function handleCustomerLogin(req: IncomingMessage, res: ServerResponse, deps: HandlerDeps): Promise<void> {
   if (!deps.customerAuth.enabled || !deps.cloudAdmin) {
     throw new RelayError("Customer sign-in is not enabled.", "customer_auth_unavailable", undefined, 503);
   }
   const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+  await verifyTurnstile(req, String(body.turnstileToken ?? ""));
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
   const throttleKey = `customer:${clientKey(req)}:${email}`;
@@ -1407,6 +1435,7 @@ async function handleAcceptCustomerInvite(req: IncomingMessage, res: ServerRespo
 
 async function handleLogin(req: IncomingMessage, res: ServerResponse, deps: HandlerDeps): Promise<void> {
   const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+  await verifyTurnstile(req, String(body.turnstileToken ?? ""));
   if (!deps.session.enabled) {
     sendJsonWithCookies(res, 200, { ok: true, protected: false, authenticated: true, role: "operator" }, [
       deps.customerAuth.clearCookieHeader(),

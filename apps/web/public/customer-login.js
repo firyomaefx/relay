@@ -13,6 +13,8 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     error.hidden = true;
+    const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value ?? "";
+    if (!turnstileToken) return fail("Complete the verification challenge.");
     button.disabled = true;
     label.textContent = "Signing in…";
     try {
@@ -23,6 +25,7 @@
         body: JSON.stringify({
           email: form.email.value.trim(),
           password: form.password.value,
+          turnstileToken,
         }),
       });
       const data = await response.json().catch(() => ({}));
