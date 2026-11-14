@@ -31,9 +31,17 @@ test("visitors get the landing page at /, the console stays behind login", async
     assert.match(home.text, /id="langSwitch"/);
     assert.doesNotMatch(home.text, /\bAPI\b|\bMCP\b|milliUSD/, "developer language stays off the seller landing page");
 
-    const login = await get(server.baseUrl, "/login");
-    assert.equal(login.status, 200);
-    assert.match(login.text, /password/i);
+    for (const entry of ["/login", "/login.html"]) {
+      const page = await get(server.baseUrl, entry);
+      assert.equal(page.status, 200, entry);
+      assert.match(page.text, /password/i, entry);
+      assert.match(page.text, /customer-login\.js\?v=20261115turnstile/, entry);
+    }
+    for (const entry of ["/admin", "/admin/", "/admin/login"]) {
+      const page = await get(server.baseUrl, entry);
+      assert.equal(page.status, 200, entry);
+      assert.match(page.text, /login\.js\?v=20261115turnstile/, entry);
+    }
     for (const script of ["/login.js", "/customer-login.js"]) {
       const res = await fetch(`${server.baseUrl}${script}`);
       assert.equal(res.status, 200, script);
