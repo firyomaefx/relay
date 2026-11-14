@@ -185,6 +185,7 @@ Evaluate, but do not do pre-emptively:
   - `/api/cloud/admin` protected.
   - Unauthenticated requests redirect to `relay-duitpoket.cloudflareaccess.com`.
   - The Access login page offers email one-time PIN sign-in.
+  - Service-token credentials are stored root-only at `/etc/relay/access-service-token.env`; a request with those headers reached Relay and returned Relay's own 401 (instead of an Access redirect).
 - **Tunnel HA**: second `cloudflared` connector `cloudflared-replica.service` running on a separate metrics port. This protects against connector-process failure; it is not origin/VM HA.
 - **Access automation**: reusable `Relay automation` service-auth policy and a `relay-automation` service token are attached to the admin apps. Browser users still use email OTP; non-browser clients send the Access client headers.
 - **Health Worker**: `relay-health` deployed with a five-minute Cron Trigger. It is a secondary edge check; the existing `relay-health.timer` and GCP uptime alert remain primary. Set `ALERT_WEBHOOK_URL` to enable webhook notifications.
