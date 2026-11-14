@@ -104,7 +104,7 @@ This is the clearest use of the paid account and directly improves Relay.
 
 Likely **$0 extra** at current volume; beyond the free tier, storage is about $0.015/GB-month and reads $0.36/million.
 
-## Phase 2 — Edge caching, rate limits and bot protection (2–3 days) — in progress
+## Phase 2 — Edge caching, rate limits and bot protection — done (cache rule removed; static cache already present)
 
 1. Add Cache Rules:
    - `/assets/*`, `/app.js`, `/styles.css`: long-lived immutable cache (already correct).
@@ -119,7 +119,7 @@ Likely **$0 extra** at current volume; beyond the free tier, storage is about $0
 
 **Exit:** origin request volume drops without changing publish success.
 
-## Phase 3 — Turnstile and admin access (2–3 days)
+## Phase 3 — Turnstile and admin access — done
 
 ### Turnstile
 
@@ -137,7 +137,7 @@ Likely **$0 extra** at current volume; beyond the free tier, storage is about $0
 
 **Exit:** admin surface requires SSO; public publishing still works.
 
-## Phase 4 — Reliability and observability (3–5 days)
+## Phase 4 — Reliability and observability — done (second connector; existing health timer retained)
 
 1. **Tunnel HA**
    - Run a second `cloudflared` connector.
@@ -159,7 +159,7 @@ Likely **$0 extra** at current volume; beyond the free tier, storage is about $0
    - media 404 spike
    - publish failure spike
 
-## Phase 5 — Only if metrics justify it (next quarter)
+## Phase 5 — Only if metrics justify it (deferred by design)
 
 Evaluate, but do not do pre-emptively:
 
