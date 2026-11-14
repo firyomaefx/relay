@@ -58,7 +58,10 @@ export async function uploadR2Media(
   });
   const response = await client.fetch(objectUrl(config, `${config.prefix}${name}`), {
     method: "PUT",
-    headers: { "Content-Type": contentType },
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
     body: new Uint8Array(body),
   });
   if (!response.ok) {

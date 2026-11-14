@@ -66,7 +66,10 @@ for (const name of entries) {
   }
   const response = await client.fetch(url, {
     method: "PUT",
-    headers: { "Content-Type": contentType },
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
     body: readFileSync(filePath),
   });
   if (!response.ok) {
