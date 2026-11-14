@@ -186,9 +186,10 @@ Evaluate, but do not do pre-emptively:
   - Unauthenticated requests redirect to `relay-duitpoket.cloudflareaccess.com`.
   - The Access login page offers email one-time PIN sign-in.
 - **Tunnel HA**: second `cloudflared` connector `cloudflared-replica.service` running on a separate metrics port. This protects against connector-process failure; it is not origin/VM HA.
+- **Access automation**: reusable `Relay automation` service-auth policy and a `relay-automation` service token are attached to the admin apps. Browser users still use email OTP; non-browser clients send the Access client headers.
 - **Health Worker**: `relay-health` deployed with a five-minute Cron Trigger. It is a secondary edge check; the existing `relay-health.timer` and GCP uptime alert remain primary. Set `ALERT_WEBHOOK_URL` to enable webhook notifications.
 - **Static assets** already use one-year immutable caching; no change needed.
-- **Backups** remain the existing encrypted GCS backup (`relay-backup.timer`, daily 20:30 UTC), already verified. A temporary R2 backup upload was removed because the public `relay-media` bucket would have exposed backup archives. Do not put backups in the public media bucket.
+- **Backups**: existing encrypted GCS backup (`relay-backup.timer`, daily 20:30 UTC) remains primary. A private `relay-backups` bucket is now enabled with its own scoped R2 token and a daily 20:45 UTC upload timer; it has no custom domain and the object is not publicly reachable. Do not put backups in the public `relay-media` bucket.
 
 ### Deliberately not done
 
@@ -201,6 +202,33 @@ Evaluate, but do not do pre-emptively:
 - Add a private R2 bucket and token only if a second backup destination is required.
 - Add an alert webhook/Telegram secret before deploying a health Worker.
 - Confirm the operator Access policy emails are the accounts that should receive OTP.
+
+## Post-change measurements — 14 Nov 2026
+
+Cloudflare zone analytics for the 24 hours ending 11:30 UTC:
+
+| Metric | Value |
+|---|---:|
+| Requests | 6,000 |
+| Edge bytes | ~98.7 MB |
+| Top path | `/api/state` — 48 MB across 342 requests |
+| Second path | `/media/dp-20261113-video.mp4` — 40.7 MB across 4 requests |
+| Health endpoints | ~2.9 MB across ~3.5k probes |
+
+`/api/state` is still the largest path because an already-open Chrome tab was
+running the pre-deploy JavaScript. The new light-polling build is versioned and
+served from `/app.js?v=20261114r2light`; once open tabs reload, polling stops
+sending the 50-post history. Static assets remain cache HIT.
+
+### Phase 5 decision
+
+Do **not** move Relay scheduling or publishing to Queues/Durable Objects now.
+The current six-thousand-request day is far below the Workers Paid allowance,
+there is no measured scheduler failure, and the Node/SQLite store is the source
+of truth. Cloudflare Images is also not justified: Relay needs storage and
+public URLs, not on-the-fly transformations, and Images is a separate paid
+product. Revisit only if scheduler lag, publish failure, or image-transform
+demand becomes measurable.
 
 ## Cost model
 
