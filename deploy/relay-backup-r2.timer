@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily Relay backup upload to private R2
+
+[Timer]
+OnCalendar=*-*-* 20:45:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

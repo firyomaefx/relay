@@ -1,0 +1,14 @@
+[Unit]
+Description=Upload the latest Relay backup archive to the private R2 bucket
+After=network-online.target relay-backup.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/relay/r2-backup.env
+ExecStart=/usr/bin/node /opt/relay/scripts/r2-upload-backup.mjs
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
