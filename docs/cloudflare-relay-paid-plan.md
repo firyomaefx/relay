@@ -168,6 +168,38 @@ Evaluate, but do not do pre-emptively:
 - **Cloudflare Images** only if image transformation becomes a product requirement; it is a separate paid product.
 - **Workers AI** only for a concrete content feature, not to consume the plan.
 
+## Execution log — 14 Nov 2026
+
+### Done
+
+- **R2 enabled** and bucket `relay-media` created in APAC.
+- **Custom domain** `media.duitpoket.fun` attached and active; TLS 1.2+.
+- **R2 credentials** installed in `/etc/relay/relay.env`; 665 local media files migrated to `media/` keys.
+- **Upload path** now writes R2 and returns the public URL, with local disk fallback. Verified through the real console route: upload returned `https://media.duitpoket.fun/media/...` and the public URL returned HTTP 200.
+- **Public media base** switched to `https://media.duitpoket.fun`; old path-based drafts resolve to migrated R2 objects.
+- **Light state polling**: `/api/state?light=1` omits the 50-post history; the browser polls it every 20s and skips polling while the tab is hidden. This addresses the top 30-day byte consumer (1.59 GB).
+- **Turnstile** widget created for `relay.duitpoket.fun`; server-side Siteverify enforced on operator and customer login. A tokenless login returns `turnstile_required`.
+- **Rate limit** at the edge: 5 attempts / 10 seconds per IP+colo on customer login/register/forgot; returns 429. Verified in production.
+- **Cloudflare Access** enabled with reusable policy `Relay operators`:
+  - `/admin` protected.
+  - `/api/cloud/admin` protected.
+  - Unauthenticated requests redirect to `relay-duitpoket.cloudflareaccess.com`.
+- **Tunnel HA**: second `cloudflared` connector `cloudflared-replica.service` running on a separate metrics port. This protects against connector-process failure; it is not origin/VM HA.
+- **Static assets** already use one-year immutable caching; no change needed.
+- **Backups** remain the existing encrypted GCS backup (`relay-backup.timer`, daily 20:30 UTC), already verified. A temporary R2 backup upload was removed because the public `relay-media` bucket would have exposed backup archives. Do not put backups in the public media bucket.
+
+### Deliberately not done
+
+- **Cache Rule for `media.duitpoket.fun`**: Cloudflare R2 custom domains return `cf-cache-status: DYNAMIC` and bypass the cache phase; the rule was removed rather than left as dead configuration. R2 serves the bytes directly, so the VM is no longer involved.
+- **Health-check Worker**: production already runs `relay-health.timer` every 2 minutes plus a GCP uptime check and email alert. A second Worker would duplicate coverage without adding a notification channel.
+- **R2 backups**: public bucket exposure risk; GCS encrypted backups already satisfy the backup requirement. A future private bucket (`relay-backups`, no custom domain) is the correct home if R2 backup copies are wanted.
+
+### Remaining follow-ups
+
+- Add a private R2 bucket and token only if a second backup destination is required.
+- Add an alert webhook/Telegram secret before deploying a health Worker.
+- Confirm the operator Access policy emails are the accounts that should receive OTP.
+
 ## Cost model
 
 | Item | Expected |
