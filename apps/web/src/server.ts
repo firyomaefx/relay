@@ -1519,11 +1519,18 @@ async function serveStatic(
   const extension = path.extname(filePath).toLowerCase();
   if (!STATIC_EXTENSIONS.has(extension)) return false;
   if (!allowHtml && extension === ".html") return false;
+  const fileName = path.basename(filePath);
+  const loginScript = fileName === "login.js" || fileName === "customer-login.js";
   // Versioned static assets can be cached at the CDN and in the browser.
-  // HTML stays no-store so auth and page data are never cached.
+  // Login scripts revalidate so a password page can never run an older
+  // Turnstile-less copy from cache. HTML stays no-store.
   return sendFile(req, res, filePath, {
     html: extension === ".html",
-    cacheControl: extension === ".html" ? "no-store" : "public, max-age=31536000, immutable",
+    cacheControl: extension === ".html"
+      ? "no-store"
+      : loginScript
+        ? "no-cache"
+        : "public, max-age=31536000, immutable",
   });
 }
 

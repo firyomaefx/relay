@@ -34,6 +34,11 @@ test("visitors get the landing page at /, the console stays behind login", async
     const login = await get(server.baseUrl, "/login");
     assert.equal(login.status, 200);
     assert.match(login.text, /password/i);
+    for (const script of ["/login.js", "/customer-login.js"]) {
+      const res = await fetch(`${server.baseUrl}${script}`);
+      assert.equal(res.status, 200, script);
+      assert.match(res.headers.get("cache-control") ?? "", /no-cache/, `${script} must revalidate`);
+    }
 
     const signIn = await fetch(`${server.baseUrl}/api/login`, {
       method: "POST",
