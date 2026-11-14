@@ -180,10 +180,11 @@ Evaluate, but do not do pre-emptively:
 - **Light state polling**: `/api/state?light=1` omits the 50-post history; the browser polls it every 20s and skips polling while the tab is hidden. This addresses the top 30-day byte consumer (1.59 GB).
 - **Turnstile** widget created for `relay.duitpoket.fun`; server-side Siteverify enforced on operator and customer login. A tokenless login returns `turnstile_required`.
 - **Rate limit** at the edge: 5 attempts / 10 seconds per IP+colo on customer login/register/forgot; returns 429. Verified in production.
-- **Cloudflare Access** enabled with reusable policy `Relay operators`:
+- **Cloudflare Access** enabled with reusable policy `Relay operators` and a One-time PIN identity provider:
   - `/admin` protected.
   - `/api/cloud/admin` protected.
   - Unauthenticated requests redirect to `relay-duitpoket.cloudflareaccess.com`.
+  - The Access login page offers email one-time PIN sign-in.
 - **Tunnel HA**: second `cloudflared` connector `cloudflared-replica.service` running on a separate metrics port. This protects against connector-process failure; it is not origin/VM HA.
 - **Health Worker**: `relay-health` deployed with a five-minute Cron Trigger. It is a secondary edge check; the existing `relay-health.timer` and GCP uptime alert remain primary. Set `ALERT_WEBHOOK_URL` to enable webhook notifications.
 - **Static assets** already use one-year immutable caching; no change needed.
