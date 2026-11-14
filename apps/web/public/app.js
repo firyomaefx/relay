@@ -3012,12 +3012,13 @@
   }
 
   async function poll() {
+    if (document.hidden) return;
     try {
-      const data = await api("/api/state");
+      const data = await api("/api/state?light=1");
       state.settings = data.settings ?? null;
       state.accounts = data.accounts ?? [];
       state.queue = data.queue ?? [];
-      state.history = data.history ?? [];
+      if (Array.isArray(data.history)) state.history = data.history;
       state.credentials = data.credentials ?? [];
       state.scheduler = data.scheduler ?? null;
       state.limits = data.limits ?? [];

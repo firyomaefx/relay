@@ -22,6 +22,7 @@ import { PriceTable, TenantManager, authenticateApiKey, defaultPricePath, effect
 import { CLIENT_MATRIX, generateArtifact, type ClientId } from "@relay/connector";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { createConnectSession, lookupConnectSession, verifyConnectSession } from "./connect-session.js";
+import { r2MediaConfig, uploadR2Media } from "./r2.js";
 import { createCheckoutSession, loadStripeConfig, stripeReady, topupPlan, TOPUP_PLANS, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
 import { sendEmail, waitlistConfirmationEmail } from "@relay/cloud";
@@ -1023,21 +1024,27 @@ async function handleApi(
 
   if (segments.length === 2) {
     if (method === "GET" && resource === "state") {
+      // Polling clients use ?light=1: queue/accounts/settings only, no 50-post
+      // history payload. Full state is still loaded on first paint and after
+      // actions, while the 20s poll stays small.
+      const light = url.searchParams.get("light") === "1";
       const [settings, accounts, queue, history, credentials, scheduler] = await Promise.all([
         relay.getSettings(),
         relay.accounts(),
         relay.listQueue(),
-        relay.history(50),
+        light ? Promise.resolve([]) : relay.history(50),
         Promise.resolve(relay.credentialInfos()),
         relay.schedulerStatus(),
       ]);
-      settleConsoleBilling(history, deps.cloudAdmin, deps.pricing, session.kind === "customer" ? session.customer.id : undefined);
+      if (!light) {
+        settleConsoleBilling(history, deps.cloudAdmin, deps.pricing, session.kind === "customer" ? session.customer.id : undefined);
+      }
       sendJson(res, 200, {
         role: session.kind,
         settings: { ...settings, passwordProtected: deps.session.enabled, ...(operator ? {} : { dataDir: "" }) },
         accounts,
         queue,
-        history: historyWithCost(history, deps.pricing),
+        ...(light ? {} : { history: historyWithCost(history, deps.pricing) }),
         credentials,
         scheduler,
         limits: relay.platformLimits(),
@@ -1317,9 +1324,21 @@ async function handleMediaUpload(req: IncomingMessage, res: ServerResponse, rela
   await mkdir(relay.mediaDir, { recursive: true });
   await writeFile(filePath, buffer, { flag: "wx" });
 
+  // Store a public copy in R2 when configured. The local file remains the
+  // fallback for development and for a failed upload.
+  let publicUrl = `/media/${encodeURIComponent(name)}`;
+  const r2 = r2MediaConfig();
+  if (r2) {
+    try {
+      publicUrl = await uploadR2Media(r2, name, buffer, contentTypeFor(filePath));
+    } catch (error) {
+      console.error(`[relay] R2 media upload failed for ${name}: ${errorMessage(error)}`);
+    }
+  }
+
   sendJson(res, 200, {
     path: filePath,
-    url: `/media/${encodeURIComponent(name)}`,
+    url: publicUrl,
     filename: name,
     name,
     kind,

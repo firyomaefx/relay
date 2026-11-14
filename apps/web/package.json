@@ -23,6 +23,7 @@
     "@relay/cloud": "0.1.0",
     "@relay/connector": "0.1.0",
     "@relay/core": "0.1.0",
-    "@relay/platforms": "0.1.0"
+    "@relay/platforms": "0.1.0",
+    "aws4fetch": "^1.0.20"
   }
 }
