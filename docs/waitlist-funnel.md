@@ -105,3 +105,13 @@ Revert the release commit and redeploy. No DB migration is involved. The API is 
 ## Out of scope
 
 Open self-serve signup, referral scheme, social login, Turnstile on the waitlist, pricing changes, Facebook Pages launch, analytics SDK and A/B testing framework.
+
+## Production verification — 14 Nov 2026
+
+- Deployed commit `0e2b8c8` with label `waitlist`.
+- `GET /waitlist` returns **200** and the new title `Early access · Relay Cloud`.
+- `GET /api/waitlist` returns `open:true`, `acceptingRequests:true`, `batch:"founding"` in production.
+- `waitlist.css` and `waitlist.js` return 200 at the versioned URLs; both are immutable.
+- HTML is **10,414 bytes**, CSS is **14,000 bytes**; combined **24,414 bytes**, under 24 KiB.
+- Targeted waitlist/email/accessibility tests pass, and the full suite remains **263 passing, 0 failing**.
+- Desktop and 390×844 screenshots were reviewed; the form and its button are above the 844 px mobile fold.
