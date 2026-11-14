@@ -185,13 +185,14 @@ Evaluate, but do not do pre-emptively:
   - `/api/cloud/admin` protected.
   - Unauthenticated requests redirect to `relay-duitpoket.cloudflareaccess.com`.
 - **Tunnel HA**: second `cloudflared` connector `cloudflared-replica.service` running on a separate metrics port. This protects against connector-process failure; it is not origin/VM HA.
+- **Health Worker**: `relay-health` deployed with a five-minute Cron Trigger. It is a secondary edge check; the existing `relay-health.timer` and GCP uptime alert remain primary. Set `ALERT_WEBHOOK_URL` to enable webhook notifications.
 - **Static assets** already use one-year immutable caching; no change needed.
 - **Backups** remain the existing encrypted GCS backup (`relay-backup.timer`, daily 20:30 UTC), already verified. A temporary R2 backup upload was removed because the public `relay-media` bucket would have exposed backup archives. Do not put backups in the public media bucket.
 
 ### Deliberately not done
 
 - **Cache Rule for `media.duitpoket.fun`**: Cloudflare R2 custom domains return `cf-cache-status: DYNAMIC` and bypass the cache phase; the rule was removed rather than left as dead configuration. R2 serves the bytes directly, so the VM is no longer involved.
-- **Health-check Worker**: production already runs `relay-health.timer` every 2 minutes plus a GCP uptime check and email alert. A second Worker would duplicate coverage without adding a notification channel.
+- **Health-check alerting**: the Worker is deployed, but without `ALERT_WEBHOOK_URL` it only logs failures. Production already runs `relay-health.timer` every 2 minutes plus a GCP uptime check and email alert, so alerting is not duplicated.
 - **R2 backups**: public bucket exposure risk; GCS encrypted backups already satisfy the backup requirement. A future private bucket (`relay-backups`, no custom domain) is the correct home if R2 backup copies are wanted.
 
 ### Remaining follow-ups
