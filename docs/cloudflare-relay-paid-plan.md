@@ -231,6 +231,21 @@ public URLs, not on-the-fly transformations, and Images is a separate paid
 product. Revisit only if scheduler lag, publish failure, or image-transform
 demand becomes measurable.
 
+## How to sign in to Relay operator admin
+
+1. Open `https://relay.duitpoket.fun/admin`.
+2. Cloudflare Access shows **Log in to Relay operator admin**. Enter an approved operator email:
+   - `firyomaefx@gmail.com`
+   - `ttrgautomation@gmail.com`
+3. Click **Send login code**, then enter the one-time code from that inbox.
+4. Relay then shows its own operator sign-in page. Enter the Relay operator password
+   (configured as `RELAY_PASSWORD` in `/etc/relay/relay.env`) and complete Turnstile.
+
+The Cloudflare Access code and the Relay operator password are two separate steps.
+If no code arrives, check spam and confirm the email is one of the two policy addresses.
+For non-browser clients, use the Access service-token credentials in
+`/etc/relay/access-service-token.env` instead of the email code.
+
 ## Cost model
 
 | Item | Expected |
