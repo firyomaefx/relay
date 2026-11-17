@@ -1,6 +1,8 @@
 # Relay Cloud production readiness
 
-Last audited: 2026-10-30 (Asia/Kuala_Lumpur)
+Last audited: 2026-11-17 (Asia/Kuala_Lumpur)
+
+See **[owner-urls.md](./owner-urls.md)** for the full owner vs customer bookmark sheet.
 
 ## Public surface
 
@@ -11,8 +13,10 @@ Last audited: 2026-10-30 (Asia/Kuala_Lumpur)
 | `https://relay.duitpoket.fun/contact` | Agency / access request form | 200 HTML |
 | `https://relay.duitpoket.fun/billing/success` | Stripe return page | 200 HTML |
 | `https://relay.duitpoket.fun/billing/cancel` | Stripe cancel page | 200 HTML |
-| `https://relay.duitpoket.fun/login` | Console login | 200 HTML |
-| `https://relay.duitpoket.fun/cloud-admin.html` | Admin; requires session | 302 → `/login` when signed out |
+| `https://relay.duitpoket.fun/login` | **Customer** sign in | 200 HTML |
+| `https://relay.duitpoket.fun/admin` | **Owner** sign in | 200 HTML; signed-in owner → `/cloud-admin` |
+| `https://relay.duitpoket.fun/cloud-admin` | Owner admin (waitlist, customers) | Unsigned → **302 `/admin`**; customer session → **302 `/`** |
+| `https://relay.duitpoket.fun/manage` | Alias for owner admin | Same as `/cloud-admin` |
 | `https://cloud-mcp.duitpoket.fun/mcp` | Streamable HTTP MCP | 401 in a browser; use an MCP client |
 | `https://cloud-mcp.duitpoket.fun/health` | Cloud health | 200 JSON |
 | `https://cloud-mcp.duitpoket.fun/.well-known/oauth-protected-resource` | OAuth discovery | 200 JSON |
@@ -87,9 +91,8 @@ node tools/production-readiness.mjs
 
 - **GCS offsite backup:** active. The VM service account has `roles/storage.objectAdmin` and `devstorage.read_write`; backup script uploads the encrypted tarball and `.sha256` to `gs://relay-prod-backups-a22a835c`. Verified: `relay-20261029T202909Z.tgz`.
 - **Uptime alerting:** active. Cloud Monitoring checks `relay.duitpoket.fun/api/health` and `cloud-mcp.duitpoket.fun/health` every 5 minutes. Alert policy `Relay production uptime` notifies the email channel `Relay production alerts` (`ttrgautomation@gmail.com`).
-- **Stripe:** code-complete; live keys are not installed. Checkout returns 503 until `RELAY_STRIPE_SECRET_KEY` and `RELAY_STRIPE_WEBHOOK_SECRET` are set.
-- **Polar:** sandbox product, access token and webhook are installed on production for the operator trial. `GET /api/health` reports `payments.polarSandbox: true`; public checkout must stay disabled. Live product/token/webhook are required before monetization.
-- **Contact requests:** stored locally at `/var/lib/relay/.data/contact-requests.ndjson`. Set `RELAY_CONTACT_WEBHOOK_URL` to forward each request to Slack/Google Chat/Zapier; no direct transactional-email provider is connected yet.
+- **Stripe / Polar / email:** confirm on each deploy with `GET /api/health` (`payments.*`, `emailConfigured`). Values change with env; do not rely on this doc alone.
+- **Contact requests:** stored locally at `/var/lib/relay/.data/contact-requests.ndjson`. Set `RELAY_CONTACT_WEBHOOK_URL` to forward each request to Slack/Google Chat/Zapier.
 - **Self-service signup:** not implemented. Customers are provisioned by an operator.
 - **Real-account E2E:** requires a real customer account and platform app credentials.
 - **OAuth client registrations:** now self-validating signed client IDs, so they survive process restarts. Access/refresh tokens are signed from `RELAY_CLOUD_TOKEN_KEY`.

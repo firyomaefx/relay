@@ -2,6 +2,34 @@ const $ = (id) => document.getElementById(id);
 let customers = [];
 let waitlistEntries = [];
 const money = (n) => "$" + (Number(n) / 1000).toFixed(3);
+
+async function ensureOwnerSession() {
+  const session = await fetch('/api/session', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => ({}));
+  if (session.role !== 'operator') window.location.replace('/admin');
+}
+
+async function loadStatusChips() {
+  const el = $('statusChips');
+  if (!el) return;
+  const [health, waitlist] = await Promise.all([
+    fetch('/api/health', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => ({})),
+    fetch('/api/waitlist', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => ({})),
+  ]);
+  const chips = [];
+  chips.push(`<span class="chip ok">Signed in as owner</span>`);
+  chips.push(`<span class="chip ${health.emailConfigured ? 'ok' : 'warn'}">Email ${health.emailConfigured ? 'on' : 'off'}</span>`);
+  const pay = health.payments?.stripeConfigured || health.payments?.polarConfigured;
+  chips.push(`<span class="chip ${pay ? 'ok' : 'warn'}">Payments ${pay ? 'on' : 'off'}</span>`);
+  if (waitlist.accepted != null && waitlist.limit != null) {
+    chips.push(`<span class="chip">Waitlist ${waitlist.accepted} / ${waitlist.limit} invited</span>`);
+  }
+  el.innerHTML = chips.join('');
+}
+
+$('ownerLogout')?.addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}' });
+  window.location.replace('/admin');
+});
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[char]));
@@ -258,11 +286,14 @@ $('waitlist').addEventListener('click', (event) => {
   void waitlistAction(button.dataset.id, button.dataset.waitlistAction);
 });
 
-loadCustomers().catch(error => {
-  $('summary').textContent = error.message;
-  $('summary').className = 'error';
-});
-loadWaitlist().catch(error => {
-  $('waitlist').textContent = error.message;
-  $('waitlist').className = 'error';
+void ensureOwnerSession().then(() => {
+  void loadStatusChips();
+  loadCustomers().catch(error => {
+    $('summary').textContent = error.message;
+    $('summary').className = 'error';
+  });
+  loadWaitlist().catch(error => {
+    $('waitlist').textContent = error.message;
+    $('waitlist').className = 'error';
+  });
 });

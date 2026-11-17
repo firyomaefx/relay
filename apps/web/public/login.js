@@ -26,7 +26,13 @@
       const response = await fetch("/api/session", { headers: { Accept: "application/json" } });
       if (!response.ok) return;
       const session = await response.json();
-      if (!session.protected || session.authenticated) window.location.replace("/");
+      if (!session.protected) {
+        window.location.replace("/cloud-admin");
+        return;
+      }
+      if (!session.authenticated) return;
+      if (session.role === "operator") window.location.replace("/cloud-admin");
+      else window.location.replace("/");
     } catch {
       /* The form still works if the probe fails. */
     }
@@ -60,7 +66,7 @@
         payload = null;
       }
       if (response.ok) {
-        window.location.replace("/");
+        window.location.replace("/cloud-admin");
         return;
       }
       showError(payload?.error || "That password did not work. Try again.");

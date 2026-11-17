@@ -693,6 +693,31 @@ code {
   transform: translateY(-5.5px) rotate(-45deg);
 }
 
+/* ---------- Owner (host) banner ---------- */
+.owner-banner {
+  margin: 4px 0 16px;
+}
+
+.owner-banner-core {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: calc(var(--radius-xl) - 6px);
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(30, 107, 79, 0.14), transparent 55%),
+    #0b0b0e;
+  border: 1px solid rgba(30, 107, 79, 0.35);
+}
+
+.owner-banner-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-soft, #a8b0a9);
+}
+
 /* ---------- Simulated banner ---------- */
 .sim-banner {
   margin: 4px 0 24px;
