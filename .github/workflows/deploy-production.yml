@@ -1,0 +1,15 @@
+# Runs on the relay-prod VM after you register a GitHub Actions self-hosted runner
+# with labels: self-hosted, relay-prod (see deploy/DEPLOY.md).
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, relay-prod]
+    steps:
+      - name: Pull, build, restart
+        run: sudo -u relay bash /opt/relay/deploy/deploy.sh

@@ -11,4 +11,15 @@ Free tier: e2-micro, 30 GB standard disk, us-central1 / us-west1 / us-east1. Ubu
 6. Tunnel: copy tunnel credentials JSON to `/etc/cloudflared/`, use `deploy/cloudflared-config.yml.example` as `/etc/cloudflared/config.yml`, `sudo cloudflared service install`. Stop the laptop tunnel first.
 7. Updates: `sudo -u relay bash deploy/deploy.sh` (relay user needs sudo for `systemctl restart relay-console relay-mcp` only).
 
+### One-shot from your laptop (IAP)
+
+```bash
+gcloud compute ssh relay-prod --zone=asia-southeast1-b \
+  --command='sudo -u relay bash /opt/relay/deploy/deploy.sh'
+```
+
+### Auto-deploy on push (optional)
+
+Register a GitHub Actions self-hosted runner on the VM with labels `self-hosted` and `relay-prod`. Pushes to `main` on `ttrg/duitpoket-relay` then run `.github/workflows/deploy-production.yml`.
+
 MCP: `https://mcp.duitpoket.fun/mcp`, header `Authorization: Bearer $RELAY_MCP_HTTP_TOKEN` (falls back to `.data/mcp-http-token`).
