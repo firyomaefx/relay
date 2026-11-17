@@ -21,7 +21,7 @@ test("customer session is isolated from operator admin routes", async () => {
   const customer = store.createCustomer({ displayName: "HTTP Customer", email: "http-customer@example.com" });
   store.setCustomerPassword(customer.id, await hashCustomerPassword("customer-password-2026"));
   const invite = createInviteToken();
-  store.createCustomerInvite(customer.id, invite.tokenHash, 60_000);
+  store.createCustomerInvite(customer.id, invite.tokenHash, 60_000, "reset");
   store.close();
 
   const env = {
@@ -66,6 +66,18 @@ test("customer session is isolated from operator admin routes", async () => {
     const adminAsCustomer = await fetch(`${base}/api/cloud/admin/customers`, { headers: { cookie: customerCookie } });
     assert.equal(adminAsCustomer.status, 403);
 
+    const preview = await fetch(`${base}/api/customer/invite-preview?token=${encodeURIComponent(invite.token)}`);
+    assert.equal(preview.status, 200);
+    assert.equal((await preview.json()).purpose, "reset");
+
+    const changePassword = await fetch(`${base}/api/customer/change-password`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: customerCookie },
+      body: JSON.stringify({ currentPassword: "customer-password-2026", newPassword: "customer-password-changed" }),
+    });
+    assert.equal(changePassword.status, 200);
+    const customerCookieAfterChange = cookieFrom(changePassword);
+
     const accepted = await fetch(`${base}/api/customer/accept-invite`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -85,6 +97,13 @@ test("customer session is isolated from operator admin routes", async () => {
     });
     assert.equal(relogin.status, 200);
 
+    const loginChanged = await fetch(`${base}/api/customer/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "http-customer@example.com", password: "customer-password-changed" }),
+    });
+    assert.equal(loginChanged.status, 401);
+
     const operatorLogin = await fetch(`${base}/api/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -97,6 +116,23 @@ test("customer session is isolated from operator admin routes", async () => {
     assert.equal((await operatorSession.json()).role, "operator");
     const adminAsOperator = await fetch(`${base}/api/cloud/admin/customers`, { headers: { cookie: operatorCookie } });
     assert.equal(adminAsOperator.status, 200);
+
+    assert.match(customerCookieAfterChange, /^relay_customer_session=/);
+
+    const forgot = await fetch(`${base}/api/customer/forgot-password`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "http-customer@example.com" }),
+    });
+    assert.equal(forgot.status, 200);
+
+    const adminReset = await fetch(`${base}/api/cloud/admin/customers/${encodeURIComponent(customer.id)}/password-reset`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: operatorCookie },
+      body: "{}",
+    });
+    assert.equal(adminReset.status, 201);
+    assert.match((await adminReset.json()).resetUrl, /reset-password\?token=/);
   } finally {
     await running.close();
     await cleanupTempDir(root);

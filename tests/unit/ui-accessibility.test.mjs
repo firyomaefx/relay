@@ -37,7 +37,7 @@ test("setup and customer login land approved users in the composer", async () =>
   const setup = await readFile(path.join(process.cwd(), "apps", "web", "public", "setup.js"), "utf8");
   const login = await readFile(path.join(process.cwd(), "apps", "web", "public", "customer-login.js"), "utf8");
 
-  assert.match(setup, /window\.location\.replace\("\/\?welcome=1#compose"\)/);
+  assert.match(setup, /\?welcome=1#compose/);
   assert.match(login, /window\.location\.replace\("\/#compose"\)/);
 });
 

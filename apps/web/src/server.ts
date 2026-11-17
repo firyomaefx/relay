@@ -18,7 +18,17 @@ import {
   type RelayService,
 } from "@relay/core";
 import { createRelay } from "@relay/platforms";
-import { PriceTable, TenantManager, authenticateApiKey, defaultPricePath, effectiveFreeLimit, loadCloudConfig, type CloudPrices, type Customer } from "@relay/cloud";
+import {
+  PriceTable,
+  TenantManager,
+  authenticateApiKey,
+  defaultPricePath,
+  effectiveFreeLimit,
+  issueCustomerInvite,
+  loadCloudConfig,
+  type CloudPrices,
+  type Customer,
+} from "@relay/cloud";
 import { CLIENT_MATRIX, generateArtifact, type ClientId } from "@relay/connector";
 import { openCloudAdmin, handleCloudAdmin, type CloudAdminDeps } from "./cloud-admin.js";
 import { createConnectSession, lookupConnectSession, verifyConnectSession } from "./connect-session.js";
@@ -594,6 +604,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       await handleAcceptCustomerInvite(req, res, deps);
       return;
     }
+    if (isGet && segments.length === 3 && segments[1] === "customer" && segments[2] === "invite-preview") {
+      await handleCustomerInvitePreview(res, url, deps);
+      return;
+    }
+    if (method === "POST" && segments.length === 3 && segments[1] === "customer" && segments[2] === "forgot-password") {
+      await handleCustomerForgotPassword(req, res, deps);
+      return;
+    }
+    if (method === "POST" && segments.length === 3 && segments[1] === "customer" && segments[2] === "change-password") {
+      await handleCustomerChangePassword(req, res, deps, requestSession);
+      return;
+    }
     if (method === "POST" && segments.length === 3 && segments[1] === "customer" && segments[2] === "logout") {
       await readJsonBody(req, MAX_JSON_BYTES).catch(() => undefined);
       sendJsonWithCookies(res, 200, { ok: true }, [
@@ -652,6 +674,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   if (isGet && (pathname === "/setup" || pathname === "/setup.html")) {
     const served = await sendFile(req, res, path.join(deps.publicDir, "setup.html"), { html: true });
     if (!served) throw new RelayError("The account setup page is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
+  if (isGet && (pathname === "/reset-password" || pathname === "/reset-password.html")) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, "reset-password.html"), { html: true });
+    if (!served) throw new RelayError("The password reset page is missing", "console_assets_missing", undefined, 500);
+    return;
+  }
+
+  if (isGet && (pathname === "/forgot-password" || pathname === "/forgot-password.html")) {
+    const served = await sendFile(req, res, path.join(deps.publicDir, "forgot-password.html"), { html: true });
+    if (!served) throw new RelayError("The forgot-password page is missing", "console_assets_missing", undefined, 500);
     return;
   }
 
@@ -1413,19 +1447,96 @@ async function handleAcceptCustomerInvite(req: IncomingMessage, res: ServerRespo
   if (!token || password.length < 10) {
     throw new RelayError("Choose a password with at least 10 characters.", "password_invalid", undefined, 400);
   }
+  const peek = deps.cloudAdmin.store.peekCustomerInvite(hashInviteToken(token));
+  if (!peek) {
+    throw new RelayError("This link is invalid or has expired.", "invite_invalid", undefined, 400);
+  }
   const record = deps.cloudAdmin.store.consumeCustomerInvite(hashInviteToken(token));
   if (!record || record.customer.status !== "active" || record.customer.owner) {
-    throw new RelayError("This setup link is invalid or has expired.", "invite_invalid", undefined, 400);
+    throw new RelayError("This link is invalid or has expired.", "invite_invalid", undefined, 400);
   }
   const updated = deps.cloudAdmin.store.setCustomerPassword(record.customer.id, await hashCustomerPassword(password));
   sendJsonWithCookies(
     res,
     200,
-    { ok: true, role: "customer" },
+    { ok: true, role: "customer", purpose: peek.invite.purpose },
     [
       deps.customerAuth.cookieHeader({ customerId: updated.customer.id, sessionVersion: updated.sessionVersion }),
       deps.session.clearCookieHeader(),
     ],
+  );
+}
+
+async function handleCustomerInvitePreview(res: ServerResponse, url: URL, deps: HandlerDeps): Promise<void> {
+  if (!deps.customerAuth.enabled || !deps.cloudAdmin) {
+    throw new RelayError("Customer sign-in is not enabled.", "customer_auth_unavailable", undefined, 503);
+  }
+  const token = String(url.searchParams.get("token") ?? "").trim();
+  if (!token) throw new RelayError("This link is missing its token.", "invite_token_missing", undefined, 400);
+  const peek = deps.cloudAdmin.store.peekCustomerInvite(hashInviteToken(token));
+  if (!peek) throw new RelayError("This link is invalid or has expired.", "invite_invalid", undefined, 400);
+  sendJson(res, 200, { ok: true, purpose: peek.invite.purpose });
+}
+
+async function handleCustomerForgotPassword(req: IncomingMessage, res: ServerResponse, deps: HandlerDeps): Promise<void> {
+  if (!deps.customerAuth.enabled || !deps.cloudAdmin) {
+    throw new RelayError("Customer sign-in is not enabled.", "customer_auth_unavailable", undefined, 503);
+  }
+  const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+  await verifyTurnstile(req, String(body.turnstileToken ?? ""));
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const throttleKey = `forgot:${clientKey(req)}:${email}`;
+  try {
+    loginThrottle.check(throttleKey);
+  } catch {
+    throw new RelayError("Too many attempts. Try again later.", "login_rate_limited", undefined, 429);
+  }
+  const record = email ? deps.cloudAdmin.store.getCustomerAuthByEmail(email) : null;
+  if (record && record.customer.status === "active" && !record.customer.owner && record.passwordHash && record.customer.email) {
+    await issueCustomerInvite(deps.cloudAdmin.store, deps.cloudAdmin.email, {
+      customer: record.customer,
+      purpose: "reset",
+      publicBase: process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun",
+    });
+  }
+  sendJson(res, 200, {
+    ok: true,
+    message: "If that email is on file, we sent a password reset link.",
+  });
+}
+
+async function handleCustomerChangePassword(
+  req: IncomingMessage,
+  res: ServerResponse,
+  deps: HandlerDeps,
+  session: RequestSession | null,
+): Promise<void> {
+  if (!deps.customerAuth.enabled || !deps.cloudAdmin) {
+    throw new RelayError("Customer sign-in is not enabled.", "customer_auth_unavailable", undefined, 503);
+  }
+  if (session?.kind !== "customer") {
+    throw new RelayError("Sign in to change your password.", "auth_required", undefined, 401);
+  }
+  const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+  const currentPassword = String(body.currentPassword ?? "");
+  const newPassword = String(body.newPassword ?? "");
+  if (newPassword.length < 10) {
+    throw new RelayError("Choose a new password with at least 10 characters.", "password_invalid", undefined, 400);
+  }
+  const record = deps.cloudAdmin.store.getCustomerAuthById(session.customer.id);
+  if (!record || record.customer.owner || !record.passwordHash) {
+    throw new RelayError("Password change is not available for this account.", "password_change_unavailable", undefined, 409);
+  }
+  const valid = await verifyCustomerPassword(currentPassword, record.passwordHash);
+  if (!valid) {
+    throw new RelayError("Current password is incorrect.", "invalid_credentials", undefined, 401);
+  }
+  const updated = deps.cloudAdmin.store.setCustomerPassword(record.customer.id, await hashCustomerPassword(newPassword));
+  sendJsonWithCookies(
+    res,
+    200,
+    { ok: true },
+    [deps.customerAuth.cookieHeader({ customerId: updated.customer.id, sessionVersion: updated.sessionVersion })],
   );
 }
 

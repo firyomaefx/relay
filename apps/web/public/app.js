@@ -2704,6 +2704,34 @@
     }
   }
 
+  async function changeProfilePassword() {
+    if (!els.profilePasswordBtn) return;
+    const currentPassword = els.profileCurrentPassword?.value ?? "";
+    const newPassword = els.profileNewPassword?.value ?? "";
+    if (!currentPassword || newPassword.length < 10) {
+      if (els.profilePasswordMessage) {
+        els.profilePasswordMessage.textContent = "Enter your current password and a new password with at least 10 characters.";
+      }
+      return;
+    }
+    els.profilePasswordBtn.disabled = true;
+    if (els.profilePasswordMessage) els.profilePasswordMessage.textContent = "";
+    try {
+      await api("/api/customer/change-password", {
+        method: "POST",
+        body: { currentPassword, newPassword },
+      });
+      if (els.profileCurrentPassword) els.profileCurrentPassword.value = "";
+      if (els.profileNewPassword) els.profileNewPassword.value = "";
+      if (els.profilePasswordMessage) els.profilePasswordMessage.textContent = "Password updated.";
+      toast({ tone: "success", title: "Password updated", text: "Your other sessions were signed out." });
+    } catch (error) {
+      if (els.profilePasswordMessage) els.profilePasswordMessage.textContent = error.message;
+    } finally {
+      els.profilePasswordBtn.disabled = false;
+    }
+  }
+
   async function generateProfileKey() {
     if (!els.profileKeyBtn) return;
     if (els.profileKeyBtn.disabled) {
@@ -3251,6 +3279,11 @@
       profileKeyValue: $("#profileKeyValue"),
       profileKeyCopy: $("#profileKeyCopy"),
       profileMessage: $("#profileMessage"),
+      profilePasswordSection: $("#profilePasswordSection"),
+      profileCurrentPassword: $("#profileCurrentPassword"),
+      profileNewPassword: $("#profileNewPassword"),
+      profilePasswordBtn: $("#profilePasswordBtn"),
+      profilePasswordMessage: $("#profilePasswordMessage"),
       sessionRow: $("#sessionRow"),
       settingsLogoutBtn: $("#settingsLogoutBtn"),
       credentialForms: $("#credentialForms"),
@@ -3754,6 +3787,7 @@
     els.topbarLogoutBtn?.addEventListener("click", () => void logout());
     els.settingsLogoutBtn.addEventListener("click", () => void logout());
     els.profileSaveBtn?.addEventListener("click", () => void saveProfile());
+    els.profilePasswordBtn?.addEventListener("click", () => void changeProfilePassword());
     els.profileKeyBtn?.addEventListener("click", () => void generateProfileKey());
     els.profileKeyCopy?.addEventListener("click", async () => {
       const key = els.profileKeyValue?.textContent ?? "";
@@ -3811,6 +3845,9 @@
       if (typeof NAV_META !== "undefined") NAV_META.settings = { eyebrow: "Account", title: "Profile" };
       const settingsTitle = document.getElementById("settingsTitle");
       if (settingsTitle) settingsTitle.innerHTML = 'Profile<span class="display-dot">.</span>';
+      if (els.profilePasswordSection) els.profilePasswordSection.hidden = false;
+    } else if (els.profilePasswordSection) {
+      els.profilePasswordSection.hidden = true;
     }
     setComposeMode(preferredComposeMode(), { persist: false });
   }

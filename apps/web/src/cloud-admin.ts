@@ -3,8 +3,7 @@ import { RelayError, errorMessage } from "@relay/core";
 import { CloudLedger, CloudStore, PriceTable, defaultPricePath, effectiveFreeLimit, loadCloudConfig } from "@relay/cloud";
 import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
 import { createPolarCheckout, loadPolarConfig, type PolarConfig } from "./polar.js";
-import { customerSetupEmail, loadEmailConfig, sendEmail, type EmailConfig } from "@relay/cloud";
-import { createInviteToken } from "./customer-auth.js";
+import { issueCustomerInvite, loadEmailConfig, type EmailConfig } from "@relay/cloud";
 
 export interface CloudAdminDeps {
   store: CloudStore;
@@ -73,16 +72,43 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   return parsed as Record<string, unknown>;
 }
 
-async function createCustomerSetupInvite(deps: CloudAdminDeps, customer: { id: string; displayName: string; email: string }): Promise<{ url: string; emailSent: boolean; emailError?: string }> {
-  const { token, tokenHash } = createInviteToken();
-  deps.store.createCustomerInvite(customer.id, tokenHash, 7 * 24 * 60 * 60 * 1000);
-  const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
-  const url = `${publicBase}/setup?token=${encodeURIComponent(token)}`;
-  const emailResult = await sendEmail(deps.email, {
-    ...customerSetupEmail({ name: customer.displayName, setupUrl: url }),
-    to: customer.email,
+function publicBaseUrl(): string {
+  return (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+}
+
+async function createCustomerSetupInvite(
+  deps: CloudAdminDeps,
+  customer: { id: string; displayName: string; email: string; owner?: boolean; status?: string },
+): Promise<{ url: string; emailSent: boolean; emailError?: string }> {
+  const delivery = await issueCustomerInvite(deps.store, deps.email, {
+    customer: {
+      id: customer.id,
+      displayName: customer.displayName,
+      email: customer.email,
+      owner: Boolean(customer.owner),
+      status: (customer.status as "active" | "disabled") ?? "active",
+    },
+    purpose: "setup",
+    publicBase: publicBaseUrl(),
   });
-  return { url, emailSent: emailResult.sent, emailError: emailResult.sent ? undefined : emailResult.error };
+  return { url: delivery.url, emailSent: delivery.emailSent, emailError: delivery.emailError };
+}
+
+async function createCustomerPasswordResetInvite(
+  deps: CloudAdminDeps,
+  customerId: string,
+): Promise<{ url: string; emailSent: boolean; emailError?: string }> {
+  const customer = deps.store.getCustomer(customerId);
+  if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+  if (!customer.email) {
+    throw new RelayError("This customer has no email. Add an email before sending a reset link.", "cloud_email_required", undefined, 409);
+  }
+  const delivery = await issueCustomerInvite(deps.store, deps.email, {
+    customer,
+    purpose: "reset",
+    publicBase: publicBaseUrl(),
+  });
+  return { url: delivery.url, emailSent: delivery.emailSent, emailError: delivery.emailError };
 }
 
 /** Admin-only manual top-up interface. Existing console session already guards these routes. */
@@ -138,11 +164,28 @@ export async function handleCloudAdmin(
       return;
     }
 
+    if (method === "POST" && resource === "customers" && segments[4] && segments[5] === "password-reset") {
+      const customerId = segments[4];
+      if (!deps.store.getCustomer(customerId)) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+      const reset = await createCustomerPasswordResetInvite(deps, customerId);
+      send(res, 201, {
+        ok: true,
+        customerId,
+        setupUrl: reset.url,
+        resetUrl: reset.url,
+        emailSent: reset.emailSent,
+        emailError: reset.emailSent ? undefined : reset.emailError,
+      });
+      return;
+    }
+
     if (method === "GET" && resource === "customers" && segments[4]) {
       const customer = deps.store.getCustomer(segments[4]);
       if (!customer) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
+      const auth = deps.store.getCustomerAuthById(customer.id);
       send(res, 200, {
         customer: { ...customer, ...deps.ledger.balanceWithHold(customer.id) },
+        hasPassword: Boolean(auth?.passwordHash),
         accounts: deps.store.listCustomerAccounts(customer.id),
         payments: deps.ledger.listPayments(customer.id, 20),
         usage: deps.ledger.entries(customer.id, 20),

@@ -96,10 +96,18 @@ function renderSummary() {
     <div style="margin-top:8px" class="pill">${c.status}</div>`;
 }
 
+let selectedHasPassword = false;
+
 async function loadDetails(id) {
   const r = await fetch('/api/cloud/admin/customers/' + encodeURIComponent(id), { credentials: 'same-origin' });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) { $('details').textContent = data.error || 'Unable to load customer details'; return; }
+  selectedHasPassword = Boolean(data.hasPassword);
+  const resetBtn = $('passwordReset');
+  if (resetBtn) {
+    resetBtn.disabled = !selectedHasPassword;
+    resetBtn.title = selectedHasPassword ? '' : 'Customer must finish setup before a reset link can be sent.';
+  }
   $('details').innerHTML = data.accounts.length
     ? `<table><thead><tr><th>Platform</th><th>Status</th><th>Account</th></tr></thead><tbody>${data.accounts.map(a =>
         `<tr><td>${a.platform}</td><td>${a.status}</td><td>${a.accountRef || '—'}</td></tr>`
@@ -190,6 +198,37 @@ $('checkout').addEventListener('click', async () => {
     $('message').textContent = 'Stripe checkout opened in a new tab.';
     $('message').className = 'ok';
   } catch (error) { $('message').textContent = error.message; $('message').className = 'error'; }
+});
+
+$('passwordReset')?.addEventListener('click', async () => {
+  const customerId = $('customer').value;
+  if (!customerId) return;
+  if (!selectedHasPassword) {
+    $('message').textContent = 'This customer has not set a password yet. Use a setup invite from the waitlist instead.';
+    $('message').className = 'error';
+    return;
+  }
+  const customer = customers.find((item) => item.id === customerId);
+  if (!confirm(`Send a password reset link${customer?.displayName ? ` to ${customer.displayName}` : ''}? The customer chooses the new password; Relay does not email a generated password.`)) return;
+  $('message').textContent = '';
+  $('passwordReset').disabled = true;
+  try {
+    const r = await fetch(`/api/cloud/admin/customers/${encodeURIComponent(customerId)}/password-reset`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Could not create reset link');
+    const resetUrl = data.resetUrl || data.setupUrl || '';
+    $('message').innerHTML = `${data.emailSent ? 'Reset email sent.' : 'Email not sent; copy the reset link below.'}${resetUrl ? `<div class="invite-box" style="margin-top:10px"><input readonly value="${esc(resetUrl)}"></div>` : ''}`;
+    $('message').className = 'ok';
+  } catch (error) {
+    $('message').textContent = error.message;
+    $('message').className = 'error';
+  } finally {
+    $('passwordReset').disabled = !selectedHasPassword;
+  }
 });
 
 $('connect').addEventListener('click', async () => {

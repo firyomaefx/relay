@@ -2,7 +2,15 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
-import { loadEmailConfig, sendEmail, waitlistConfirmationEmail } from "../../packages/cloud/dist/email.js";
+import { customerPasswordResetEmail, loadEmailConfig, sendEmail, waitlistConfirmationEmail } from "../../packages/cloud/dist/email.js";
+
+test("password reset email contains only a user-chosen link", () => {
+  const message = customerPasswordResetEmail({ name: "Aina", resetUrl: "https://relay.example/reset-password?token=abc" });
+  assert.match(message.subject, /reset/i);
+  assert.match(message.text, /choose a new password/i);
+  assert.doesNotMatch(message.text, /temporary password/i);
+  assert.match(message.text, /https:\/\/relay\.example\/reset-password\?token=abc/);
+});
 
 test("email client skips cleanly without configuration", async () => {
   assert.equal(loadEmailConfig({}), null);

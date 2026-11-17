@@ -22,9 +22,12 @@ export interface CustomerAuthRecord {
   sessionVersion: number;
 }
 
+export type CustomerInvitePurpose = "setup" | "reset";
+
 export interface CustomerInvite {
   id: string;
   customerId: string;
+  purpose: CustomerInvitePurpose;
   expiresAt: string;
   usedAt: string | null;
   createdAt: string;
@@ -322,6 +325,7 @@ export class CloudStore {
         id TEXT PRIMARY KEY,
         customer_id TEXT NOT NULL REFERENCES customers(id),
         token_hash TEXT NOT NULL UNIQUE,
+        purpose TEXT NOT NULL DEFAULT 'setup',
         expires_at TEXT NOT NULL,
         used_at TEXT,
         created_at TEXT NOT NULL
@@ -344,6 +348,10 @@ export class CloudStore {
     }
     if (!customerColumns.some((column) => column.name === "session_version")) {
       db.exec("ALTER TABLE customers ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1");
+    }
+    const inviteColumns = db.prepare("PRAGMA table_info(customer_invites)").all() as Array<{ name: string }>;
+    if (!inviteColumns.some((column) => column.name === "purpose")) {
+      db.exec("ALTER TABLE customer_invites ADD COLUMN purpose TEXT NOT NULL DEFAULT 'setup'");
     }
     db.exec("CREATE UNIQUE INDEX IF NOT EXISTS customers_email_unique ON customers(email COLLATE NOCASE) WHERE email <> ''");
     return new CloudStore(db);
@@ -411,24 +419,58 @@ export class CloudStore {
     return this.getCustomerAuthById(customerId)!;
   }
 
-  createCustomerInvite(customerId: string, tokenHash: string, ttlMs: number): CustomerInvite {
+  createCustomerInvite(
+    customerId: string,
+    tokenHash: string,
+    ttlMs: number,
+    purpose: CustomerInvitePurpose = "setup",
+  ): CustomerInvite {
     if (!this.getCustomer(customerId)) throw new RelayError("Customer not found.", "cloud_customer_not_found", undefined, 404);
     const now = new Date();
     const id = `cinv_${randomUUID()}`;
     const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
     this.db.prepare("UPDATE customer_invites SET used_at = ? WHERE customer_id = ? AND used_at IS NULL").run(now.toISOString(), customerId);
     this.db.prepare(
-      "INSERT INTO customer_invites (id, customer_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
-    ).run(id, customerId, tokenHash, expiresAt, now.toISOString());
-    return { id, customerId, expiresAt, usedAt: null, createdAt: now.toISOString() };
+      "INSERT INTO customer_invites (id, customer_id, token_hash, purpose, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(id, customerId, tokenHash, purpose, expiresAt, now.toISOString());
+    return { id, customerId, purpose, expiresAt, usedAt: null, createdAt: now.toISOString() };
   }
 
-  consumeCustomerInvite(tokenHash: string): CustomerAuthRecord | null {
+  private toCustomerInvite(row: Record<string, unknown>): CustomerInvite {
+    const purpose = String(row.purpose ?? "setup");
+    return {
+      id: String(row.id),
+      customerId: String(row.customer_id),
+      purpose: purpose === "reset" ? "reset" : "setup",
+      expiresAt: String(row.expires_at),
+      usedAt: row.used_at == null ? null : String(row.used_at),
+      createdAt: String(row.created_at),
+    };
+  }
+
+  private inviteAllowedForCustomer(invite: CustomerInvite, auth: CustomerAuthRecord): boolean {
+    if (auth.customer.owner || auth.customer.status !== "active") return false;
+    const hasPassword = Boolean(auth.passwordHash);
+    if (invite.purpose === "setup" && hasPassword) return false;
+    if (invite.purpose === "reset" && !hasPassword) return false;
+    return true;
+  }
+
+  peekCustomerInvite(tokenHash: string): { invite: CustomerInvite; auth: CustomerAuthRecord } | null {
     const row = this.db.prepare("SELECT * FROM customer_invites WHERE token_hash = ?").get(tokenHash) as Record<string, unknown> | undefined;
     if (!row || row.used_at != null) return null;
     if (Date.parse(String(row.expires_at)) <= Date.now()) return null;
-    this.db.prepare("UPDATE customer_invites SET used_at = ? WHERE id = ? AND used_at IS NULL").run(new Date().toISOString(), String(row.id));
-    return this.getCustomerAuthById(String(row.customer_id));
+    const invite = this.toCustomerInvite(row);
+    const auth = this.getCustomerAuthById(invite.customerId);
+    if (!auth || !this.inviteAllowedForCustomer(invite, auth)) return null;
+    return { invite, auth };
+  }
+
+  consumeCustomerInvite(tokenHash: string): CustomerAuthRecord | null {
+    const pending = this.peekCustomerInvite(tokenHash);
+    if (!pending) return null;
+    this.db.prepare("UPDATE customer_invites SET used_at = ? WHERE id = ? AND used_at IS NULL").run(new Date().toISOString(), pending.invite.id);
+    return this.getCustomerAuthById(pending.invite.customerId);
   }
 
   getCustomer(id: string): Customer | null {
