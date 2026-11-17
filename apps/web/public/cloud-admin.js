@@ -16,7 +16,7 @@ async function loadStatusChips() {
     fetch('/api/waitlist', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => ({})),
   ]);
   const chips = [];
-  chips.push(`<span class="chip ok">Signed in as owner</span>`);
+  chips.push(`<span class="chip ok">Signed in as admin</span>`);
   chips.push(`<span class="chip ${health.emailConfigured ? 'ok' : 'warn'}">Email ${health.emailConfigured ? 'on' : 'off'}</span>`);
   const pay = health.payments?.stripeConfigured || health.payments?.polarConfigured;
   chips.push(`<span class="chip ${pay ? 'ok' : 'warn'}">Payments ${pay ? 'on' : 'off'}</span>`);

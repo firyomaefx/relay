@@ -64,7 +64,7 @@ test("owner admin routes redirect unsigned users to /admin and block customers",
 
     const adminPage = await fetch(`${base}/cloud-admin`, { headers: { cookie: operatorCookie } });
     assert.equal(adminPage.status, 200);
-    assert.match(await adminPage.text(), /Owner admin/);
+    assert.match(await adminPage.text(), /Relay admin/);
 
     const customerLogin = await fetch(`${base}/api/customer/login`, {
       method: "POST",

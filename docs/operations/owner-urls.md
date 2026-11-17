@@ -1,41 +1,48 @@
-# Relay Cloud URL map
+# Relay Cloud — two logins (bookmark sheet)
 
-Use this as your bookmark sheet. **Owner** pages use the env console password (`/admin`). **Customers** use email + password (`/login`).
+There are only **two** sign-in pages. Pick the row that matches you.
 
-## Public (prospects)
+| Who | Bookmark | Sign in with |
+|-----|----------|--------------|
+| **You** (run Relay, waitlist, billing) | https://relay.duitpoket.fun/admin | Admin password (env) → then **https://relay.duitpoket.fun/cloud-admin** |
+| **Customer** (approved user, publishes posts) | https://relay.duitpoket.fun/login | Email + password from setup email |
+
+**Daily work for you:** `/admin` → `/cloud-admin` (same as `/manage`).
+
+If the customer login page footer still says “Operator sign in”, production has not deployed the latest release yet — merge [PR #57](https://cursor.com/codebase/ttrg/relay/pull/57) and redeploy.
+
+## Public (no login)
 
 | URL | Purpose |
 |-----|---------|
-| https://relay.duitpoket.fun/ | Marketing home |
+| https://relay.duitpoket.fun/ | Marketing |
 | https://relay.duitpoket.fun/waitlist | Join early access |
-| https://relay.duitpoket.fun/pricing | Rates and founding deal |
-| https://relay.duitpoket.fun/docs | MCP developer docs |
-| https://relay.duitpoket.fun/contact | Contact form |
+| https://relay.duitpoket.fun/pricing | Rates |
+| https://relay.duitpoket.fun/docs | MCP docs |
+| https://relay.duitpoket.fun/contact | Contact |
 
-## Customer (approved users)
+## Customer pages
 
 | URL | Purpose |
 |-----|---------|
 | https://relay.duitpoket.fun/login | Customer sign in |
-| https://relay.duitpoket.fun/forgot-password | Request password reset link |
-| https://relay.duitpoket.fun/setup | First-time password (from email) |
-| https://relay.duitpoket.fun/reset-password | New password (from reset email) |
-| https://relay.duitpoket.fun/ | Composer (requires customer session) |
-| https://relay.duitpoket.fun/connect | MCP connection guide |
+| https://relay.duitpoket.fun/forgot-password | Reset link by email |
+| https://relay.duitpoket.fun/setup | First password (from email) |
+| https://relay.duitpoket.fun/reset-password | New password (reset email) |
+| https://relay.duitpoket.fun/ | Composer |
+| https://relay.duitpoket.fun/connect | MCP guide |
 
-## Owner (you only)
+## Admin pages (you)
 
 | URL | Purpose |
 |-----|---------|
-| https://relay.duitpoket.fun/admin | Owner sign in |
-| https://relay.duitpoket.fun/cloud-admin | Waitlist, customers, billing (**daily bookmark**) |
-| https://relay.duitpoket.fun/manage | Alias → same as `/cloud-admin` |
-| https://relay.duitpoket.fun/ | Composer (optional; banner links back to admin) |
+| https://relay.duitpoket.fun/admin | Admin login |
+| https://relay.duitpoket.fun/cloud-admin | Waitlist, customers, billing |
+| https://relay.duitpoket.fun/manage | Same as cloud-admin |
+| https://relay.duitpoket.fun/ | Composer (optional; banner → admin) |
 
-**Daily workflow:** open `/admin` → lands on `/cloud-admin` after sign-in → approve waitlist → customer uses `/setup` then `/login`.
+## Redirects
 
-## Redirect rules
-
-- Unsigned `/cloud-admin` or `/manage` → `/admin` (not customer `/login`).
-- Signed-in owner visiting `/admin` → `/cloud-admin`.
-- Customer session on `/cloud-admin` → `/` (composer).
+- Not signed in on `/cloud-admin` or `/manage` → `/admin` (not customer `/login`).
+- Signed-in admin on `/admin` → `/cloud-admin`.
+- Customer on `/cloud-admin` → `/` (composer).

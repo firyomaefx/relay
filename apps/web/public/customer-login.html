@@ -7,13 +7,13 @@
   <meta name="theme-color" content="#f5f5f7" />
   <meta name="description" content="Relay Cloud customer sign in." />
   <meta name="robots" content="noindex" />
-  <title>Log in · Relay Cloud</title>
+  <title>Customer sign in · Relay Cloud</title>
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script src="/customer-login.js?v=20261115turnstile" defer></script>
+  <script src="/customer-login.js?v=20261117admin" defer></script>
 </head>
 <body class="auth-page">
   <main class="auth-shell">
@@ -21,7 +21,7 @@
     <div class="bezel auth-card">
       <section class="panel">
         <h1 class="auth-title">Customer sign in</h1>
-        <p class="auth-lede">Use the email and password from your Relay Cloud setup email.</p>
+        <p class="auth-lede">Email and password from your setup email (after waitlist approval).</p>
         <form class="auth-form" id="customerLoginForm" novalidate>
           <div>
             <label class="auth-label" for="email">Email</label>
@@ -39,8 +39,8 @@
       </section>
     </div>
     <div class="auth-links">
-      <a href="/">← Relay Cloud</a>
-      <a href="/admin">Owner sign in</a>
+      <a href="/">← Home</a>
+      <a href="/admin">Admin login</a>
     </div>
   </main>
 </body>

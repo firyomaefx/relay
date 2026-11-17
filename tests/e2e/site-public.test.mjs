@@ -35,12 +35,12 @@ test("visitors get the landing page at /, the console stays behind login", async
       const page = await get(server.baseUrl, entry);
       assert.equal(page.status, 200, entry);
       assert.match(page.text, /password/i, entry);
-      assert.match(page.text, /customer-login\.js\?v=20261115turnstile/, entry);
+      assert.match(page.text, /customer-login\.js\?v=20261117admin/, entry);
     }
     for (const entry of ["/admin", "/admin/", "/admin/login"]) {
       const page = await get(server.baseUrl, entry);
       assert.equal(page.status, 200, entry);
-      assert.match(page.text, /login\.js\?v=20261115turnstile/, entry);
+      assert.match(page.text, /login\.js\?v=20261117admin/, entry);
     }
     for (const script of ["/login.js", "/customer-login.js"]) {
       const res = await fetch(`${server.baseUrl}${script}`);
