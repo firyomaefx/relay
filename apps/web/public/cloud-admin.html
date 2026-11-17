@@ -3,25 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Relay Cloud admin, top-ups</title>
+<meta name="robots" content="noindex">
+<title>Relay admin · Relay Cloud</title>
 <style>
   :root{--bg:#f6f4ef;--card:#fff;--ink:#18211c;--muted:#68736c;--line:#d8ded7;--accent:#1e6b4f;--danger:#9a3b32}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-  main{max-width:980px;margin:0 auto;padding:32px 20px 64px}
-  h1{font-size:28px;letter-spacing:-.02em;margin:0 0 6px}
-  p.sub{color:var(--muted);margin:0 0 24px}
-  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
-  @media(max-width:760px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  main{max-width:980px;margin:0 auto;padding:24px 20px 64px}
+  .owner-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+  .owner-header h1{font-size:26px;letter-spacing:-.02em;margin:0 0 4px}
+  .owner-header .sub{color:var(--muted);margin:0;font-size:14px}
+  .owner-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .owner-actions a,.owner-actions button{display:inline-block;padding:8px 14px;border-radius:9px;font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer}
+  .owner-actions a.primary{background:var(--accent);color:#fff;border:0}
+  .owner-actions button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .chip{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card)}
+  .chip.ok{border-color:#c5e0d4;color:var(--accent)}
+  .chip.warn{border-color:#e8d4a8;color:#7a5a12}
+  .help{font-size:14px;color:var(--muted);margin:0 0 20px;padding:14px 16px;background:#faf9f5;border:1px solid var(--line);border-radius:12px;line-height:1.55}
+  .help strong{color:var(--ink);font-weight:600}
+  .help ol{margin:8px 0 0;padding-left:1.2em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px}
   h2{font-size:17px;margin:0 0 14px}
   label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
   select,input,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff}
   textarea{min-height:64px;resize:vertical}
-  button{margin-top:14px;padding:11px 15px;border:0;border-radius:9px;background:var(--accent);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  button{padding:11px 15px;border:0;border-radius:9px;background:var(--accent);color:#fff;font:inherit;font-weight:600;cursor:pointer;margin-top:14px}
   button:disabled{opacity:.55;cursor:wait}
-  .row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
-  .row:last-child{border:0}
+  button.secondary{margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--line)}
   .muted{color:var(--muted);font-size:14px}
   .balance{font-size:26px;font-weight:700;letter-spacing:-.02em}
   .error{color:var(--danger);white-space:pre-wrap;font-size:14px}
@@ -30,7 +40,6 @@
   th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
   th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
   .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#e8f1ec;color:var(--accent);font-size:12px}
-  .waitlist-card{margin-bottom:18px}
   .waitlist-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
   .waitlist-toolbar select{width:auto;min-width:140px;padding:7px 9px}
   .waitlist-table .actions{display:flex;gap:6px;flex-wrap:wrap}
@@ -43,16 +52,38 @@
   .invite-box{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#faf9f5}
   .invite-box input{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;margin-top:6px}
   .invite-box a{color:var(--accent);font-size:13px}
+  .customer-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+  .customer-actions button{margin:0}
 </style>
 </head>
 <body>
 <main>
-  <h1>Cloud admin</h1>
-  <p class="sub">Manual top-ups plus Stripe or Polar checkout. Every payment writes a payment event and an append-only ledger entry.</p>
-  <section class="card waitlist-card">
+  <header class="owner-header">
+    <div>
+      <h1>Relay admin</h1>
+      <p class="sub">Waitlist, customers, and billing — not the customer publishing app.</p>
+    </div>
+    <div class="owner-actions">
+      <a class="primary" href="/">Open composer</a>
+      <button type="button" class="ghost" id="ownerLogout">Sign out</button>
+    </div>
+  </header>
+
+  <div class="chips" id="statusChips" aria-live="polite"></div>
+
+  <p class="help" id="ownerHelp">
+    <strong>Approve flow:</strong>
+    <ol>
+      <li><strong>Approve</strong> a waitlist row — the customer gets a setup email (or copy the link).</li>
+      <li>They open <strong>/setup</strong> and choose their own password.</li>
+      <li>They sign in at <strong>/login</strong> (email + password) and use the composer at <strong>/</strong>.</li>
+    </ol>
+  </p>
+
+  <section class="card">
     <div class="waitlist-toolbar">
       <div>
-        <h2 style="margin-bottom:4px">Waitlist</h2>
+        <h2 style="margin-bottom:4px">1. Waitlist</h2>
         <div class="muted" id="waitlistCounts">Loading requests…</div>
       </div>
       <div>
@@ -69,43 +100,38 @@
     <div id="waitlist" class="muted">Loading waitlist…</div>
     <div id="waitlistInvite"></div>
   </section>
-  <div class="grid">
-    <section class="card">
-      <h2>Record a top-up</h2>
-      <label for="customer">Customer</label>
-      <select id="customer"></select>
-      <label for="amount">Amount (milliUSD; 1000 = $1.00)</label>
-      <input id="amount" type="number" min="1" step="1" placeholder="e.g. 10000 = $10">
-      <label for="reference">Payment reference</label>
-      <input id="reference" placeholder="bank transfer / invoice number">
-      <label for="note">Note</label>
-      <input id="note" placeholder="optional">
-      <button id="topup">Record top-up</button>
-      <button id="checkout" class="secondary" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--line)">Create Stripe checkout</button>
-      <button id="polarCheckout" class="secondary" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--line)">Create Polar checkout</button>
-      <p id="message" class="muted"></p>
-    </section>
-    <section class="card">
-      <h2>Selected customer</h2>
-      <div id="summary" class="muted">Choose a customer.</div>
-      <button id="passwordReset" class="secondary" style="margin-top:14px;background:transparent;color:var(--accent);border:1px solid var(--line)">Send password reset link</button>
-      <button id="connect" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--line)">Create MCP connect link</button>
-      <div id="connectLink" class="muted" style="margin-top:8px"></div>
-      <h2 style="margin-top:22px">Accounts</h2>
-      <div id="details" class="muted">No accounts loaded.</div>
-      <h2 style="margin-top:22px">Recent payments</h2>
-      <div id="payments" class="muted">No payments loaded.</div>
-    </section>
-  </div>
+
+  <section class="card">
+    <h2>2. Customers</h2>
+    <label for="customer">Customer</label>
+    <select id="customer"></select>
+    <div id="summary" class="muted" style="margin-top:12px">Choose a customer.</div>
+    <div class="customer-actions">
+      <button type="button" id="passwordReset" class="secondary">Send password reset link</button>
+      <button type="button" id="connect" class="secondary">Create MCP connect link</button>
+    </div>
+    <div id="connectLink" class="muted" style="margin-top:8px"></div>
+    <h2 style="margin-top:22px;font-size:15px">Connected accounts</h2>
+    <div id="details" class="muted">No accounts loaded.</div>
+    <h2 style="margin-top:22px;font-size:15px">Recent payments</h2>
+    <div id="payments" class="muted">No payments loaded.</div>
+  </section>
+
+  <section class="card">
+    <h2>3. Billing tools</h2>
+    <p class="muted" style="margin:0 0 12px">Manual top-ups plus Stripe or Polar checkout.</p>
+    <label for="amount">Amount (milliUSD; 1000 = $1.00)</label>
+    <input id="amount" type="number" min="1" step="1" placeholder="e.g. 10000 = $10">
+    <label for="reference">Payment reference</label>
+    <input id="reference" placeholder="bank transfer / invoice number">
+    <label for="note">Note</label>
+    <input id="note" placeholder="optional">
+    <button type="button" id="topup">Record top-up</button>
+    <button type="button" id="checkout" class="secondary">Create Stripe checkout</button>
+    <button type="button" id="polarCheckout" class="secondary">Create Polar checkout</button>
+    <p id="message" class="muted"></p>
+  </section>
 </main>
-<script src="/cloud-admin.js?v=20261105waitlist" defer></script>
+<script src="/cloud-admin.js?v=20261117owner" defer></script>
 </body>
 </html>
-
-
-
-
-
-
-
-

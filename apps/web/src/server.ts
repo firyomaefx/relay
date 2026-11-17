@@ -281,6 +281,15 @@ function sendJsonWithCookies(
   sendJson(res, status, value);
 }
 
+function isOwnerAdminPath(pathname: string): boolean {
+  return (
+    pathname === "/cloud-admin"
+    || pathname === "/cloud-admin.html"
+    || pathname === "/manage"
+    || pathname === "/manage.html"
+  );
+}
+
 function splitPath(pathname: string): string[] {
   const parts = pathname.split("/").filter((part) => part.length > 0);
   return parts.map((part) => {
@@ -662,7 +671,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   // Operator sign-in page.
   if (isGet && (pathname === "/admin" || pathname === "/admin/" || pathname === "/admin/login")) {
     if (requestSession?.kind === "operator") {
-      redirect(res, "/");
+      redirect(res, "/cloud-admin");
       return;
     }
     const served = await sendFile(req, res, path.join(deps.publicDir, "login.html"), { html: true });
@@ -789,6 +798,10 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       if (!served) throw new RelayError("The landing page is missing", "console_assets_missing", undefined, 500);
       return;
     }
+    if (isGet && isOwnerAdminPath(pathname)) {
+      redirect(res, "/admin");
+      return;
+    }
     if (pathname.startsWith("/api/")) {
       throw new RelayError("Sign in to the Relay console first", "unauthorized", undefined, 401);
     }
@@ -796,7 +809,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       const assetServed = await serveStatic(req, res, segments, deps.publicDir, false);
       if (assetServed) return;
     }
-    redirect(res, pathname.startsWith("/admin") ? "/admin" : "/login");
+    redirect(res, pathname.startsWith("/admin") || isOwnerAdminPath(pathname) ? "/admin" : "/login");
     return;
   }
 
@@ -813,8 +826,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
     return;
   }
 
-  if (isGet && (pathname === "/cloud-admin.html" || pathname === "/cloud-admin")) {
-    requireOperator(requestSession);
+  if (isGet && isOwnerAdminPath(pathname)) {
+    if (requestSession?.kind !== "operator") {
+      redirect(res, "/");
+      return;
+    }
+    const served = await sendFile(req, res, path.join(deps.publicDir, "cloud-admin.html"), { html: true });
+    if (!served) throw new RelayError("The owner admin page is missing", "console_assets_missing", undefined, 500);
+    return;
   }
 
   if (isGet) {

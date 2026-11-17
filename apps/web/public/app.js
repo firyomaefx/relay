@@ -687,6 +687,7 @@
 
     const dismissed = window.localStorage.getItem("relay.simDismissed") === "1";
     els.simBanner.hidden = !mock || dismissed;
+    if (els.ownerBanner) els.ownerBanner.hidden = state.session?.role !== "operator";
 
     const protectedMode = Boolean(state.session.protected);
     els.logoutBtn.hidden = !protectedMode;
@@ -3173,6 +3174,7 @@
       navQueueBadge: $("#navQueueBadge"),
       navAccountsBadge: $("#navAccountsBadge"),
       simBanner: $("#simBanner"),
+      ownerBanner: $("#ownerBanner"),
       simBannerCta: $("#simBannerCta"),
       simBannerDismiss: $("#simBannerDismiss"),
       refreshBtn: $("#refreshBtn"),

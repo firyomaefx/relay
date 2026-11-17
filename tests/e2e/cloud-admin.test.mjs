@@ -73,7 +73,7 @@ test("manual cloud top-up records one payment and is idempotent", async () => {
 
     const page = await fetch(`${server.baseUrl}/cloud-admin.html`);
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /Cloud admin/);
+    assert.match(await page.text(), /Relay admin/);
   } finally {
     await server.stop();
     await cleanupTempDir(dir);

@@ -35,6 +35,7 @@ import "./e2e/cloud-credentials.test.mjs";
 import "./e2e/cloud-finance.test.mjs";
 import "./e2e/cloud-tools.test.mjs";
 import "./e2e/cloud-admin.test.mjs";
+import "./e2e/owner-admin-routes.test.mjs";
 import "./e2e/cloud-pricing.test.mjs";
 import "./e2e/stripe-webhook.test.mjs";
 import "./e2e/cloud-oauth.test.mjs";

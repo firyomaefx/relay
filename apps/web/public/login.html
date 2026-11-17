@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#f5f5f7" />
-  <meta name="description" content="Relay console sign in." />
+  <meta name="description" content="Relay Cloud admin login — waitlist and customers." />
   <meta name="robots" content="noindex" />
-  <title>Operator sign in · Relay Cloud</title>
+  <title>Admin login · Relay Cloud</title>
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png">
@@ -19,7 +19,7 @@
 
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script src="/login.js?v=20261115turnstile" defer></script>
+  <script src="/login.js?v=20261117admin" defer></script>
   <style>
   .auth-back{display:inline-flex;align-items:center;gap:6px;margin-top:18px;color:#5f6b63;font-size:13px;text-decoration:none}
   .auth-back:hover{color:#18211c}
@@ -33,8 +33,8 @@
 
     <div class="bezel auth-card">
       <section class="panel">
-        <h1 class="auth-title">Sign in</h1>
-        <p class="auth-lede">Operator console. Enter the console password.</p>
+        <h1 class="auth-title">Admin login</h1>
+        <p class="auth-lede">For you only. One admin password — not customer email login.</p>
 
         <form class="auth-form" id="loginForm" novalidate>
           <div>
@@ -51,7 +51,7 @@
     </div>
     <div class="auth-links">
       <a href="/">← Relay Cloud</a>
-      <a href="/login">Customer sign in</a>
+      <a href="/login">Customer login</a>
     </div>
   </main>
 </body>
