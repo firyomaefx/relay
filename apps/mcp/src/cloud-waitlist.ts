@@ -9,6 +9,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
   CloudStore,
+  issueCustomerInvite,
   loadEmailConfig,
   sendEmail,
   waitlistInviteEmail,
@@ -81,22 +82,33 @@ export function registerOwnerWaitlistTools(
       if (accepted >= limit) {
         throw new RelayError(`The first batch is full (${limit}). Raise RELAY_WAITLIST_LIMIT to approve more.`, "waitlist_full", undefined, 409);
       }
-      const customer = deps.store.createCustomer({ displayName: entry.name });
+      const customer = deps.store.createCustomer({ displayName: entry.name, email: entry.email });
       const created = deps.store.createConnectToken(customer.id, `Waitlist invite: ${entry.email}`);
       const invited = deps.store.approveWaitlist(entry.id, customer.id);
       const connectUrl = `${publicBase()}/connect?token=${encodeURIComponent(created.token)}`;
-      const emailResult = await sendEmail(loadEmailConfig(process.env), {
-        ...waitlistInviteEmail({ name: entry.name, connectUrl }),
-        to: entry.email,
+      const emailConfig = loadEmailConfig(process.env);
+      const setup = await issueCustomerInvite(deps.store, emailConfig, {
+        customer,
+        purpose: "setup",
+        publicBase: publicBase(),
       });
+      const emailResult = setup.emailSent
+        ? { sent: true as const }
+        : await sendEmail(emailConfig, {
+            ...waitlistInviteEmail({ name: entry.name, connectUrl }),
+            to: entry.email,
+          });
       return json({
         ok: true,
         entry: invited,
         customer: { id: customer.id, displayName: customer.displayName },
         connectUrl,
+        setupUrl: setup.url,
         mcpUrl: `${mcpBase()}?token=${encodeURIComponent(created.token)}`,
-        emailSent: emailResult.sent,
-        emailError: emailResult.sent ? undefined : emailResult.error,
+        emailSent: setup.emailSent || emailResult.sent,
+        emailError: setup.emailSent
+          ? undefined
+          : setup.emailError ?? (emailResult.sent ? undefined : emailResult.error),
       });
     },
   );

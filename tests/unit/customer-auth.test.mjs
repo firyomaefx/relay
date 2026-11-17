@@ -29,11 +29,16 @@ test("customer invites are single-use", async () => {
   try {
     const customer = store.createCustomer({ displayName: "Tenant Test", email: "tenant@example.com" });
     const { token, tokenHash } = createInviteToken();
-    store.createCustomerInvite(customer.id, tokenHash, 60_000);
+    store.createCustomerInvite(customer.id, tokenHash, 60_000, "setup");
     const consumed = store.consumeCustomerInvite(hashInviteToken(token));
     assert.equal(consumed?.customer.id, customer.id);
     assert.equal(store.consumeCustomerInvite(hashInviteToken(token)), null);
     store.setCustomerPassword(customer.id, await hashCustomerPassword("a-long-enough-password"));
+    const reset = createInviteToken();
+    store.createCustomerInvite(customer.id, reset.tokenHash, 60_000, "reset");
+    assert.ok(store.peekCustomerInvite(hashInviteToken(reset.token)));
+    const consumedReset = store.consumeCustomerInvite(hashInviteToken(reset.token));
+    assert.equal(consumedReset?.customer.id, customer.id);
     assert.equal(store.getCustomerAuthByEmail("TENANT@example.com")?.sessionVersion, 2);
   } finally {
     store.close();

@@ -698,6 +698,23 @@
                   <div class="profile-actions">
                     <button class="ghost-btn small" id="profileSaveBtn" type="button">Save profile</button>
                   </div>
+                  <div class="profile-password-section" id="profilePasswordSection" hidden>
+                    <p class="field-label" style="margin-top:16px;margin-bottom:8px">Password</p>
+                    <div class="profile-grid">
+                      <label class="field">
+                        <span class="field-label">Current password</span>
+                        <input class="input" id="profileCurrentPassword" type="password" autocomplete="current-password" />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">New password</span>
+                        <input class="input" id="profileNewPassword" type="password" autocomplete="new-password" minlength="10" />
+                      </label>
+                    </div>
+                    <div class="profile-actions">
+                      <button class="ghost-btn small" id="profilePasswordBtn" type="button">Change password</button>
+                    </div>
+                    <p class="field-hint" id="profilePasswordMessage" role="status"></p>
+                  </div>
                   <div class="profile-key-section">
                     <div class="profile-key-head">
                       <div>

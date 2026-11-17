@@ -3,6 +3,7 @@
 import { loadCloudConfig } from "./config.js";
 import { CloudStore } from "./db.js";
 import { CloudLedger } from "./ledger.js";
+import { issueCustomerInvite, loadEmailConfig } from "./index.js";
 import { cleanupMedia } from "./retention.js";
 
 function usage(): void {
@@ -17,6 +18,7 @@ Usage:
   relay-cloud-admin cleanup-media [days] [--apply] [--include-owner]
   relay-cloud-admin list-customers
   relay-cloud-admin list-keys [customerId]
+  relay-cloud-admin password-reset <customerId> [--no-email]
 
 Requires RELAY_CLOUD_ENABLED=1 and RELAY_CLOUD_TOKEN_KEY.
 `);
@@ -82,6 +84,22 @@ async function main(): Promise<void> {
         const customerId = args[0];
         if (!customerId || !store.getCustomer(customerId)) throw new Error("A valid customerId is required.");
         process.stdout.write(`${JSON.stringify(ledger.listPayments(customerId, 50), null, 2)}\n`);
+        return;
+      }
+      case "password-reset": {
+        const customerId = args[0];
+        if (!customerId) throw new Error("customerId is required.");
+        const customer = store.getCustomer(customerId);
+        if (!customer) throw new Error("Customer not found.");
+        const sendEmail = !args.includes("--no-email");
+        const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+        const delivery = await issueCustomerInvite(store, loadEmailConfig(process.env), {
+          customer,
+          purpose: "reset",
+          publicBase,
+          sendEmail,
+        });
+        process.stdout.write(`${JSON.stringify(delivery, null, 2)}\n`);
         return;
       }
       case "cleanup-media": {

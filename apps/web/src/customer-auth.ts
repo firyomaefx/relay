@@ -61,14 +61,7 @@ export async function verifyCustomerPassword(password: string, stored: string): 
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-export function createInviteToken(): { token: string; tokenHash: string } {
-  const token = randomBytes(32).toString("base64url");
-  return { token, tokenHash: createHash("sha256").update(token, "utf8").digest("hex") };
-}
-
-export function hashInviteToken(token: string): string {
-  return createHash("sha256").update(token, "utf8").digest("hex");
-}
+export { createInviteToken, hashInviteToken } from "@relay/cloud";
 
 /** Fixed-window attempt limiter; enough to stop trivial password spraying. */
 export class LoginThrottle {

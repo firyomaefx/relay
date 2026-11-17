@@ -151,6 +151,33 @@ export function waitlistInviteEmail(input: { name: string; connectUrl: string })
   };
 }
 
+export function customerPasswordResetEmail(input: { name: string; resetUrl: string }): EmailMessage {
+  const name = input.name.trim() || "there";
+  const url = input.resetUrl;
+  const text = [
+    `Hi ${name},`,
+    "",
+    "You asked to reset your Relay Cloud password. Choose a new password here:",
+    "",
+    url,
+    "",
+    "This link expires in 24 hours and can be used once.",
+    "",
+    "If you did not request this, you can ignore this email.",
+    "",
+    "— Relay",
+  ].join("\n");
+  return {
+    to: "",
+    subject: "Reset your Relay Cloud password",
+    text,
+    html: layout("Reset your password.", `<p style="margin:0 0 12px">Hi ${escapeHtml(name)},</p>
+      <p style="margin:0 0 12px">Choose a new password for your Relay Cloud account:</p>
+      <p style="margin:0 0 16px"><a href="${escapeHtml(url)}" style="display:inline-block;background:#18211c;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">Choose a new password</a></p>
+      <p style="margin:0;color:#68736c;font-size:13px">This link expires in 24 hours and can be used once. If you did not request this, ignore this email.</p>`),
+  };
+}
+
 export function customerSetupEmail(input: { name: string; setupUrl: string }): EmailMessage {
   const name = input.name.trim() || "there";
   const url = input.setupUrl;
