@@ -46,6 +46,7 @@ import {
   verifyCustomerPassword,
 } from "./customer-auth.js";
 import { readConfig } from "./config.js";
+import { buildWaitlistCreatedPayload, loadWaitlistWebhookConfig, notifyWaitlistCreated } from "./waitlist-webhook.js";
 import {
   asRecord,
   contentTypeFor,
@@ -502,16 +503,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
         volume: String(body.volume ?? ""),
         useCase: String(body.use_case ?? body.useCase ?? ""),
       });
-      const webhook = process.env.RELAY_WAITLIST_WEBHOOK_URL?.trim();
-      if (webhook && !result.duplicate) {
-        void fetch(webhook, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            text: `Relay waitlist request from ${result.entry.name} <${result.entry.email}>: ${result.entry.useCase || "no note"}`,
-          }),
-          signal: AbortSignal.timeout(5000),
-        }).catch((error: unknown) => deps.logger(`waitlist webhook failed: ${errorMessage(error)}`));
+      if (!result.duplicate) {
+        const pendingTotal = deps.cloudAdmin.store.waitlistStatusCounts().pending ?? 0;
+        notifyWaitlistCreated(
+          loadWaitlistWebhookConfig(process.env),
+          buildWaitlistCreatedPayload(result.entry, pendingTotal),
+          (message) => deps.logger(message),
+        );
       }
       const position = deps.cloudAdmin.store.waitlistPosition(result.entry.id);
       const emailResult = result.duplicate

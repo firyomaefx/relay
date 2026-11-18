@@ -113,6 +113,9 @@ Common variables:
 | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook Login for Business Page app; falls back to the Instagram app keys when empty |
 | `RELAY_ENABLE_FACEBOOK=1` | Registers Facebook Pages. Keep it off until Meta review is complete and a real Page has been tested |
 | `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` | LinkedIn app with Sign In + Share on LinkedIn |
+| `RELAY_WAITLIST_WEBHOOK_URL` | Optional HTTPS endpoint notified on each new waitlist signup (no PII in the payload) |
+| `RELAY_WAITLIST_WEBHOOK_KEY` | Shared secret sent on the header named by `RELAY_WAITLIST_WEBHOOK_KEY_HEADER` |
+| `RELAY_WAITLIST_WEBHOOK_KEY_HEADER` | Header for the key; use `Authorization` to send `Bearer <key>`, otherwise the raw key |
 
 See [.env.example](.env.example) for the full list and comments. Facebook Pages needs
 `pages_show_list`, `pages_read_engagement` and `pages_manage_posts`, and publishes as a

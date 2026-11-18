@@ -19,6 +19,7 @@ import "./unit/autoreply.test.mjs";
 import "./unit/persistence.test.mjs";
 import "./unit/threads-reply-chain.test.mjs";
 import "./unit/billing.test.mjs";
+import "./unit/waitlist-webhook.test.mjs";
 import "./unit/x-reply.test.mjs";
 import "./unit/article-delete.test.mjs";
 import "./unit/comments.test.mjs";
