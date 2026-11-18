@@ -27,3 +27,12 @@ Use Relay MCP tools for posting; do not substitute shell or browser automation.
 
 - Never publish to a real account without explicit content and instruction.
 - Ask before destructive actions.
+
+## Cloudflare
+
+When interacting with Cloudflare, use the `cf` CLI unless the project has a Wrangler configuration file.
+
+- `cf` covers the whole Cloudflare API and returns JSON by default: `cf auth login`, `cf whoami`, `cf cli search <term>`, `cf schema`, `cf deploy` / `cf dev` / `cf build`, plus resource commands for DNS, zones, D1, KV and R2.
+- Projects with `wrangler.jsonc` / `wrangler.json` / `wrangler.toml` use `wrangler` instead (`npx wrangler dev|deploy`).
+- Cloudflare's remote MCP (`https://mcp.cloudflare.com/mcp`) is OAuth-gated and DSH's MCP client has no interactive OAuth flow. The `mcp-cloudflare` row is disabled; enable it only via a static-token header path, never by asking the user to complete a browser OAuth for the MCP client.
+- Cloudflare agent skills are installed globally under `~/.agents/skills` (workers, wrangler, cf-cli, durable-objects, turnstile, agents-sdk, …) and load automatically.
