@@ -156,7 +156,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
         "relay_balance",
         {
           title: "Show balance",
-          description: "Show the authenticated Relay Cloud customer's balance, held funds and available balance.",
+          description: "Show the authenticated Relay Cloud customer's paid balance, held funds, available paid balance, and free starter/operator credit.",
           inputSchema: z.object({}),
           annotations: { readOnlyHint: true },
         },

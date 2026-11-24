@@ -78,4 +78,48 @@ test("CloudFinance quotes and settles every thread part on every platform", asyn
   }
 });
 
+test("CloudFinance gives owner accounts their full operator free credit", async () => {
+  const dir = await makeTempDir("relay-cloud-finance-owner-");
+  const dbPath = path.join(dir, "cloud.sqlite");
+  const pricePath = path.join(dir, "prices.json");
+  writeFileSync(pricePath, JSON.stringify({
+    currency: "USD",
+    unit: "milliUSD",
+    free_allowance_milli_usd: 500,
+    free_excluded_platforms: ["x"],
+    prices: { threads: { text: 20 }, linkedin: { text: 20 } },
+  }));
+  const store = CloudStore.open(dbPath);
+  const owner = store.createCustomer({ displayName: "Owner", owner: true });
+  const ledger = new CloudLedger(dbPath);
+  const finance = new CloudFinance({
+    store,
+    ledger,
+    prices: PriceTable.load(pricePath),
+    tenants: { get: async () => { throw new Error("not used"); }, recordMappings: async () => {} },
+  });
+  try {
+    // Consume more than the customer starter allowance, as the production owner has.
+    const seed = ledger.reserve({ customerId: owner.id, amount: 0, freeUnits: 600, freeLimit: 10_000, idempotencyKey: "owner-free-seed" });
+    ledger.commit(seed.id, 0, undefined, 600);
+
+    const draft = { platforms: ["threads", "linkedin"], text: "Launch post" };
+    const quote = finance.quote(owner, draft);
+    assert.equal(quote.total, 40);
+    assert.equal(quote.freeCreditApplied, 40);
+    assert.equal(quote.paidTotal, 0);
+
+    const balance = finance.balance(owner.id);
+    assert.equal(balance.available, 0);
+    assert.equal(balance.freeCredit.remaining, 9_900);
+    assert.equal(balance.totalAvailable, 9_900);
+
+    const hold = await finance.hooks(owner).beforePost(draft);
+    assert.ok(hold);
+  } finally {
+    ledger.close();
+    store.close();
+    await cleanupTempDir(dir);
+  }
+});
 

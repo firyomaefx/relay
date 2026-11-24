@@ -1,6 +1,6 @@
 import type { PostDraft, RelayService } from "@relay/core";
 import { randomUUID } from "node:crypto";
-import type { CloudLedger, PriceTable, RateLimiter, CloudRateConfig } from "@relay/cloud";
+import { effectiveFreeLimit, type CloudLedger, type PriceTable, type RateLimiter, type CloudRateConfig } from "@relay/cloud";
 import type { CloudStore, Customer } from "@relay/cloud";
 import type { ToolContext } from "./tools.js";
 
@@ -89,19 +89,32 @@ export class CloudFinance {
   }
 
   balance(customerId: string) {
-    return this.options.ledger.balanceWithHold(customerId);
+    const customer = this.options.store.getCustomer(customerId);
+    const balance = this.options.ledger.balanceWithHold(customerId);
+    if (!customer) return balance;
+    const { freeLimit, creditMode } = this.pricingConfig(customer);
+    const freeRemaining = creditMode ? this.options.ledger.freeRemaining(customerId, freeLimit) : 0;
+    return {
+      ...balance,
+      ...(creditMode
+        ? {
+            freeCredit: { limit: freeLimit, remaining: freeRemaining, currency: this.options.prices.list().currency },
+            totalAvailable: balance.available + freeRemaining,
+          }
+        : {}),
+    };
   }
 
   usage(customerId: string, limit = 20) {
     return this.options.ledger.entries(customerId, limit);
   }
 
-  private pricingConfig() {
+  private pricingConfig(customer: Customer) {
     const config = this.options.prices.list();
     const freeCredit = config.free_allowance_milli_usd;
     if (Number.isInteger(freeCredit) && freeCredit! > 0) {
       return {
-        freeLimit: freeCredit!,
+        freeLimit: effectiveFreeLimit(this.options.ledger, customer, freeCredit!),
         creditMode: true,
         excluded: new Set(config.free_excluded_platforms ?? []),
       };
@@ -116,7 +129,7 @@ export class CloudFinance {
   /** Price a draft without reserving or charging. Used by relay_validate and the cost preview. */
   quote(customer: Customer, draft: PostDraft): QuotePreview {
     const priced = this.options.prices.quote(draft, draft.platforms ?? []);
-    const { freeLimit, creditMode, excluded } = this.pricingConfig();
+    const { freeLimit, creditMode, excluded } = this.pricingConfig(customer);
     let freeRemaining = this.options.ledger.freeRemaining(customer.id, freeLimit);
     const lines: QuotePreviewLine[] = priced.quotes.map((entry) => {
       const units = creditMode
@@ -149,7 +162,7 @@ export class CloudFinance {
 
   private async reserve(customer: Customer, draft: PostDraft): Promise<Hold | null> {
     this.options.limiter?.check(customer.id, "posts", this.options.rateConfig?.postsPerHour ?? 60, 60 * 60 * 1000);
-    const { freeLimit, creditMode, excluded } = this.pricingConfig();
+    const { freeLimit, creditMode, excluded } = this.pricingConfig(customer);
     const priced = this.options.prices.quote(draft, draft.platforms ?? []);
     let freeRemaining = this.options.ledger.freeRemaining(customer.id, freeLimit);
     const quotes: QuoteHold[] = priced.quotes.map((entry) => {
