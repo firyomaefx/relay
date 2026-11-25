@@ -279,13 +279,19 @@ export interface ToolContext {
   afterCancel?: (jobId: string) => Promise<void>;
   /** Cloud-only: price a draft without reserving or publishing. */
   quotePost?: (draft: PostDraft) => unknown;
+  /** Cloud-only: check if a quote can be published with current wallet. */
+  checkEligibility?: (draft: PostDraft) => { eligible: boolean; reason?: string; paidRequired: number; available: number; freeRemaining: number } | null;
   /** Cloud-only: enforce account tier/limit before OAuth. */
   beforeConnect?: (platform: PlatformId, options: { accountId?: string; label?: string }) => Promise<{ accountId?: string } | void>;
 }
 
 function safeQuote(context: ToolContext, draft: PostDraft): unknown {
   try {
-    return context.quotePost?.(draft) ?? null;
+    const raw = context.quotePost?.(draft) ?? null;
+    if (!raw || typeof raw !== "object") return raw;
+    const eligibility = context.checkEligibility?.(draft) ?? null;
+    if (eligibility) return { ...(raw as Record<string, unknown>), eligibility };
+    return raw;
   } catch {
     // An invalid draft may have no valid price for a platform; validation reports that first.
     return null;
@@ -298,19 +304,38 @@ function formatQuote(value: unknown): string {
     total?: number;
     freeCreditApplied?: number;
     paidTotal?: number;
-    lines?: Array<{ platform?: string; amount?: number; paidAmount?: number; parts?: number }>;
+    lines?: Array<{ platform?: string; amount?: number; paidAmount?: number; freeAmount?: number; parts?: number }>;
+    eligibility?: { eligible: boolean; reason?: string; paidRequired?: number; available?: number; freeRemaining?: number };
   } | null;
   if (!quote || !Array.isArray(quote.lines) || quote.lines.length === 0) return "";
   const money = (amount: number): string =>
     quote.unit === "milliUSD" ? `$${(amount / 1000).toFixed(3)}` : `${amount} ${quote.unit ?? "units"}`;
   const lines = quote.lines.map((line) => {
     const label = line.platform ? platformLabel(line.platform as never) : "platform";
-    return `- ${label}: ${line.parts ?? 1} part(s), ${money(Number(line.amount ?? 0))} (${money(Number(line.paidAmount ?? 0))} paid)`;
+    const free = Number(line.freeAmount ?? 0);
+    const paid = Number(line.paidAmount ?? 0);
+    const freeNote = free > 0 ? `${money(free)} free` : "no free credit";
+    return `- ${label}: ${line.parts ?? 1} part(s), ${money(Number(line.amount ?? 0))} total (${freeNote}, ${money(paid)} paid)`;
   });
-  return [
+  const base = [
     `Estimated cost: ${money(Number(quote.total ?? 0))} total · ${money(Number(quote.freeCreditApplied ?? 0))} free credit · ${money(Number(quote.paidTotal ?? 0))} paid.`,
     ...lines,
   ].join("\n");
+  if (quote.eligibility) {
+    if (quote.eligibility.eligible) {
+      return `${base}\nEligibility: ✓ can publish (paid ${quote.eligibility.paidRequired} ≤ available ${quote.eligibility.available}; free remaining ${quote.eligibility.freeRemaining})`;
+    }
+    return `${base}\nEligibility: ✗ CANNOT publish live — ${quote.eligibility.reason}`;
+  }
+  return base;
+}
+
+function enrichQuoteWithEligibility(context: ToolContext, draft: PostDraft, quote: unknown): unknown {
+  if (!quote || typeof quote !== "object" || !context.quotePost) return quote;
+  // CloudFinance is the only quotePost provider; it exposes balance via closure. Re-derive eligibility
+  // by checking paidTotal against available if the quote already carries it; otherwise return as-is.
+  // The eligibility is injected by the tools.ts wrapper below using finance.canPublish when available.
+  return quote;
 }
 
 function toArticleDraft(input: z.infer<typeof articleInputSchema>): ArticleDraft {
@@ -650,9 +675,14 @@ export function registerTools(server: McpServer, context: ToolContext): void {
         const quote = safeQuote(context, draft);
         const report: ValidationReport = await relay.validate(draft);
         const targets = draft.platforms.map((platform) => platformLabel(platform)).join(", ");
-        const summary = report.ok
+        let summary = report.ok
           ? `Draft is valid for ${targets}. Dry run only — nothing was published.`
           : [`Draft is invalid for ${targets} (${report.issues.length} issue(s)). Nothing was published.`, formatIssues(report.issues)].join("\n");
+        // Billing eligibility: validator must not promise a publish that the live publisher will reject.
+        const eligibility = (quote as { eligibility?: { eligible: boolean; reason?: string } } | null)?.eligibility;
+        if (eligibility && !eligibility.eligible) {
+          summary += `\n\n⚠️ Billing check: ${eligibility.reason} — relay_post would fail with cloud_insufficient_balance. Remove paid-only platforms (e.g. X) or top up cash.`;
+        }
         const pricing = formatQuote(quote);
         return textResult(pricing ? `${summary}\n\n${pricing}` : summary, { ...report, quote });
       }, HINTS.validate),

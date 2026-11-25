@@ -630,14 +630,19 @@
       const available = Number(data.balance?.available ?? 0);
       const freeRemaining = Number(data.freeCredit?.remaining ?? 0);
       const total = available + (Number.isFinite(freeRemaining) ? freeRemaining : 0);
+      // Show cash and free separately so a $0 cash + $8.50 free is not mistaken
+      // as $8.50 spendable for X (which is excluded from free credit for non-owners).
+      // Owner free credit DOES cover X (see cloud-finance pricingConfig).
+      const isOwner = Boolean(data.customer?.owner ?? data.freeCredit?.owner ?? false);
+      const freeLabel = isOwner ? "free (covers X)" : "free (excl. X)";
       els.creditBalance.textContent = `$${(Math.max(0, total) / 1000).toFixed(2)}`;
       els.creditFree.textContent = Number.isFinite(freeRemaining)
-        ? `\u00a0·\u00a0$${(Math.max(0, freeRemaining) / 1000).toFixed(2)} free`
-        : "";
+        ? `\u00a0·\u00a0$${(Math.max(0, available) / 1000).toFixed(2)} cash + $${(Math.max(0, freeRemaining) / 1000).toFixed(2)} ${freeLabel}`
+        : `\u00a0·\u00a0$${(Math.max(0, available) / 1000).toFixed(2)} cash`;
       if (els.historyCredit) els.historyCredit.textContent = `$${(Math.max(0, total) / 1000).toFixed(2)}`;
       if (els.historyCreditFree) {
         els.historyCreditFree.textContent = Number.isFinite(freeRemaining)
-          ? `$${(Math.max(0, freeRemaining) / 1000).toFixed(2)} starter credit included`
+          ? `$${(Math.max(0, available) / 1000).toFixed(2)} cash + $${(Math.max(0, freeRemaining) / 1000).toFixed(2)} ${freeLabel} included`
           : "";
       }
       els.creditCard.hidden = false;

@@ -950,9 +950,9 @@ async function handleApi(
       : baseFreeLimit;
     const freeRemaining = freeLimit > 0 ? deps.cloudAdmin.ledger.freeRemaining(billingCustomerId, freeLimit) : 0;
     sendJson(res, 200, {
-      customer: { id: billingCustomerId },
+      customer: { id: billingCustomerId, owner: Boolean(billingCustomer?.owner) },
       balance,
-      freeCredit: freeLimit > 0 ? { limit: freeLimit, remaining: freeRemaining, currency: "USD" } : null,
+      freeCredit: freeLimit > 0 ? { limit: freeLimit, remaining: freeRemaining, currency: "USD", owner: Boolean(billingCustomer?.owner) } : null,
       totalAvailable: balance.available + freeRemaining,
     });
     return;

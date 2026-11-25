@@ -100,9 +100,38 @@ export class CloudFinance {
         ? {
             freeCredit: { limit: freeLimit, remaining: freeRemaining, currency: this.options.prices.list().currency },
             totalAvailable: balance.available + freeRemaining,
+            // totalAvailable includes free credit which is NOT usable for excluded platforms (e.g. X).
+            // Live publishing checks ONLY balance.available for the paid portion.
           }
         : {}),
     };
+  }
+
+  /** Whether a quote can actually be published with current wallet state. */
+  canPublish(customer: Customer, quote: QuotePreview): { eligible: boolean; reason?: string; paidRequired: number; available: number; freeRemaining: number } {
+    const { available } = this.options.ledger.balanceWithHold(customer.id);
+    const { freeLimit, creditMode } = this.pricingConfig(customer);
+    const freeRemaining = creditMode ? this.options.ledger.freeRemaining(customer.id, freeLimit) : 0;
+    const paidRequired = quote.paidTotal;
+    if (paidRequired > available) {
+      return {
+        eligible: false,
+        reason: `Insufficient cash balance: need ${paidRequired} milliUSD paid, available ${available} milliUSD. Free credit (${freeRemaining} milliUSD) cannot cover excluded platforms (X). Top up cash wallet.`,
+        paidRequired,
+        available,
+        freeRemaining,
+      };
+    }
+    if (creditMode && quote.freeCreditApplied > freeRemaining) {
+      return {
+        eligible: false,
+        reason: `Insufficient free credit: need ${quote.freeCreditApplied}, remaining ${freeRemaining}.`,
+        paidRequired,
+        available,
+        freeRemaining,
+      };
+    }
+    return { eligible: true, paidRequired, available, freeRemaining };
   }
 
   usage(customerId: string, limit = 20) {
@@ -112,17 +141,23 @@ export class CloudFinance {
   private pricingConfig(customer: Customer) {
     const config = this.options.prices.list();
     const freeCredit = config.free_allowance_milli_usd;
+    // X is excluded from free credit for normal customers (anti-abuse), but the
+    // operator/owner's $10 starter credit is intended to be fully spendable
+    // including X, so the visible $8.50 is genuinely usable. Product rule:
+    // owner free credit covers all platforms.
+    const baseExcluded = new Set(config.free_excluded_platforms ?? []);
+    if (customer.owner) baseExcluded.delete("x");
     if (Number.isInteger(freeCredit) && freeCredit! > 0) {
       return {
         freeLimit: effectiveFreeLimit(this.options.ledger, customer, freeCredit!),
         creditMode: true,
-        excluded: new Set(config.free_excluded_platforms ?? []),
+        excluded: baseExcluded,
       };
     }
     return {
       freeLimit: config.free_allowance_units ?? config.free_allowance_posts ?? 0,
       creditMode: false,
-      excluded: new Set(config.free_excluded_platforms ?? []),
+      excluded: baseExcluded,
     };
   }
 
@@ -190,15 +225,30 @@ export class CloudFinance {
     const paidTotal = quotes.reduce((sum, entry) => sum + entry.paidAmount, 0);
     const freeUnits = quotes.reduce((sum, entry) => sum + entry.freeAmount, 0);
     if (paidTotal === 0 && freeUnits === 0) return null;
-    const reservation = this.options.ledger.reserve({
-      customerId: customer.id,
-      amount: paidTotal,
-      freeUnits,
-      freeLimit,
-      freeJson: JSON.stringify(quotes),
-      idempotencyKey: `post:${customer.id}:${randomUUID()}`,
-      ttlMs: 24 * 60 * 60 * 1000,
-    });
+    let reservation;
+    try {
+      reservation = this.options.ledger.reserve({
+        customerId: customer.id,
+        amount: paidTotal,
+        freeUnits,
+        freeLimit,
+        freeJson: JSON.stringify(quotes),
+        idempotencyKey: `post:${customer.id}:${randomUUID()}`,
+        ttlMs: 24 * 60 * 60 * 1000,
+      });
+    } catch (error) {
+      // Enrich the generic ledger error with free-credit context so the user
+      // sees why $8.50 "total" is not spendable for X when they are not owner.
+      if (error instanceof Error && (error as { code?: string }).code === "cloud_insufficient_balance") {
+        const { available } = this.options.ledger.balanceWithHold(customer.id);
+        const freeRemaining = creditMode ? this.options.ledger.freeRemaining(customer.id, freeLimit) : 0;
+        const detail = customer.owner
+          ? ` (owner freeRemaining ${freeRemaining})`
+          : ` Free credit ${freeRemaining} cannot cover X (excluded).`;
+        (error as Error).message = `Insufficient balance: need ${paidTotal} milliUSD ($${(paidTotal/1000).toFixed(2)}) paid, available ${available} milliUSD ($${(available/1000).toFixed(2)}).${detail} Cash top-up required for X.`;
+      }
+      throw error;
+    }
     return { reservationId: reservation.id, customerId: customer.id, quotes };
   }
 

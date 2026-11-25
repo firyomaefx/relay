@@ -125,6 +125,14 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       registerTools(server, {
         relay,
         ...finance.hooks(customer),
+        checkEligibility: (draft) => {
+          try {
+            const quote = finance.quote(customer, draft);
+            return finance.canPublish(customer, quote);
+          } catch {
+            return null;
+          }
+        },
         beforeConnect: (platform, options) => prepareAccountConnect(customer, relay, ledger, platform, options),
       });
       registerCloudAutoReplyTool(server, { customer, relay, ledger });
