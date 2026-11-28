@@ -100,6 +100,10 @@ export interface PlatformOptions {
   brevoPreviewText?: string;
   /** When true and the draft is Brevo-only with a future scheduleAt, submit to Brevo's scheduler instead of Relay's queue. */
   brevoDelegateSchedule?: boolean;
+  /** Links this send to a stored email library entry. */
+  emailLibraryId?: string;
+  /** When true, pending schedules pick up html/subject from the active promo library entry. */
+  syncPromo?: boolean;
 }
 
 export interface PostDraft {
@@ -527,6 +531,85 @@ export interface ThreadsAutoReplyState extends ThreadsAutoReplyLog {
   seenPostIds: string[];
 }
 
+export type EmailLibraryKind = "promo" | "broadcast" | "transactional" | "followup";
+
+export interface EmailRecipients {
+  to?: Array<{ email: string; name?: string }>;
+  listIds?: number[];
+  segmentIds?: number[];
+  exclusionListIds?: number[];
+}
+
+export interface EmailLibraryEntry {
+  id: string;
+  kind: EmailLibraryKind;
+  subject: string;
+  htmlContent: string;
+  previewText?: string;
+  brevoMode: "transactional" | "campaign";
+  sender?: { email?: string; id?: number; name?: string };
+  recipients?: EmailRecipients;
+  scheduleAt?: string;
+  tags?: string[];
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: Record<string, string>;
+}
+
+export interface EmailProgramState {
+  automationEnabled: boolean;
+  activePromoId?: string;
+  webhookSecret?: string;
+  brevoWebhookIds?: number[];
+  inboundDomain?: string;
+  lastWebhookAt?: string;
+  inboundPollCursor?: string;
+  lastPromoSentAt?: Record<string, string>;
+}
+
+export type EmailInboundClassification = "promo_candidate" | "question" | "unsubscribe" | "complaint" | "noise";
+
+export interface EmailAutomationAction {
+  id: string;
+  kind: "inbound_classified" | "promo_sent" | "promo_synced" | "unsubscribe" | "error" | "inbound_ignored";
+  at: string;
+  fromEmail?: string;
+  subject?: string;
+  classification?: EmailInboundClassification;
+  detail?: string;
+  libraryId?: string;
+  providerRef?: BrevoProviderRef;
+}
+
+export interface EmailAutomationState {
+  inboundSeen: string[];
+  actions: EmailAutomationAction[];
+}
+
+export interface EmailOutboundIndexEntry {
+  libraryId: string;
+  recipientEmail?: string;
+  queueJobId?: string;
+  messageId?: string;
+  campaignId?: number;
+  sentAt: string;
+}
+
+export interface EmailProgramView {
+  program: EmailProgramState;
+  libraryCount: number;
+  activePromo?: EmailLibraryEntry;
+  automation: EmailAutomationState;
+  webhookUrl?: string;
+  health: {
+    automationEnabled: boolean;
+    webhookRegistered: boolean;
+    activePromo: boolean;
+    deepSeekConfigured: boolean;
+  };
+}
+
 /** One comment on one of the connected account's own posts (Threads, Instagram, YouTube). */
 export interface OwnComment {
   platform: "threads" | "instagram" | "youtube";
@@ -617,6 +700,12 @@ export interface PlatformAdapter {
   listEmailLists?(ctx: AdapterContext): Promise<Array<{ id: number; name: string }>>;
   /** Read-only: campaign status snapshot (Brevo). */
   getCampaignStatus?(ctx: AdapterContext, campaignId: number): Promise<Record<string, unknown>>;
+  /** Update draft/suspended/queued campaign content (Brevo). */
+  updateCampaign?(
+    ctx: AdapterContext,
+    campaignId: number,
+    patch: { subject?: string; htmlContent?: string; previewText?: string },
+  ): Promise<void>;
 }
 
 export interface ValidationIssue {

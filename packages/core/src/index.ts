@@ -11,5 +11,7 @@ export * from "./validation.js";
 export * from "./preview.js";
 export * from "./article.js";
 export * from "./autoreply.js";
+export * from "./email-automation.js";
+export * from "./email-library.js";
 export * from "./comments.js";
 export * from "./service.js";

@@ -357,6 +357,38 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
   }
   const requestSession = await resolveRequestSession(req, deps);
 
+  if (
+    method === "POST" &&
+    segments.length === 4 &&
+    segments[0] === "api" &&
+    segments[1] === "hooks" &&
+    segments[2] === "brevo-inbound"
+  ) {
+    const secret = decodeURIComponent(segments[3] ?? "").trim();
+    if (!secret) throw new RelayError("Webhook secret is required", "webhook_secret_missing", undefined, 400);
+    const authHeader = req.headers.authorization ?? "";
+    const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (bearer && bearer !== secret) {
+      throw new RelayError("Invalid webhook authorization", "webhook_unauthorized", undefined, 401);
+    }
+    const raw = await readJsonBody(req, 1024 * 1024);
+    const body = asRecord(raw);
+    const items = Array.isArray(raw) ? raw.map((entry) => asRecord(entry)) : Array.isArray(body.items) ? body.items.map((entry) => asRecord(entry)) : [body];
+    let relay: RelayService | null = null;
+    if (deps.tenantManager) {
+      const match = await deps.tenantManager.findByBrevoWebhookSecret(secret);
+      relay = match?.relay ?? null;
+    } else if (deps.relay().brevoInboundWebhookSecret() === secret) {
+      relay = deps.relay();
+    }
+    if (!relay) throw new RelayError("Unknown Brevo inbound webhook", "webhook_unknown", undefined, 404);
+    for (const item of items) {
+      await relay.handleBrevoInboundWebhook(item);
+    }
+    sendJson(res, 200, { received: true, count: items.length });
+    return;
+  }
+
   // The OAuth provider redirects the browser here; the signed state parameter is
   // the protection, so this route stays reachable without a console session.
   if (isGet && segments.length === 3 && segments[0] === "auth" && segments[1] === "callback") {
@@ -1302,6 +1334,7 @@ async function handleApi(
     const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret.trim() : "";
     if (platform === "brevo") {
       await relay.saveCredentials(platform, { clientId: clientId || "api-key", clientSecret });
+      void relay.ensureBrevoEmailAutomation().catch(() => undefined);
     } else {
       await relay.saveCredentials(platform, { clientId, clientSecret });
     }
@@ -1316,6 +1349,89 @@ async function handleApi(
     await relay.removeCredentials(platform);
     sendJson(res, 200, { ok: true, credentials: relay.credentialInfos() });
     return;
+  }
+
+  if (resource === "email") {
+    if (segments.length === 3 && segments[2] === "program" && method === "GET") {
+      sendJson(res, 200, await relay.getEmailProgram());
+      return;
+    }
+    if (segments.length === 3 && segments[2] === "library" && method === "GET") {
+      sendJson(res, 200, { library: await relay.listEmailLibrary() });
+      return;
+    }
+    if (segments.length === 3 && segments[2] === "library" && method === "POST") {
+      const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+      const entry = await relay.saveEmailLibraryEntry({
+        kind: typeof body.kind === "string" ? (body.kind as "promo" | "broadcast" | "transactional" | "followup") : "broadcast",
+        subject: String(body.subject ?? ""),
+        htmlContent: String(body.htmlContent ?? body.html ?? ""),
+        previewText: typeof body.previewText === "string" ? body.previewText : undefined,
+        brevoMode: body.brevoMode === "campaign" ? "campaign" : "transactional",
+        sender:
+          body.sender && typeof body.sender === "object"
+            ? (body.sender as { email?: string; id?: number; name?: string })
+            : undefined,
+        recipients: body.recipients && typeof body.recipients === "object" ? (body.recipients as never) : undefined,
+        scheduleAt: typeof body.scheduleAt === "string" ? body.scheduleAt : undefined,
+        tags: Array.isArray(body.tags) ? body.tags.filter((tag) => typeof tag === "string") : undefined,
+      });
+      sendJson(res, 200, { entry });
+      return;
+    }
+    if (segments.length === 4 && segments[2] === "library" && method === "PATCH") {
+      const id = decodeURIComponent(segments[3] ?? "");
+      const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+      const entry = await relay.saveEmailLibraryEntry(
+        {
+          kind: typeof body.kind === "string" ? (body.kind as "promo" | "broadcast" | "transactional" | "followup") : "broadcast",
+          subject: String(body.subject ?? ""),
+          htmlContent: String(body.htmlContent ?? body.html ?? ""),
+          previewText: typeof body.previewText === "string" ? body.previewText : undefined,
+          brevoMode: body.brevoMode === "campaign" ? "campaign" : "transactional",
+          sender:
+            body.sender && typeof body.sender === "object"
+              ? (body.sender as { email?: string; id?: number; name?: string })
+              : undefined,
+          recipients: body.recipients && typeof body.recipients === "object" ? (body.recipients as never) : undefined,
+          scheduleAt: typeof body.scheduleAt === "string" ? body.scheduleAt : undefined,
+          tags: Array.isArray(body.tags) ? body.tags.filter((tag) => typeof tag === "string") : undefined,
+        },
+        id,
+      );
+      sendJson(res, 200, { entry });
+      return;
+    }
+    if (segments.length === 4 && segments[2] === "library" && method === "DELETE") {
+      const id = decodeURIComponent(segments[3] ?? "");
+      const removed = await relay.removeEmailLibraryEntry(id);
+      sendJson(res, 200, { ok: removed });
+      return;
+    }
+    if (segments.length === 5 && segments[2] === "library" && segments[4] === "schedule" && method === "POST") {
+      const id = decodeURIComponent(segments[3] ?? "");
+      const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+      const scheduleAt = typeof body.scheduleAt === "string" ? body.scheduleAt : undefined;
+      const result = await relay.scheduleEmailFromLibrary(id, scheduleAt);
+      if (session.kind === "customer" && deps.cloudAdmin) {
+        settleConsoleBilling(await relay.history(5), deps.cloudAdmin, deps.pricing, session.customer.id);
+      }
+      sendJson(res, result.scheduled ? 202 : 200, result);
+      return;
+    }
+    if (segments.length === 3 && segments[2] === "scheduled" && method === "GET") {
+      sendJson(res, 200, { queue: await relay.listEmailScheduledJobs() });
+      return;
+    }
+    if (segments.length === 4 && segments[2] === "automation" && segments[3] === "log" && method === "GET") {
+      const limit = Number(url.searchParams.get("limit") ?? "100");
+      sendJson(res, 200, await relay.emailAutomationLog(Number.isFinite(limit) ? limit : 100));
+      return;
+    }
+    if (segments.length === 4 && segments[2] === "brevo" && segments[3] === "lists" && method === "GET") {
+      sendJson(res, 200, { lists: await relay.listBrevoEmailLists() });
+      return;
+    }
   }
 
   throw new RelayError("Not found", "not_found", undefined, 404);

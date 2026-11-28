@@ -143,6 +143,21 @@ export class TenantManager {
     for (const record of history) this.options.store.recordPostOwner(customer.id, record.id, customer.owner ? "owner" : "cloud");
   }
 
+  async findByBrevoWebhookSecret(secret: string): Promise<{ customer: Customer; relay: RelayService } | null> {
+    const trimmed = secret.trim();
+    if (!trimmed) return null;
+    for (const customer of this.options.store.listCustomers()) {
+      if (customer.status !== "active") continue;
+      try {
+        const relay = await this.get(customer);
+        if (relay.brevoInboundWebhookSecret() === trimmed) return { customer, relay };
+      } catch {
+        // Skip broken tenants.
+      }
+    }
+    return null;
+  }
+
   async close(): Promise<void> {
     const services = [...this.services.values()];
     this.services.clear();

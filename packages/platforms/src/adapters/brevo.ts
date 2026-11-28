@@ -275,4 +275,27 @@ export class BrevoAdapter implements PlatformAdapter {
     if (!object) throw new RelayError(`Brevo campaign ${campaignId} not found`, "brevo_campaign_not_found");
     return object;
   }
+
+  async updateCampaign(
+    ctx: AdapterContext,
+    campaignId: number,
+    patch: { subject?: string; htmlContent?: string; previewText?: string },
+  ): Promise<void> {
+    if (!this.isLive(ctx)) return;
+    const status = await this.getCampaignStatus(ctx, campaignId);
+    const rawStatus = getString(status, "status")?.toLowerCase() ?? "";
+    if (!["draft", "suspended", "queued"].includes(rawStatus)) {
+      throw new RelayError(`Brevo campaign ${campaignId} is ${rawStatus}; cannot update content`, "brevo_campaign_not_editable", undefined, 400);
+    }
+    const body: Record<string, unknown> = {};
+    if (patch.subject?.trim()) body.subject = patch.subject.trim();
+    if (patch.htmlContent?.trim()) body.htmlContent = patch.htmlContent.trim();
+    if (patch.previewText?.trim()) body.previewText = patch.previewText.trim();
+    if (Object.keys(body).length === 0) return;
+    await providerFetch(ctx, "Brevo campaign update", `${API_BASE}/emailCampaigns/${campaignId}`, {
+      method: "PUT",
+      headers: headers(apiKey(ctx)),
+      body: JSON.stringify(body),
+    });
+  }
 }

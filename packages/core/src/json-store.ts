@@ -5,7 +5,17 @@ import path from "node:path";
 import { RelayError } from "./errors.js";
 import { emptyCommentsState, type CommentsState } from "./comments.js";
 import type { EncryptedBlob } from "./secret-box.js";
-import type { Account, PlatformId, PostRecord, QueueJob, ThreadsAutoReplyState } from "./types.js";
+import type {
+  Account,
+  EmailAutomationState,
+  EmailLibraryEntry,
+  EmailOutboundIndexEntry,
+  EmailProgramState,
+  PlatformId,
+  PostRecord,
+  QueueJob,
+  ThreadsAutoReplyState,
+} from "./types.js";
 
 export interface StoredAccount {
   account: Account;
@@ -35,6 +45,10 @@ export interface DbData {
   comments: CommentsState;
   /** Encrypted DeepSeek API key saved from the console. */
   deepseekSecret?: EncryptedBlob | null;
+  emailLibrary: EmailLibraryEntry[];
+  emailProgram: EmailProgramState;
+  emailAutomation: EmailAutomationState;
+  emailOutboundIndex: EmailOutboundIndexEntry[];
 }
 
 export function emptyThreadsAutoReplyState(): ThreadsAutoReplyState {
@@ -47,8 +61,30 @@ export function emptyThreadsAutoReplyState(): ThreadsAutoReplyState {
   };
 }
 
+export function emptyEmailProgramState(): EmailProgramState {
+  return { automationEnabled: true, lastPromoSentAt: {} };
+}
+
+export function emptyEmailAutomationState(): EmailAutomationState {
+  return { inboundSeen: [], actions: [] };
+}
+
 function emptyDb(): DbData {
-  return { version: 3, accounts: {}, extraAccounts: {}, posts: [], queue: [], oauth: {}, threadsAutoReply: emptyThreadsAutoReplyState(), comments: emptyCommentsState(), deepseekSecret: null };
+  return {
+    version: 4,
+    accounts: {},
+    extraAccounts: {},
+    posts: [],
+    queue: [],
+    oauth: {},
+    threadsAutoReply: emptyThreadsAutoReplyState(),
+    comments: emptyCommentsState(),
+    deepseekSecret: null,
+    emailLibrary: [],
+    emailProgram: emptyEmailProgramState(),
+    emailAutomation: emptyEmailAutomationState(),
+    emailOutboundIndex: [],
+  };
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -164,7 +200,7 @@ function normalize(raw: string): DbData {
   const storedAutoReply = parsed.threadsAutoReply;
   const storedComments = parsed.comments;
   return {
-    version: typeof parsed.version === "number" ? parsed.version : 3,
+    version: typeof parsed.version === "number" ? parsed.version : 4,
     accounts: parsed.accounts ?? {},
     extraAccounts: parsed.extraAccounts ?? {},
     posts: Array.isArray(parsed.posts) ? parsed.posts : [],
@@ -184,6 +220,39 @@ function normalize(raw: string): DbData {
       templateCursor: typeof storedComments?.templateCursor === "number" ? storedComments.templateCursor : 0,
     },
     deepseekSecret: parsed.deepseekSecret && typeof parsed.deepseekSecret === "object" ? parsed.deepseekSecret : null,
+    emailLibrary: Array.isArray(parsed.emailLibrary) ? (parsed.emailLibrary as EmailLibraryEntry[]) : [],
+    emailProgram: normalizeEmailProgram(parsed.emailProgram),
+    emailAutomation: normalizeEmailAutomation(parsed.emailAutomation),
+    emailOutboundIndex: Array.isArray(parsed.emailOutboundIndex) ? (parsed.emailOutboundIndex as EmailOutboundIndexEntry[]) : [],
+  };
+}
+
+function normalizeEmailProgram(value: unknown): EmailProgramState {
+  const base = emptyEmailProgramState();
+  if (!value || typeof value !== "object") return base;
+  const raw = value as Partial<EmailProgramState>;
+  return {
+    automationEnabled: raw.automationEnabled !== false,
+    ...(typeof raw.activePromoId === "string" ? { activePromoId: raw.activePromoId } : {}),
+    ...(typeof raw.webhookSecret === "string" ? { webhookSecret: raw.webhookSecret } : {}),
+    ...(Array.isArray(raw.brevoWebhookIds) ? { brevoWebhookIds: raw.brevoWebhookIds.filter((id) => typeof id === "number") } : {}),
+    ...(typeof raw.inboundDomain === "string" ? { inboundDomain: raw.inboundDomain } : {}),
+    ...(typeof raw.lastWebhookAt === "string" ? { lastWebhookAt: raw.lastWebhookAt } : {}),
+    ...(typeof raw.inboundPollCursor === "string" ? { inboundPollCursor: raw.inboundPollCursor } : {}),
+    lastPromoSentAt:
+      raw.lastPromoSentAt && typeof raw.lastPromoSentAt === "object"
+        ? (raw.lastPromoSentAt as Record<string, string>)
+        : {},
+  };
+}
+
+function normalizeEmailAutomation(value: unknown): EmailAutomationState {
+  const base = emptyEmailAutomationState();
+  if (!value || typeof value !== "object") return base;
+  const raw = value as Partial<EmailAutomationState>;
+  return {
+    inboundSeen: Array.isArray(raw.inboundSeen) ? raw.inboundSeen.filter((entry) => typeof entry === "string") : [],
+    actions: Array.isArray(raw.actions) ? raw.actions : [],
   };
 }
 

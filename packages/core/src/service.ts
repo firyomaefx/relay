@@ -9,6 +9,14 @@ import {
   type ReplyGenerator,
   type ThreadsAutoReplyTickResult,
 } from "./autoreply.js";
+import { EmailAutomationEngine } from "./email-automation.js";
+import {
+  deleteEmailLibraryEntry,
+  findEmailLibraryEntry,
+  libraryEntryToDraft,
+  upsertEmailLibraryEntry,
+  type EmailLibraryInput,
+} from "./email-library.js";
 import { CredentialStore, credentialsFilePath } from "./credentials.js";
 import { AuthError, RelayError, errorMessage } from "./errors.js";
 import { JsonStore, type DbData, type StoredAccount } from "./json-store.js";
@@ -73,6 +81,10 @@ import type {
   ThreadsCommentsResult,
   ThreadsOwnPost,
   ThreadsReplyResult,
+  EmailLibraryEntry,
+  EmailProgramView,
+  EmailAutomationState,
+  BrevoProviderRef,
 } from "./types.js";
 import { CORE_PLATFORM_IDS, PLATFORM_IDS } from "./types.js";
 
@@ -158,6 +170,7 @@ export class RelayService {
   private readonly now: () => Date;
   private readonly logger: (message: string) => void;
   private readonly autoReply: ThreadsAutoReplyEngine;
+  private readonly emailAutomation: EmailAutomationEngine;
 
   private timer: NodeJS.Timeout | null = null;
   private schedulerIntervalMs = 15000;
@@ -216,6 +229,144 @@ export class RelayService {
         : {}),
       ...(options.autoReplyWindowMs !== undefined ? { windowMs: options.autoReplyWindowMs } : {}),
     });
+    this.emailAutomation = new EmailAutomationEngine({
+      store: this.store,
+      now: this.now,
+      logger: this.logger,
+      env: this.env,
+      fetchImpl: this.fetchImpl,
+      deepSeekApiKey: () => this.getDeepSeekApiKey(),
+      brevoApiKey: () => this.getBrevoApiKey(),
+      publicBaseUrl: () => this.emailPublicBaseUrl(),
+      sendPost: async (draft) => {
+        const result = await this.createPost(draft, { force: true });
+        const brevo = result.results.find((entry) => entry.platform === "brevo");
+        const providerRef = brevo?.details?.providerRef as BrevoProviderRef | undefined;
+        return { ok: Boolean(brevo?.ok), error: brevo?.error, providerRef };
+      },
+      updateCampaign: (campaignId, patch) => this.updateBrevoCampaign(campaignId, patch),
+    });
+  }
+
+  private emailPublicBaseUrl(): string | undefined {
+    return (
+      this.env.RELAY_PUBLIC_BASE_URL?.trim() ||
+      this.env.RELAY_PUBLIC_URL?.trim() ||
+      (this.consoleUrl.startsWith("http") ? this.consoleUrl : undefined)
+    );
+  }
+
+  private getBrevoApiKey(): string | undefined {
+    const creds = this.credentials.get("brevo");
+    return creds.clientSecret?.trim() || creds.extra?.apiKey?.trim() || undefined;
+  }
+
+  async updateBrevoCampaign(
+    campaignId: number,
+    patch: { subject?: string; htmlContent?: string; previewText?: string },
+  ): Promise<void> {
+    const adapter = this.getAdapter("brevo");
+    if (!adapter.updateCampaign) {
+      throw new RelayError("Brevo campaign update is not available", "brevo_campaign_update_unavailable");
+    }
+    await adapter.updateCampaign(this.adapterContext(), campaignId, patch);
+  }
+
+  async getEmailProgram(): Promise<EmailProgramView> {
+    await this.store.refresh();
+    return this.store.read((db) => {
+      const active =
+        db.emailProgram.activePromoId && findEmailLibraryEntry(db, db.emailProgram.activePromoId)
+          ? findEmailLibraryEntry(db, db.emailProgram.activePromoId)
+          : undefined;
+      const secret = db.emailProgram.webhookSecret;
+      return {
+        program: db.emailProgram,
+        libraryCount: db.emailLibrary.length,
+        activePromo: active,
+        automation: db.emailAutomation,
+        webhookUrl: secret ? this.emailAutomation.webhookUrl(secret) : undefined,
+        health: {
+          automationEnabled: this.emailAutomation.isEnabled(),
+          webhookRegistered: Boolean(db.emailProgram.brevoWebhookIds?.length),
+          activePromo: Boolean(active),
+          deepSeekConfigured: Boolean(this.getDeepSeekApiKey()),
+        },
+      };
+    });
+  }
+
+  async listEmailLibrary(): Promise<EmailLibraryEntry[]> {
+    await this.store.refresh();
+    return this.store.read((db) => [...db.emailLibrary].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)));
+  }
+
+  async saveEmailLibraryEntry(input: EmailLibraryInput, id?: string): Promise<EmailLibraryEntry> {
+    const entry = await upsertEmailLibraryEntry(this.store, id, input, this.now().toISOString());
+    if (entry.kind === "promo") {
+      await this.emailAutomation.onPromoSaved((campaignId, patch) => this.updateBrevoCampaign(campaignId, patch));
+    }
+    return entry;
+  }
+
+  async removeEmailLibraryEntry(id: string): Promise<boolean> {
+    return deleteEmailLibraryEntry(this.store, id);
+  }
+
+  async scheduleEmailFromLibrary(libraryId: string, scheduleAt?: string): Promise<CreatePostResult> {
+    await this.store.refresh();
+    const entry = this.store.read((db) => findEmailLibraryEntry(db, libraryId));
+    if (!entry) throw new RelayError("Email library entry not found", "email_library_not_found", undefined, 404);
+    const at = scheduleAt ?? entry.scheduleAt;
+    if (!at) throw new RelayError("scheduleAt is required", "email_schedule_required", undefined, 400);
+    const draft = libraryEntryToDraft(entry, at);
+    const result = await this.createPost(draft, { force: true });
+    if (result.jobId) {
+      await this.store.mutate((db) => {
+        db.emailOutboundIndex.push({
+          libraryId: entry.id,
+          queueJobId: result.jobId,
+          sentAt: this.now().toISOString(),
+        });
+      });
+    }
+    return result;
+  }
+
+  listEmailScheduledJobs(): Promise<QueueJob[]> {
+    return this.listQueue().then((jobs) =>
+      jobs.filter((job) => job.draft.platforms?.includes("brevo") || job.draft.options?.brevo),
+    );
+  }
+
+  async emailAutomationLog(limit = 100): Promise<EmailAutomationState> {
+    await this.store.refresh();
+    return this.store.read((db) => ({
+      inboundSeen: db.emailAutomation.inboundSeen,
+      actions: db.emailAutomation.actions.slice(-Math.min(Math.max(limit, 1), 500)),
+    }));
+  }
+
+  async handleBrevoInboundWebhook(payload: Record<string, unknown>): Promise<void> {
+    await this.emailAutomation.handleInboundPayload(payload);
+  }
+
+  brevoInboundWebhookSecret(): string | undefined {
+    return this.store.read((db) => db.emailProgram.webhookSecret);
+  }
+
+  async ensureBrevoEmailAutomation(): Promise<{ ok: boolean; detail: string }> {
+    const adapter = this.getAdapter("brevo");
+    if (!this.adapterIsLive(adapter)) {
+      await this.ensureWebhookSecret();
+      return { ok: false, detail: "Brevo is in simulated mode" };
+    }
+    await this.ensureWebhookSecret();
+    return this.emailAutomation.registerBrevoInboundWebhook();
+  }
+
+  private async ensureWebhookSecret(): Promise<string> {
+    return this.emailAutomation.ensureWebhookSecret();
   }
 
   static async open(options: RelayServiceOptions): Promise<RelayService> {
@@ -506,7 +657,15 @@ export class RelayService {
     if (result.kind !== "mock") {
       throw new RelayError("Brevo connect did not return account details", "adapter_state");
     }
-    return this.saveAccount(platform, result.profile, null, this.adapterIsLive(adapter) ? "live" : "mock", result.scopes, options);
+    const account = await this.saveAccount(platform, result.profile, null, this.adapterIsLive(adapter) ? "live" : "mock", result.scopes, options);
+    if (!this.forceMock && this.adapterIsLive(adapter)) {
+      void this.ensureBrevoEmailAutomation()
+        .then((reg) => {
+          if (!reg.ok) this.logger(`brevo email automation: ${reg.detail}`);
+        })
+        .catch((error) => this.logger(`brevo email automation: ${errorMessage(error)}`));
+    }
+    return account;
   }
 
   async beginConnect(platform: PlatformId, options: { redirectBase?: string; accountId?: string; label?: string } = {}): Promise<BeginConnectResult> {
@@ -2179,6 +2338,9 @@ export class RelayService {
       void this.runDueJobs().catch((error) => this.logger(`scheduler error: ${errorMessage(error)}`));
       void this.runThreadsAutoReplyTick().catch((error) =>
         this.logger(`threads auto-reply error: ${errorMessage(error)}`),
+      );
+      void this.emailAutomation.pollInboundIfStale().catch((error) =>
+        this.logger(`email automation poll error: ${errorMessage(error)}`),
       );
     };
     this.timer = setInterval(tick, this.schedulerIntervalMs);

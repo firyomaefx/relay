@@ -6,7 +6,7 @@
    * Constants
    * ------------------------------------------------------------------ */
   const PLATFORMS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin", "facebook"];
-  const SCREENS = ["home", "compose", "queue", "history", "accounts", "billing", "settings"];
+  const SCREENS = ["home", "compose", "email", "queue", "history", "accounts", "billing", "settings"];
   const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
   const MAX_MEDIA_PER_PART = 35;
 
@@ -114,6 +114,7 @@
   const NAV_META = {
     home: { eyebrow: "Workspace", title: "Home" },
     compose: { eyebrow: "Studio", title: "Compose" },
+    email: { eyebrow: "Email program", title: "Email" },
     queue: { eyebrow: "Posts", title: "Posts" },
     history: { eyebrow: "Published", title: "Published" },
     accounts: { eyebrow: "Accounts", title: "Accounts" },
@@ -194,6 +195,11 @@
     calendarMode: "month",
     calendarCursor: new Date(),
     retrying: new Set(),
+    emailTab: "library",
+    emailProgram: null,
+    emailLibrary: [],
+    emailQueue: [],
+    emailAutomation: null,
   };
 
   const els = {};
@@ -2967,9 +2973,119 @@
     updatePublishAvailability();
   }
 
+  function setEmailTab(tab) {
+    state.emailTab = tab;
+    const tabs = ["library", "scheduled", "automation"];
+    for (const name of tabs) {
+      const btn = document.getElementById(`emailTab${name[0].toUpperCase()}${name.slice(1)}`);
+      if (btn) {
+        const active = name === tab;
+        btn.classList.toggle("is-active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      }
+    }
+    if (els.emailLibraryPanel) els.emailLibraryPanel.hidden = tab !== "library";
+    if (els.emailScheduledPanel) els.emailScheduledPanel.hidden = tab !== "scheduled";
+    if (els.emailAutomationPanel) els.emailAutomationPanel.hidden = tab !== "automation";
+    renderEmail();
+  }
+
+  async function loadEmailState() {
+    const [program, library, scheduled, automation] = await Promise.all([
+      api("/api/email/program"),
+      api("/api/email/library"),
+      api("/api/email/scheduled"),
+      api("/api/email/automation/log?limit=80"),
+    ]);
+    state.emailProgram = program;
+    state.emailLibrary = library.library ?? [];
+    state.emailQueue = scheduled.queue ?? [];
+    state.emailAutomation = automation;
+    if (els.navEmailBadge) {
+      const errors = (automation.actions ?? []).filter((row) => row.kind === "error").length;
+      els.navEmailBadge.hidden = errors === 0;
+      if (!els.navEmailBadge.hidden) els.navEmailBadge.textContent = String(errors);
+    }
+  }
+
+  function renderEmail() {
+    if (state.screen !== "email") return;
+    const health = state.emailProgram?.health ?? {};
+    if (els.emailProgramSummary) {
+      const parts = [
+        health.automationEnabled ? "Automation on" : "Automation off",
+        health.webhookRegistered ? "Inbound webhook registered" : "Webhook pending",
+        health.activePromo ? "Active promo set" : "No active promo",
+        health.deepSeekConfigured ? "DeepSeek ready" : "Rule-based replies only",
+      ];
+      els.emailProgramSummary.textContent = parts.join(" · ");
+    }
+    if (state.emailTab === "library" && els.emailLibraryList) {
+      const activeId = state.emailProgram?.program?.activePromoId;
+      if (!state.emailLibrary.length) {
+        els.emailLibraryList.innerHTML = `<p class="empty-note">Save a promo email to power automatic reply follow-ups.</p>`;
+      } else {
+        els.emailLibraryList.innerHTML = state.emailLibrary
+          .map(
+            (entry) => `<article class="list-card">
+              <header><strong>${escapeHtml(entry.subject)}</strong>
+              <span class="pill">${escapeHtml(entry.kind)}${entry.id === activeId ? " · active" : ""}</span></header>
+              <p class="meta">${escapeHtml(entry.brevoMode)} · v${entry.version}</p>
+              <div class="card-actions">
+                <button type="button" class="ghost-btn" data-email-schedule="${escapeAttr(entry.id)}">Schedule</button>
+              </div>
+            </article>`,
+          )
+          .join("");
+      }
+    }
+    if (state.emailTab === "scheduled" && els.emailScheduledList) {
+      const jobs = state.emailQueue.filter((job) => job.status === "pending" || job.status === "delegated");
+      els.emailScheduledList.innerHTML = jobs.length
+        ? jobs
+            .map(
+              (job) => `<article class="list-card">
+                <header><strong>${escapeHtml(job.draft?.options?.brevo?.brevoSubject ?? "Email")}</strong>
+                <span class="pill">${escapeHtml(job.status)}</span></header>
+                <p class="meta">${escapeHtml(job.scheduleAt)}</p>
+                <button type="button" class="ghost-btn" data-cancel-job="${escapeAttr(job.id)}">Cancel</button>
+              </article>`,
+            )
+            .join("")
+        : `<p class="empty-note">No Brevo email scheduled.</p>`;
+    }
+    if (state.emailTab === "automation" && els.emailAutomationList) {
+      const rows = state.emailAutomation?.actions ?? [];
+      els.emailAutomationList.innerHTML = rows.length
+        ? rows
+            .slice()
+            .reverse()
+            .map(
+              (row) => `<article class="list-card">
+                <header><strong>${escapeHtml(row.kind)}</strong><span class="pill">${escapeHtml(row.classification ?? "")}</span></header>
+                <p class="meta">${escapeHtml(row.at)}${row.fromEmail ? ` · ${escapeHtml(row.fromEmail)}` : ""}</p>
+                ${row.detail ? `<p class="hint">${escapeHtml(row.detail)}</p>` : ""}
+              </article>`,
+            )
+            .join("")
+        : `<p class="empty-note">Inbound replies will appear here automatically.</p>`;
+    }
+  }
+
+  async function renderEmailScreen() {
+    try {
+      await loadEmailState();
+    } catch (error) {
+      toast({ tone: "error", title: "Email program unavailable", text: error.message });
+    }
+    setEmailTab(state.emailTab);
+  }
+
   function renderActiveScreen() {
     if (state.screen === "home") {
       renderHome();
+    } else if (state.screen === "email") {
+      void renderEmailScreen();
     } else if (state.screen === "compose") {
       renderFirstRun();
       renderTargets();
@@ -3014,6 +3130,7 @@
     document.title = `Relay · ${NAV_META[name].title}`;
     if (name === "home") renderHome();
     else if (name === "compose") renderCompose();
+    else if (name === "email") void renderEmailScreen();
     else if (name === "queue") renderQueue();
     else if (name === "history") {
       renderHistory();
@@ -3327,6 +3444,15 @@
       modalConfirm: $("#modalConfirm"),
       screens: $$(".screen"),
       navItems: $$(".nav-item"),
+      navEmailBadge: $("#navEmailBadge"),
+      emailProgramSummary: $("#emailProgramSummary"),
+      emailLibraryPanel: $("#emailLibraryPanel"),
+      emailScheduledPanel: $("#emailScheduledPanel"),
+      emailAutomationPanel: $("#emailAutomationPanel"),
+      emailLibraryList: $("#emailLibraryList"),
+      emailScheduledList: $("#emailScheduledList"),
+      emailAutomationList: $("#emailAutomationList"),
+      emailLibraryForm: $("#emailLibraryForm"),
     });
   }
 
@@ -3364,6 +3490,67 @@
 
     els.refreshBtn.addEventListener("click", () => {
       void refreshAll();
+    });
+
+    for (const button of $$("[data-email-tab]")) {
+      button.addEventListener("click", () => setEmailTab(button.dataset.emailTab));
+    }
+    els.emailLibraryForm?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const kind = $("#emailKind")?.value ?? "broadcast";
+      const brevoMode = $("#emailBrevoMode")?.value === "campaign" ? "campaign" : "transactional";
+      const subject = $("#emailSubject")?.value?.trim() ?? "";
+      const htmlContent = $("#emailHtml")?.value ?? "";
+      const scheduleAtRaw = $("#emailScheduleAt")?.value?.trim() ?? "";
+      const scheduleAt = scheduleAtRaw ? new Date(scheduleAtRaw).toISOString() : undefined;
+      const listRaw = $("#emailListIds")?.value?.trim() ?? "";
+      const listIds = listRaw
+        ? listRaw.split(",").map((part) => Number(part.trim())).filter((id) => Number.isFinite(id) && id > 0)
+        : [];
+      void api("/api/email/library", {
+        method: "POST",
+        body: {
+          kind,
+          brevoMode,
+          subject,
+          htmlContent,
+          scheduleAt,
+          recipients: listIds.length ? { listIds } : undefined,
+        },
+      })
+        .then(async (result) => {
+          toast({ tone: "success", title: "Saved to library", text: result.entry?.subject ?? subject });
+          if (scheduleAt && result.entry?.id) {
+            await api(`/api/email/library/${encodeURIComponent(result.entry.id)}/schedule`, {
+              method: "POST",
+              body: { scheduleAt },
+            });
+          }
+          await renderEmailScreen();
+        })
+        .catch((error) => toast({ tone: "error", title: "Could not save email", text: error.message }));
+    });
+    document.addEventListener("click", (event) => {
+      const scheduleBtn = event.target.closest("[data-email-schedule]");
+      if (scheduleBtn) {
+        const id = scheduleBtn.getAttribute("data-email-schedule");
+        const when = window.prompt("Schedule at (local datetime)", "");
+        if (!when) return;
+        const scheduleAt = new Date(when).toISOString();
+        void api(`/api/email/library/${encodeURIComponent(id)}/schedule`, { method: "POST", body: { scheduleAt } })
+          .then(() => {
+            toast({ tone: "success", title: "Scheduled", text: "Brevo job queued." });
+            void renderEmailScreen();
+          })
+          .catch((err) => toast({ tone: "error", title: "Schedule failed", text: err.message }));
+      }
+      const cancelBtn = event.target.closest("[data-cancel-job]");
+      if (cancelBtn && state.screen === "email") {
+        const id = cancelBtn.getAttribute("data-cancel-job");
+        void api(`/api/queue/${encodeURIComponent(id)}/cancel`, { method: "POST", body: {} })
+          .then(() => renderEmailScreen())
+          .catch((err) => toast({ tone: "error", title: "Cancel failed", text: err.message }));
+      }
     });
     els.newPostBtn?.addEventListener("click", () => setScreen("compose"));
     for (const button of els.composeModeButtons ?? []) {
