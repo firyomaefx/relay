@@ -14,8 +14,10 @@ Every task in this workspace starts and ends with TypeSafe AI Jev.
    - `jev_gate` — patch + completion claims
    - `jev_review` — patch only
 3. If Jev is down or unavailable, say so plainly and continue; never pretend it ran.
-4. MCP tools are exposed as `mcp__jev__jev_*`. Shell fallback:
-   `C:\Users\User\bin\jev.cmd` (`jev.cmd list`, then `jev.cmd jev_verify @args.json`).
+4. **How to call Jev (pick what this session has):**
+   - **Jev MCP:** tools `mcp__jev__jev_*` from `https://jev.viorant.io/mcp` (Viorant OAuth) or local [jev-mcp](https://github.com/burnigtm/jev-mcp) with `TYPESAFE_API_KEY` in Cursor MCP config. **Cloud Agents** only see Jev after you add that server under **Cursor → Integrations/MCP** for cloud runs (desktop `mcp.json` alone does not inject keys into the VM).
+   - **Composio (TypeSafe toolkit):** when the `jev` MCP namespace is missing but Composio is connected, use `JEV_EVALUATE_STATE` (and `JEV_LIST_MODELS`) — same System One model; map `jev_verify` to Choice questions over `verified` / `contradicted` / `unsupported` with evidence as `state`.
+   - **Shell (Windows operator PC):** `C:\Users\User\bin\jev.cmd` (`jev.cmd list`, then `jev.cmd jev_verify @args.json`).
 5. This rule applies to small tasks too.
 
 ## Relay

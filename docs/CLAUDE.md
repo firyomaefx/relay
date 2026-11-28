@@ -7,7 +7,7 @@ Every task in this workspace starts and ends with TypeSafe AI Jev:
 1. **Start:** call one Jev tool to frame the task — `jev_decide`, `jev_find`, `jev_classify`, `jev_screen`, or `jev_noul`.
 2. **End:** check the result before reporting — `jev_verify` (claims vs evidence), `jev_gate` (patch + completion claims), or `jev_review` (patch only).
 3. If Jev is unavailable, say so plainly and continue; do not silently skip it.
-4. MCP tools appear as `mcp__jev__jev_*`; the shell fallback is `C:\Users\User\bin\jev.cmd`.
+4. Jev via `mcp__jev__jev_*`, Composio `JEV_EVALUATE_STATE` when MCP is absent (see `AGENTS.md`), or Windows `jev.cmd`.
 
 This applies to small tasks too. Do not report a task complete without the Jev check.
 
