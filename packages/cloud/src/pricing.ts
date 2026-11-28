@@ -127,11 +127,24 @@ export class PriceTable {
 
   quote(draft: PostDraft, platforms: PlatformId[]): { quotes: PriceQuote[]; total: number; currency: string; unit: string } {
     const quotes = platforms.map((platform) => {
-      const parts = partsFor(draft, platform);
       const platformPrices = this.config.prices[platform];
       if (!platformPrices) {
         throw new RelayError(`No price configuration for ${platform}.`, "cloud_price_missing", undefined, 500);
       }
+      if (platform === "brevo") {
+        const kind = draft.options?.brevo?.brevoMode === "campaign" ? "campaign" : "transactional";
+        const recipients = draft.options?.brevo?.brevoTo?.length ?? 1;
+        const unitAmount = platformPrices[kind] ?? platformPrices.transactional ?? 15;
+        const amount = kind === "transactional" ? unitAmount * Math.max(1, recipients) : unitAmount;
+        return {
+          platform,
+          kind,
+          amount,
+          parts: kind === "transactional" ? recipients : 1,
+          breakdown: [{ kind, amount: unitAmount }],
+        };
+      }
+      const parts = partsFor(draft, platform);
       const breakdown = parts.map((part) => {
         const kind = kindForPart(part);
         const amount = platformPrices[kind] ?? platformPrices.text;

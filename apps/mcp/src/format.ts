@@ -25,6 +25,7 @@ export const PLATFORM_LABELS: Record<PlatformId, string> = {
   instagram: "Instagram",
   linkedin: "LinkedIn",
   facebook: "Facebook Page",
+  brevo: "Brevo Email",
 };
 
 export function platformLabel(platform: PlatformId): string {
@@ -40,6 +41,7 @@ export const CREDENTIAL_ENV_HINTS: Record<PlatformId, string> = {
   instagram: "INSTAGRAM_CLIENT_ID and INSTAGRAM_CLIENT_SECRET",
   linkedin: "LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET",
   facebook: "FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET (or the Instagram app credentials), plus RELAY_ENABLE_FACEBOOK=1",
+  brevo: "BREVO_API_KEY or RELAY_BREVO_API_KEY (connect with relay_connect api_key)",
 };
 
 export function truncate(value: string, max = 90): string {

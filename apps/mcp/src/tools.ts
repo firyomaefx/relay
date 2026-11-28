@@ -36,7 +36,7 @@ import { openInBrowser } from "./open.js";
 
 const DEFAULT_HISTORY_LIMIT = 50;
 
-const platformEnum = z.enum(["x", "threads", "tiktok", "youtube", "instagram", "linkedin", "facebook"]);
+const platformEnum = z.enum(["x", "threads", "tiktok", "youtube", "instagram", "linkedin", "facebook", "brevo"]);
 
 const mediaSchema = z.object({
   path: z
@@ -96,6 +96,35 @@ const platformOptionsSchema = z.object({
     .optional()
     .describe("Instagram Reels: also share to the main feed (default true). Images are always feed posts."),
   instagramAltText: z.string().optional().describe("Instagram image posts: alt text (max 1000 chars)."),
+  brevoMode: z.enum(["transactional", "campaign"]).optional().describe('Brevo: "transactional" (default) or "campaign".'),
+  brevoSubject: z.string().optional().describe("Brevo: email subject line."),
+  brevoHtml: z.string().optional().describe("Brevo: HTML body (transactional or campaign)."),
+  brevoHtmlUrl: z.string().optional().describe("Brevo campaigns: remote HTML URL."),
+  brevoTemplateId: z.number().int().optional().describe("Brevo: transactional template id."),
+  brevoTo: z
+    .array(z.object({ email: z.string(), name: z.string().optional() }))
+    .optional()
+    .describe("Brevo transactional: recipients."),
+  brevoSender: z
+    .object({ email: z.string().optional(), id: z.number().int().optional(), name: z.string().optional() })
+    .optional()
+    .describe("Brevo: sender (required for campaigns)."),
+  brevoTags: z.array(z.string()).optional().describe("Brevo transactional: tags."),
+  brevoParams: z.record(z.string()).optional().describe("Brevo: template params."),
+  brevoCampaignName: z.string().optional().describe("Brevo campaigns: internal name."),
+  brevoRecipients: z
+    .object({
+      listIds: z.array(z.number().int()).optional(),
+      segmentIds: z.array(z.number().int()).optional(),
+      exclusionListIds: z.array(z.number().int()).optional(),
+    })
+    .optional()
+    .describe("Brevo campaigns: listIds and/or segmentIds."),
+  brevoPreviewText: z.string().optional().describe("Brevo campaigns: inbox preview line."),
+  brevoDelegateSchedule: z
+    .boolean()
+    .optional()
+    .describe("Brevo-only future schedule: submit to Brevo's scheduler (default true)."),
 });
 
 const postInputSchema = z.object({
@@ -148,9 +177,16 @@ const postInputSchema = z.object({
 });
 
 const connectInputSchema = z.object({
-  platform: platformEnum.describe('Platform to connect: "x", "threads", "tiktok", "youtube", "instagram", "linkedin" or "facebook" (when the Facebook Pages flag is enabled).'),
+  platform: platformEnum.describe(
+    'Platform to connect: "x", "threads", "tiktok", "youtube", "instagram", "linkedin", "brevo", or "facebook" (when the Facebook Pages flag is enabled).',
+  ),
   account_id: z.string().min(1).optional().describe("Optional account id from a claimed cloud slot. Omit for a normal new account."),
   label: z.string().min(1).max(60).optional().describe("Optional visible label, e.g. Agency X."),
+  api_key: z
+    .string()
+    .min(8)
+    .optional()
+    .describe("Brevo only: API key from app.brevo.com (use instead of OAuth)."),
 });
 
 const disconnectInputSchema = z.object({
@@ -501,6 +537,23 @@ export function registerTools(server: McpServer, context: ToolContext): void {
       safely(async () => {
         const gate = await context.beforeConnect?.(args.platform, { accountId: args.account_id, label: args.label });
         const accountId = args.account_id ?? gate?.accountId;
+        if (args.platform === "brevo" && args.api_key) {
+          const account = await relay.connectWithApiKey("brevo", args.api_key, {
+            ...(accountId ? { accountId } : {}),
+            ...(args.label ? { label: args.label } : {}),
+          });
+          return textResult(
+            `Connected Brevo Email as ${account.displayName ?? account.handle} in ${account.mode} mode. You can publish with relay_post now.`,
+            {
+              mode: "connected",
+              platform: account.platform,
+              account,
+              mock: relay.isMockForced,
+              consoleUrl: relay.consoleUrl,
+              dataDir: relay.dataDir,
+            },
+          );
+        }
         const result = await relay.beginConnect(args.platform, {
           ...(accountId ? { accountId } : {}),
           ...(args.label ? { label: args.label } : {}),
@@ -738,10 +791,11 @@ export function registerTools(server: McpServer, context: ToolContext): void {
           done: 0,
           failed: 0,
           canceled: 0,
+          delegated: 0,
         };
         for (const job of jobs) counts[job.status] += 1;
         const lines = [
-          `${jobs.length} queued job(s): ${counts.pending} pending, ${counts.running} running, ${counts.done} done, ${counts.failed} failed, ${counts.canceled} canceled.`,
+          `${jobs.length} queued job(s): ${counts.pending} pending, ${counts.delegated} delegated, ${counts.running} running, ${counts.done} done, ${counts.failed} failed, ${counts.canceled} canceled.`,
         ];
         if (jobs.length === 0) {
           lines.push('Nothing is scheduled. Schedule a post with relay_post and a future schedule_at (ISO-8601).');
@@ -1223,6 +1277,81 @@ export function registerTools(server: McpServer, context: ToolContext): void {
           },
         });
       }, HINTS.console),
+  );
+
+  server.registerTool(
+    "relay_brevo_lists",
+    {
+      title: "List Brevo contact lists",
+      description: "Read-only: list contact list ids and names from the connected Brevo account (for campaign targeting).",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
+    },
+    async () =>
+      safely(async () => {
+        const lists = await relay.listBrevoEmailLists();
+        const lines = ["Brevo contact lists:", ...lists.map((entry) => `- ${entry.id}: ${entry.name}`)];
+        return textResult(lines.join("\n"), { lists });
+      }, HINTS.history),
+  );
+
+  server.registerTool(
+    "relay_brevo_campaign_status",
+    {
+      title: "Brevo campaign status",
+      description: "Read-only: fetch one email campaign's status from Brevo by campaign id.",
+      inputSchema: z.object({ campaign_id: z.number().int().describe("Brevo email campaign id.") }),
+      annotations: { readOnlyHint: true },
+    },
+    async (args) =>
+      safely(async () => {
+        const status = await relay.getBrevoCampaignStatus(args.campaign_id);
+        return textResult(JSON.stringify(status, null, 2), { campaign: status });
+      }, HINTS.history),
+  );
+
+  server.registerTool(
+    "relay_brevo_cancel",
+    {
+      title: "Cancel Brevo scheduled send",
+      description:
+        "Cancel a Brevo-native scheduled send by queue job_id (delegated job from relay_post) or by campaign_id / batch_id for transactional schedules.",
+      inputSchema: z.object({
+        job_id: z.string().optional().describe("Relay queue job id from relay_post or relay_queue."),
+        campaign_id: z.number().int().optional().describe("Brevo campaign id to suspend."),
+        batch_id: z.string().optional().describe("Brevo transactional scheduled batch id."),
+        message_id: z.string().optional().describe("Brevo transactional scheduled message id."),
+      }),
+      annotations: { destructiveHint: true },
+    },
+    async (args) =>
+      safely(async () => {
+        if (args.job_id) {
+          const removed = await relay.removeQueueJob(args.job_id);
+          if (!removed.found) {
+            return errorResult(`No queue job ${args.job_id}.`, "Check relay_queue for pending or delegated jobs.");
+          }
+          return textResult(
+            removed.removed
+              ? `Canceled job ${args.job_id}${removed.job?.providerRef ? " and called Brevo to stop the send." : "."}`
+              : `Job ${args.job_id} is ${removed.status} and cannot be canceled.`,
+            removed,
+          );
+        }
+        if (args.campaign_id !== undefined) {
+          await relay.cancelBrevoScheduled({ kind: "campaign", campaignId: args.campaign_id });
+          return textResult(`Suspended Brevo campaign ${args.campaign_id}.`, { campaignId: args.campaign_id });
+        }
+        if (args.batch_id || args.message_id) {
+          await relay.cancelBrevoScheduled({
+            kind: "transactional",
+            ...(args.batch_id ? { batchId: args.batch_id } : {}),
+            ...(args.message_id ? { messageId: args.message_id } : {}),
+          });
+          return textResult("Canceled Brevo scheduled transactional email.", { batchId: args.batch_id, messageId: args.message_id });
+        }
+        return errorResult("Pass job_id, campaign_id, or batch_id / message_id.", "");
+      }, HINTS.cancel),
   );
 }
 

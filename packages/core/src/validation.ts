@@ -76,6 +76,7 @@ function emptyPerPlatform(): Record<PlatformId, PlatformIssues> {
     instagram: { ok: true, issues: [] },
     linkedin: { ok: true, issues: [] },
     facebook: { ok: true, issues: [] },
+    brevo: { ok: true, issues: [] },
   };
 }
 
@@ -123,7 +124,13 @@ export function normalizeFor(platform: PlatformId, draft: PostDraft, maxTextLeng
   const topReplyTo = (draft.replyToId ?? draft.parentPostId)?.toString().trim();
   if ((platform === "threads" || platform === "x") && topReplyTo && !options.replyToId) options.replyToId = topReplyTo;
   const accountId = draft.accountIds?.[platform];
-  return { platform, ...(accountId ? { accountId } : {}), parts, options };
+  return {
+    platform,
+    ...(accountId ? { accountId } : {}),
+    parts,
+    options,
+    ...(draft.scheduleAt ? { scheduleAt: draft.scheduleAt } : {}),
+  };
 }
 
 function textLength(value: string): number {
@@ -158,7 +165,7 @@ export async function validateDraft(
 
   const rawPlatforms = Array.isArray(draft.platforms) ? draft.platforms : [];
   if (rawPlatforms.length === 0) {
-    addIssue({ code: "platforms_required", message: "Choose at least one platform (x, threads, tiktok, youtube, instagram)" });
+    addIssue({ code: "platforms_required", message: "Choose at least one platform (x, threads, tiktok, youtube, instagram, linkedin, brevo, …)" });
   }
   for (const platform of rawPlatforms) {
     if (!isPlatformId(platform)) {
@@ -166,6 +173,14 @@ export async function validateDraft(
     }
   }
   const targets = [...new Set(rawPlatforms.filter(isPlatformId))];
+
+  if (draft.recurrence && targets.includes("brevo")) {
+    addIssue({
+      platform: "brevo",
+      code: "recurrence_unsupported",
+      message: "Recurring schedules are not supported for Brevo email",
+    });
+  }
 
   if (draft.scheduleAt !== undefined) {
     if (typeof draft.scheduleAt !== "string" || Number.isNaN(Date.parse(draft.scheduleAt))) {
@@ -385,6 +400,66 @@ export async function validateDraft(
       }
       if (platformOptions.youtubeCategoryId && !/^\d+$/.test(platformOptions.youtubeCategoryId)) {
         addIssue({ platform, code: "option_invalid", message: "YouTube category id must be numeric" });
+      }
+    }
+
+    if (platform === "brevo") {
+      const mode = platformOptions.brevoMode ?? "transactional";
+      if (mode !== "transactional" && mode !== "campaign") {
+        addIssue({ platform, code: "option_invalid", message: 'brevoMode must be "transactional" or "campaign"' });
+      }
+      const subject = platformOptions.brevoSubject?.trim();
+      if (!subject) {
+        addIssue({ platform, code: "brevo_subject_required", message: "Set options.brevo.brevoSubject" });
+      }
+      if (mode === "transactional") {
+        const to = platformOptions.brevoTo;
+        if (!to?.length) {
+          addIssue({ platform, code: "brevo_recipients_required", message: "Set options.brevo.brevoTo with at least one { email }" });
+        } else {
+          for (const [index, entry] of to.entries()) {
+            if (!entry?.email?.includes("@")) {
+              addIssue({
+                platform,
+                code: "brevo_recipient_invalid",
+                message: `brevoTo[${index}] needs a valid email`,
+              });
+            }
+          }
+        }
+        const hasBody = Boolean(post.parts[0]?.text?.trim() || platformOptions.brevoHtml?.trim() || platformOptions.brevoTemplateId);
+        if (!hasBody) {
+          addIssue({
+            platform,
+            code: "brevo_content_required",
+            message: "Provide text (plain body), options.brevo.brevoHtml, or options.brevo.brevoTemplateId",
+          });
+        }
+      } else {
+        if (!platformOptions.brevoSender) {
+          addIssue({ platform, code: "brevo_sender_required", message: "Set options.brevo.brevoSender for campaigns" });
+        }
+        const audience = platformOptions.brevoRecipients;
+        if (!audience?.listIds?.length && !audience?.segmentIds?.length) {
+          addIssue({
+            platform,
+            code: "brevo_audience_required",
+            message: "Set options.brevo.brevoRecipients.listIds or segmentIds",
+          });
+        }
+        const hasHtml = Boolean(
+          platformOptions.brevoHtml?.trim() ||
+            platformOptions.brevoHtmlUrl?.trim() ||
+            platformOptions.brevoTemplateId ||
+            post.parts[0]?.text?.trim(),
+        );
+        if (!hasHtml) {
+          addIssue({
+            platform,
+            code: "brevo_content_required",
+            message: "Campaigns need text, brevoHtml, brevoHtmlUrl, or brevoTemplateId",
+          });
+        }
       }
     }
 

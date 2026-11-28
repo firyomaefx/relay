@@ -4,13 +4,13 @@
  * This file is the integration surface between core, platforms, MCP and the web app.
  */
 
-export type PlatformId = "x" | "threads" | "tiktok" | "youtube" | "instagram" | "linkedin" | "facebook";
+export type PlatformId = "x" | "threads" | "tiktok" | "youtube" | "instagram" | "linkedin" | "facebook" | "brevo";
 
 /** Every known platform. Optional platforms are registered only when enabled. */
-export const PLATFORM_IDS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin", "facebook"] as const satisfies readonly PlatformId[];
+export const PLATFORM_IDS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin", "facebook", "brevo"] as const satisfies readonly PlatformId[];
 
 /** Platforms Relay can run without an optional feature flag. */
-export const CORE_PLATFORM_IDS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin"] as const satisfies readonly PlatformId[];
+export const CORE_PLATFORM_IDS = ["x", "threads", "tiktok", "youtube", "instagram", "linkedin", "brevo"] as const satisfies readonly PlatformId[];
 
 export function isPlatformId(value: unknown): value is PlatformId {
   return typeof value === "string" && (PLATFORM_IDS as readonly string[]).includes(value);
@@ -85,6 +85,21 @@ export interface PlatformOptions {
   instagramShareToFeed?: boolean;
   /** Instagram: alt text for image posts (max 1000 chars). */
   instagramAltText?: string;
+  /** Brevo: transactional email (default) or marketing campaign. */
+  brevoMode?: "transactional" | "campaign";
+  brevoSubject?: string;
+  brevoHtml?: string;
+  brevoHtmlUrl?: string;
+  brevoTemplateId?: number;
+  brevoTo?: Array<{ email: string; name?: string }>;
+  brevoSender?: { email?: string; id?: number; name?: string };
+  brevoTags?: string[];
+  brevoParams?: Record<string, string>;
+  brevoCampaignName?: string;
+  brevoRecipients?: { listIds?: number[]; segmentIds?: number[]; exclusionListIds?: number[] };
+  brevoPreviewText?: string;
+  /** When true and the draft is Brevo-only with a future scheduleAt, submit to Brevo's scheduler instead of Relay's queue. */
+  brevoDelegateSchedule?: boolean;
 }
 
 export interface PostDraft {
@@ -273,6 +288,15 @@ export interface ResolvedPost {
   accountId?: string;
   parts: ResolvedPart[];
   options: PlatformOptions;
+  /** Copied from PostDraft.scheduleAt when validating for publish. */
+  scheduleAt?: string;
+}
+
+export interface BrevoProviderRef {
+  kind: "transactional" | "campaign";
+  batchId?: string;
+  messageId?: string;
+  campaignId?: number;
 }
 
 export interface PlatformLimits {
@@ -587,6 +611,12 @@ export interface PlatformAdapter {
    * The scheduler never calls this.
    */
   updatePost?(ctx: AdapterContext, postId: string, input: UpdatePostInput): Promise<UpdatePostResult>;
+  /** Cancel a provider-native scheduled send (Brevo transactional batch or scheduled campaign). */
+  cancelScheduled?(ctx: AdapterContext, ref: BrevoProviderRef): Promise<void>;
+  /** Read-only: list contact lists for campaign targeting (Brevo). */
+  listEmailLists?(ctx: AdapterContext): Promise<Array<{ id: number; name: string }>>;
+  /** Read-only: campaign status snapshot (Brevo). */
+  getCampaignStatus?(ctx: AdapterContext, campaignId: number): Promise<Record<string, unknown>>;
 }
 
 export interface ValidationIssue {
@@ -673,7 +703,7 @@ export interface PostRecord {
   article?: ArticleDraft;
 }
 
-export type QueueStatus = "pending" | "running" | "done" | "failed" | "canceled";
+export type QueueStatus = "pending" | "running" | "done" | "failed" | "canceled" | "delegated";
 
 export interface QueueJob {
   id: string;
@@ -693,6 +723,8 @@ export interface QueueJob {
   seriesId?: string;
   /** 1-based occurrence within a recurring series. */
   occurrence?: number;
+  /** External scheduler (for example Brevo-native email schedule). */
+  providerRef?: BrevoProviderRef;
 }
 
 export interface PlatformStatus {

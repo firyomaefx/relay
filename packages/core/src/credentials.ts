@@ -31,6 +31,10 @@ const ENV_KEYS: Record<PlatformId, { id: string[]; secret: string[] }> = {
     id: ["FACEBOOK_CLIENT_ID", "INSTAGRAM_CLIENT_ID", "INSTAGRAM_APP_ID"],
     secret: ["FACEBOOK_CLIENT_SECRET", "INSTAGRAM_CLIENT_SECRET", "INSTAGRAM_APP_SECRET"],
   },
+  brevo: {
+    id: [],
+    secret: ["BREVO_API_KEY", "RELAY_BREVO_API_KEY"],
+  },
 };
 
 function firstEnv(env: NodeJS.ProcessEnv, names: string[]): string | undefined {
@@ -85,12 +89,13 @@ export class CredentialStore {
 
   isConfigured(platform: PlatformId): boolean {
     const creds = this.get(platform);
+    if (platform === "brevo") return Boolean(creds.clientSecret?.trim());
     return Boolean(creds.clientId && creds.clientSecret);
   }
 
   info(platform: PlatformId): CredentialInfo {
     const creds = this.get(platform);
-    const configured = Boolean(creds.clientId && creds.clientSecret);
+    const configured = platform === "brevo" ? Boolean(creds.clientSecret) : Boolean(creds.clientId && creds.clientSecret);
     if (!configured) return { platform, configured: false, source: "none" };
     const saved = this.saved[platform];
     const fromSettings = Boolean(saved?.clientId || saved?.clientSecret);
@@ -102,7 +107,11 @@ export class CredentialStore {
     const values: Partial<Record<PlatformId, PlatformCredentials>> = {};
     for (const platform of PLATFORM_IDS) {
       const credentials = this.get(platform);
-      if (credentials.clientId && credentials.clientSecret) values[platform] = credentials;
+      if (platform === "brevo") {
+        if (credentials.clientSecret) values[platform] = credentials;
+      } else if (credentials.clientId && credentials.clientSecret) {
+        values[platform] = credentials;
+      }
     }
     return values;
   }
@@ -112,17 +121,30 @@ export class CredentialStore {
   }
 
   async save(platform: PlatformId, credentials: PlatformCredentials): Promise<void> {
-    if (!credentials.clientId || !credentials.clientSecret) {
-      throw new RelayError(
-        `Both a client id and client secret are required for ${platform}`,
-        "credentials_incomplete",
-      );
+    const secret = credentials.clientSecret?.trim() ?? "";
+    const clientId = credentials.clientId?.trim() ?? "";
+    if (platform === "brevo") {
+      if (!secret) {
+        throw new RelayError("A Brevo API key is required", "credentials_incomplete");
+      }
+      this.saved[platform] = {
+        clientId: clientId || "api-key",
+        clientSecret: secret,
+        extra: credentials.extra,
+      };
+    } else {
+      if (!clientId || !secret) {
+        throw new RelayError(
+          `Both a client id and client secret are required for ${platform}`,
+          "credentials_incomplete",
+        );
+      }
+      this.saved[platform] = {
+        clientId,
+        clientSecret: secret,
+        extra: credentials.extra,
+      };
     }
-    this.saved[platform] = {
-      clientId: credentials.clientId.trim(),
-      clientSecret: credentials.clientSecret.trim(),
-      extra: credentials.extra,
-    };
     await this.persist();
   }
 

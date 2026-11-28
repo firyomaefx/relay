@@ -11,8 +11,9 @@ import { YouTubeAdapter } from "./adapters/youtube.js";
 import { InstagramAdapter } from "./adapters/instagram.js";
 import { LinkedInAdapter } from "./adapters/linkedin.js";
 import { FacebookAdapter } from "./adapters/facebook.js";
+import { BrevoAdapter } from "./adapters/brevo.js";
 
-export { XAdapter, ThreadsAdapter, TikTokAdapter, YouTubeAdapter, InstagramAdapter, LinkedInAdapter, FacebookAdapter };
+export { XAdapter, ThreadsAdapter, TikTokAdapter, YouTubeAdapter, InstagramAdapter, LinkedInAdapter, FacebookAdapter, BrevoAdapter };
 export { isAuthFailure } from "./adapters/http.js";
 export { mockProfile, mockPublish, mockScopes, requireMediaUrl } from "./mock.js";
 
@@ -30,6 +31,7 @@ export function createAdapters(options: CreateAdaptersOptions = {}): PlatformAda
     new YouTubeAdapter(),
     new InstagramAdapter(),
     new LinkedInAdapter(),
+    new BrevoAdapter(),
   ];
   // Facebook Pages stays out of the registry until the flag is on. This keeps
   // the UI, MCP enum and pricing tables from advertising an unreviewed platform.

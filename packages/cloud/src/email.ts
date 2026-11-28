@@ -2,12 +2,16 @@
 /**
  * Small, dependency-free transactional email client.
  *
- * Production uses Resend when RELAY_RESEND_API_KEY and RELAY_EMAIL_FROM are
- * configured. Every send is best-effort: waitlist capture and approval must
+ * Production uses Brevo when RELAY_EMAIL_PROVIDER=brevo and RELAY_BREVO_API_KEY are
+ * set, otherwise Resend when RELAY_RESEND_API_KEY is set. RELAY_EMAIL_FROM is required
+ * for either provider. Every send is best-effort: waitlist capture and approval must
  * never fail because an email provider is down.
  */
 
+export type EmailProvider = "brevo" | "resend";
+
 export interface EmailConfig {
+  provider: EmailProvider;
   apiKey: string;
   from: string;
   replyTo?: string;
@@ -28,14 +32,44 @@ export interface EmailResult {
   error?: string;
 }
 
+function providerFromEnv(env: NodeJS.ProcessEnv): EmailProvider {
+  const raw = env.RELAY_EMAIL_PROVIDER?.trim().toLowerCase() ?? "resend";
+  return raw === "brevo" ? "brevo" : "resend";
+}
+
+/** Parses `Name <email@example.com>` or a bare address into Brevo sender fields. */
+export function parseEmailFrom(from: string): { email: string; name?: string } {
+  const trimmed = from.trim();
+  const match = /^([^<]+)<([^>]+)>$/.exec(trimmed);
+  if (match) {
+    return { name: match[1].trim(), email: match[2].trim() };
+  }
+  return { email: trimmed };
+}
+
 export function loadEmailConfig(env: NodeJS.ProcessEnv): EmailConfig | null {
-  const apiKey = env.RELAY_RESEND_API_KEY?.trim() ?? "";
   const from = env.RELAY_EMAIL_FROM?.trim() ?? "";
-  if (!apiKey || !from) return null;
+  if (!from) return null;
+  const provider = providerFromEnv(env);
+  const replyTo = env.RELAY_EMAIL_REPLY_TO?.trim() || undefined;
+  if (provider === "brevo") {
+    const apiKey = env.RELAY_BREVO_API_KEY?.trim() ?? "";
+    if (!apiKey) return null;
+    return {
+      provider: "brevo",
+      apiKey,
+      from,
+      replyTo,
+      apiBase: (env.RELAY_BREVO_API_BASE?.trim() || "https://api.brevo.com").replace(/\/+$/, ""),
+    };
+  }
+  const apiKey = env.RELAY_RESEND_API_KEY?.trim() ?? "";
+  if (!apiKey) return null;
   return {
+    provider: "resend",
     apiKey,
     from,
-    replyTo: env.RELAY_EMAIL_REPLY_TO?.trim() || undefined,
+    replyTo,
     apiBase: (env.RELAY_RESEND_API_BASE?.trim() || "https://api.resend.com").replace(/\/+$/, ""),
   };
 }
@@ -44,30 +78,65 @@ export function isEmailConfigured(config: EmailConfig | null | undefined): boole
   return Boolean(config?.apiKey && config?.from);
 }
 
+async function sendViaResend(config: EmailConfig, message: EmailMessage): Promise<EmailResult> {
+  const response = await fetch(`${config.apiBase}/emails`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${config.apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      from: config.from,
+      to: [message.to],
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
+      ...(config.replyTo ? { reply_to: config.replyTo } : {}),
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = (await response.json().catch(() => null)) as { id?: string; message?: string } | null;
+  if (!response.ok || !body?.id) {
+    return { sent: false, error: body?.message?.slice(0, 300) || `Email provider returned ${response.status}` };
+  }
+  return { sent: true, id: body.id };
+}
+
+async function sendViaBrevo(config: EmailConfig, message: EmailMessage): Promise<EmailResult> {
+  const sender = parseEmailFrom(config.from);
+  const payload: Record<string, unknown> = {
+    sender,
+    to: [{ email: message.to }],
+    subject: message.subject,
+    htmlContent: message.html,
+    textContent: message.text,
+  };
+  if (config.replyTo) {
+    payload.replyTo = { email: config.replyTo };
+  }
+  const response = await fetch(`${config.apiBase}/v3/smtp/email`, {
+    method: "POST",
+    headers: {
+      "api-key": config.apiKey,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = (await response.json().catch(() => null)) as { messageId?: string; message?: string; code?: string } | null;
+  if (!response.ok) {
+    const detail = body?.message || body?.code || `Email provider returned ${response.status}`;
+    return { sent: false, error: String(detail).slice(0, 300) };
+  }
+  return { sent: true, id: body?.messageId };
+}
+
 export async function sendEmail(config: EmailConfig | null | undefined, message: EmailMessage): Promise<EmailResult> {
   if (!config) return { sent: false, skipped: "not_configured" };
   try {
-    const response = await fetch(`${config.apiBase}/emails`, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${config.apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: config.from,
-        to: [message.to],
-        subject: message.subject,
-        text: message.text,
-        html: message.html,
-        ...(config.replyTo ? { reply_to: config.replyTo } : {}),
-      }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    const body = (await response.json().catch(() => null)) as { id?: string; message?: string } | null;
-    if (!response.ok || !body?.id) {
-      return { sent: false, error: body?.message?.slice(0, 300) || `Email provider returned ${response.status}` };
-    }
-    return { sent: true, id: body.id };
+    if (config.provider === "brevo") return await sendViaBrevo(config, message);
+    return await sendViaResend(config, message);
   } catch (error) {
     return { sent: false, error: error instanceof Error ? error.message.slice(0, 300) : "Email send failed" };
   }

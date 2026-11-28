@@ -91,7 +91,7 @@ node tools/production-readiness.mjs
 
 - **GCS offsite backup:** active. The VM service account has `roles/storage.objectAdmin` and `devstorage.read_write`; backup script uploads the encrypted tarball and `.sha256` to `gs://relay-prod-backups-a22a835c`. Verified: `relay-20261029T202909Z.tgz`.
 - **Uptime alerting:** active. Cloud Monitoring checks `relay.duitpoket.fun/api/health` and `cloud-mcp.duitpoket.fun/health` every 5 minutes. Alert policy `Relay production uptime` notifies the email channel `Relay production alerts` (`ttrgautomation@gmail.com`).
-- **Stripe / Polar / email:** confirm on each deploy with `GET /api/health` (`payments.*`, `emailConfigured`). Values change with env; do not rely on this doc alone.
+- **Stripe / Polar / email:** confirm on each deploy with `GET /api/health` (`payments.*`, `emailConfigured`). Platform mail: `RELAY_EMAIL_PROVIDER=brevo|resend`, `RELAY_BREVO_API_KEY` or `RELAY_RESEND_API_KEY`, and `RELAY_EMAIL_FROM`. Customer email publishing uses per-tenant `BREVO_API_KEY` via `relay_connect` / Settings.
 - **Contact requests:** stored locally at `/var/lib/relay/.data/contact-requests.ndjson`. Set `RELAY_CONTACT_WEBHOOK_URL` to forward each request to Slack/Google Chat/Zapier.
 - **Self-service signup:** not implemented. Customers are provisioned by an operator.
 - **Real-account E2E:** requires a real customer account and platform app credentials.

@@ -2,7 +2,7 @@
   "currency": "USD",
   "unit": "milliUSD",
   "free_allowance_milli_usd": 500,
-  "free_excluded_platforms": ["x"],
+  "free_excluded_platforms": ["x", "brevo"],
   "display_currency": "MYR",
   "usd_myr_rate": 4.7,
   "rate_checked_at": "2026-11-12",
@@ -14,7 +14,8 @@
     "youtube": { "video": 40 },
     "instagram": { "image": 20, "carousel": 20, "video": 40 },
     "linkedin": { "text": 20, "image": 20, "video": 40 },
-    "facebook": { "text": 20, "link": 20, "image": 20, "carousel": 20, "video": 40 }
+    "facebook": { "text": 20, "link": 20, "image": 20, "carousel": 20, "video": 40 },
+    "brevo": { "transactional": 15, "campaign": 50 }
   }
 }
 

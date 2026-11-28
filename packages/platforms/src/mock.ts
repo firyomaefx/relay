@@ -18,6 +18,12 @@ export function mockProfile(platform: PlatformId): { externalId: string; handle:
       return { externalId: "mock-linkedin-1", handle: "relay-demo", displayName: "Relay Demo (LinkedIn)" };
     case "facebook":
       return { externalId: "mock-facebook-page-1", handle: "relay-demo-page", displayName: "Relay Demo Page" };
+    case "brevo":
+      return { externalId: "mock-brevo-1", handle: "relay-mail", displayName: "Relay Demo (Brevo)" };
+    default: {
+      const _never: never = platform;
+      return _never;
+    }
   }
 }
 
@@ -41,6 +47,12 @@ export function mockScopes(platform: PlatformId): string[] {
       return ["openid", "profile", "w_member_social"];
     case "facebook":
       return ["pages_show_list", "pages_read_engagement", "pages_manage_posts"];
+    case "brevo":
+      return ["smtp"];
+    default: {
+      const _never: never = platform;
+      return _never;
+    }
   }
 }
 

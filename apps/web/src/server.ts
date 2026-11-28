@@ -1300,7 +1300,11 @@ async function handleApi(
     const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
     const clientId = typeof body.clientId === "string" ? body.clientId.trim() : "";
     const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret.trim() : "";
-    await relay.saveCredentials(platform, { clientId, clientSecret });
+    if (platform === "brevo") {
+      await relay.saveCredentials(platform, { clientId: clientId || "api-key", clientSecret });
+    } else {
+      await relay.saveCredentials(platform, { clientId, clientSecret });
+    }
     sendJson(res, 200, { ok: true, credentials: relay.credentialInfos() });
     return;
   }

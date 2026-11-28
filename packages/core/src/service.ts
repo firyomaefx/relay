@@ -90,6 +90,7 @@ const UNSUPPORTED_EDIT_REASON: Record<PlatformId, string> = {
   youtube: "Unsupported: Relay's YouTube login cannot edit uploaded videos.",
   linkedin: "LinkedIn edit is not available in this build.",
   facebook: "Facebook Page edit is not available in this build.",
+  brevo: "Brevo does not support editing sent email through Relay.",
 };
 
 const UNSUPPORTED_DELETE_REASON: Record<PlatformId, string> = {
@@ -101,6 +102,7 @@ const UNSUPPORTED_DELETE_REASON: Record<PlatformId, string> = {
     "Unsupported: Relay's YouTube login only has upload and read access, which cannot delete videos. Delete it in YouTube Studio.",
   linkedin: "LinkedIn delete is not available in this build. Delete the post in LinkedIn.",
   facebook: "Facebook Page delete is not available in this build. Delete the post on the Page.",
+  brevo: "Cancel scheduled Brevo email with relay_cancel while the job is still queued or delegated.",
 };
 
 /**
@@ -260,6 +262,30 @@ export class RelayService {
 
   get isMockForced(): boolean {
     return this.forceMock;
+  }
+
+  async listBrevoEmailLists(): Promise<Array<{ id: number; name: string }>> {
+    const adapter = this.getAdapter("brevo");
+    if (!adapter.listEmailLists) {
+      throw new RelayError("Brevo list lookup is not available", "brevo_lists_unavailable");
+    }
+    return adapter.listEmailLists(this.adapterContext());
+  }
+
+  async getBrevoCampaignStatus(campaignId: number): Promise<Record<string, unknown>> {
+    const adapter = this.getAdapter("brevo");
+    if (!adapter.getCampaignStatus) {
+      throw new RelayError("Brevo campaign lookup is not available", "brevo_campaign_unavailable");
+    }
+    return adapter.getCampaignStatus(this.adapterContext(), campaignId);
+  }
+
+  async cancelBrevoScheduled(ref: import("./types.js").BrevoProviderRef): Promise<void> {
+    const adapter = this.getAdapter("brevo");
+    if (!adapter.cancelScheduled) {
+      throw new RelayError("Brevo cancel is not available", "brevo_cancel_unavailable");
+    }
+    await adapter.cancelScheduled(this.adapterContext(), ref);
   }
 
   getAdapter(platform: PlatformId): PlatformAdapter {
@@ -459,6 +485,30 @@ export class RelayService {
     return buildDraftPreview(draft, this.platformLimits(), report);
   }
 
+  async connectWithApiKey(
+    platform: PlatformId,
+    apiKey: string,
+    options: { accountId?: string; label?: string } = {},
+  ): Promise<Account> {
+    if (platform !== "brevo") {
+      throw new RelayError("API-key connect is only supported for Brevo", "connect_api_key_unsupported", undefined, 400);
+    }
+    const trimmed = apiKey.trim();
+    if (!trimmed) throw new RelayError("api_key is required", "connect_api_key_missing", undefined, 400);
+    await this.credentials.save(platform, { clientId: "api-key", clientSecret: trimmed });
+    const adapter = this.getAdapter(platform);
+    const redirectUri = `${this.consoleUrl.replace(/\/+$/, "")}/auth/callback/${platform}`;
+    const result = await adapter.authorize(this.adapterContext(), {
+      state: "api-key",
+      codeVerifier: "api-key",
+      redirectUri,
+    });
+    if (result.kind !== "mock") {
+      throw new RelayError("Brevo connect did not return account details", "adapter_state");
+    }
+    return this.saveAccount(platform, result.profile, null, this.adapterIsLive(adapter) ? "live" : "mock", result.scopes, options);
+  }
+
   async beginConnect(platform: PlatformId, options: { redirectBase?: string; accountId?: string; label?: string } = {}): Promise<BeginConnectResult> {
     const adapter = this.getAdapter(platform);
     const ctx = this.adapterContext();
@@ -477,6 +527,15 @@ export class RelayService {
       }
       const account = await this.saveAccount(platform, result.profile, null, "mock", result.scopes, { accountId: options.accountId, label: options.label });
       return { mode: "connected", account };
+    }
+
+    if (platform === "brevo") {
+      throw new RelayError(
+        "Brevo uses an API key, not OAuth. Call relay_connect with api_key, or save the key in Settings.",
+        "brevo_api_key_required",
+        undefined,
+        400,
+      );
     }
 
     const state = randomToken(24);
@@ -605,6 +664,35 @@ export class RelayService {
     const scheduleAt = draft.scheduleAt ? Date.parse(draft.scheduleAt) : undefined;
     if (draft.recurrence) {
       this.assertRecurrenceValid(draft, scheduleAt);
+    }
+    const brevoOnly = draft.platforms?.length === 1 && draft.platforms[0] === "brevo";
+    const delegateBrevo =
+      brevoOnly &&
+      scheduleAt !== undefined &&
+      scheduleAt > this.now().getTime() + 1000 &&
+      draft.options?.brevo?.brevoDelegateSchedule !== false;
+    if (delegateBrevo && report.ok && report.normalized) {
+      const record = await this.beginPostRecord(draft, new Date(scheduleAt).toISOString());
+      const results = await this.publishResolved(report.normalized, record.id);
+      await this.finalizePostRecord(record.id, results);
+      const brevo = results.find((entry) => entry.platform === "brevo");
+      const providerRef = brevo?.details?.providerRef as import("./types.js").BrevoProviderRef | undefined;
+      if (brevo?.ok && providerRef) {
+        const job: QueueJob = {
+          id: `job_${randomUUID()}`,
+          createdAt: this.now().toISOString(),
+          scheduleAt: new Date(scheduleAt).toISOString(),
+          draft,
+          status: "delegated",
+          attempts: 0,
+          providerRef,
+          results,
+        };
+        await this.store.mutate((db) => {
+          db.queue.push(job);
+        });
+        return { scheduled: true, jobId: job.id, results, report, recordId: record.id };
+      }
     }
     if (scheduleAt !== undefined && scheduleAt > this.now().getTime() + 1000) {
       const job: QueueJob = {
@@ -1267,11 +1355,26 @@ export class RelayService {
       if (index < 0) return;
       const job = db.queue[index]!;
       outcome = { found: true, removed: false, status: job.status };
-      if (job.status === "pending" || job.status === "canceled" || job.status === "failed") {
+      if (
+        job.status === "pending" ||
+        job.status === "canceled" ||
+        job.status === "failed" ||
+        job.status === "delegated"
+      ) {
         db.queue.splice(index, 1);
         outcome = { found: true, removed: true, status: job.status, job: structuredClone(job) };
       }
     });
+    if (outcome.removed && outcome.job?.providerRef) {
+      const adapter = this.getAdapter("brevo");
+      if (adapter.cancelScheduled) {
+        try {
+          await adapter.cancelScheduled(this.adapterContext(), outcome.job.providerRef);
+        } catch (error) {
+          this.logger(`Brevo cancel failed for job ${id}: ${errorMessage(error)}`);
+        }
+      }
+    }
     return outcome;
   }
 
