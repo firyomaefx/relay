@@ -16,6 +16,13 @@ node tools/check-cloudflared-sleep-mode.mjs || {
   exit 1
 }
 
+if ! systemctl is-enabled relay-cloud-mcp.service >/dev/null 2>&1; then
+  echo "relay-cloud-mcp.service not enabled — install and start it:" >&2
+  echo "  sudo cp $APP_DIR/deploy/relay-cloud-mcp.service /etc/systemd/system/" >&2
+  echo "  sudo systemctl daemon-reload && sudo systemctl enable --now relay-cloud-mcp" >&2
+  exit 1
+fi
+
 echo "== deploy (local sleep verify strict; public verify when DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY=1) =="
 sudo DEPLOY_STRICT_SLEEP_VERIFY=1 DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY="${DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY:-1}" \
   -u relay bash deploy/deploy.sh
