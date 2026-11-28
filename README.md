@@ -273,7 +273,7 @@ Use the cloud-only `relay_cloud_autoreply` tool with `status`, `set_key`, `clear
 | **Backups** | `tools/relay-backup.sh` uploads encrypted snapshots to GCS with lifecycle retention |
 | **Monitoring** | Uptime policy and email alert channel in `tools/monitoring/` |
 | **Readiness** | `node tools/production-readiness.mjs` |
-| **Cloud sleep mode** | [docs/operations/sleep-mode-deploy.md](docs/operations/sleep-mode-deploy.md) · [RM4k runbook](docs/operations/rm4000-cloud-runbook.md) · `npm run test:sleep-mode` · `npm run verify:sleep-mode` (live) |
+| **Cloud sleep mode** | [system-ready checklist](docs/operations/system-ready-checklist.md) · `npm run verify:system-ready` · [operator handoff](docs/operations/operator-handoff.md) · `npm run test:sleep-mode` |
 | **Links** | `node tools/audit-live-links.mjs` |
 | **Deploy** | [deploy/DEPLOY.md](deploy/DEPLOY.md) and [docs/ALWAYS-ON.md](docs/ALWAYS-ON.md) |
 
