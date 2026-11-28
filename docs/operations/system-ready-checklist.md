@@ -20,7 +20,7 @@ npm run verify:system-ready
 
 Follow [operator-handoff.md](./operator-handoff.md) steps 0–6 (`verify:system-ready` is on `main` since PR **#65**).
 
-**On the VM (after `relay.env` + cloudflared → 4321 are set):**
+**On the VM (after `relay.env` + cloudflared → 4321 are set):** clear repair pause (`RELAY_VM_REPAIR_PAUSED=0` or `VM_REPAIR_RUN=1` once). See [vm-repair-pause.md](./vm-repair-pause.md).
 
 ```bash
 sudo bash /opt/relay/deploy/vm-system-ready.sh
@@ -46,7 +46,7 @@ cd /opt/relay && npm run verify:system-ready   # from laptop OK too, after tunne
 
 | Item | Purpose |
 |------|---------|
-| Self-hosted GitHub runner (`relay-prod`) | `deploy-production.yml` runs `vm-system-ready.sh` on `main` push (GitHub remote only) |
+| Self-hosted GitHub runner (`relay-prod`) | `deploy-production.yml` runs `vm-system-ready.sh` when repair is not paused; push skips while `RELAY_VM_REPAIR_PAUSED=1` |
 | `RELAY_OPERATOR_ALERT_EMAIL` + Brevo/Resend | Email when automation or public sleep verify fails |
 | GitHub **Production sleep monitor** workflow | Daily public verify; no manual Actions checking |
 | `RELAY_WAITLIST_AUTO_APPROVE=1` | Waitlist → invite without admin clicks |

@@ -13,12 +13,42 @@ on:
         description: Require public sleep-mode URLs (cloud-mcp on 4321)
         type: boolean
         default: true
+      confirm_vm_repair:
+        description: Run vm-system-ready (use when RELAY_VM_REPAIR_PAUSED=1)
+        type: boolean
+        default: false
 
 jobs:
   deploy:
     runs-on: [self-hosted, relay-prod]
     steps:
+      - name: VM repair pause gate
+        id: gate
+        run: |
+          set -euo pipefail
+          PAUSED=1
+          if [[ -f /etc/relay/relay.env ]]; then
+            line="$(grep -E '^[[:space:]]*RELAY_VM_REPAIR_PAUSED=' /etc/relay/relay.env | tail -1 || true)"
+            if [[ -n "$line" ]]; then
+              val="${line#*=}"
+              val="$(echo "$val" | tr -d ' "')"
+              [[ -n "$val" ]] && PAUSED="$val"
+            fi
+          fi
+          EVENT="${{ github.event_name }}"
+          CONFIRM="${{ inputs.confirm_vm_repair }}"
+          if [[ "$EVENT" == "push" && ( "$PAUSED" == "1" || "$PAUSED" == "true" ) ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "VM repair paused — skipping blind deploy on push (see docs/operations/vm-repair-pause.md)"
+          elif [[ "$EVENT" == "workflow_dispatch" && "$CONFIRM" != "true" && ( "$PAUSED" == "1" || "$PAUSED" == "true" ) ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "VM repair paused — re-run with confirm_vm_repair=true"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: System ready (pull, tunnel gate, deploy, go-live, verify)
+        if: steps.gate.outputs.skip != 'true'
         env:
           DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY: ${{ github.event_name == 'workflow_dispatch' && (inputs.strict_public && '1' || '0') || '1' }}
+          VM_REPAIR_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_vm_repair && '1' || '' }}
         run: sudo bash /opt/relay/deploy/vm-system-ready.sh

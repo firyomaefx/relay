@@ -4,6 +4,9 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/relay}"
 cd "$APP_DIR"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bash "$SCRIPT_DIR/vm-repair-gate.sh" || exit $?
+
 echo "== git pull main (relay user) =="
 sudo -u relay git -C "$APP_DIR" fetch origin main
 sudo -u relay git -C "$APP_DIR" checkout main

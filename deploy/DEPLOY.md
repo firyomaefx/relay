@@ -40,9 +40,9 @@ One-time on the VM: fix `cloudflared` ingress (**4321**) and enable `relay-cloud
 
 Register a **GitHub Actions** self-hosted runner on `relay-prod` with labels `self-hosted` and `relay-prod`. Then either:
 
-- Mirror `main` to GitHub and let **push** run [deploy-production.yml](../.github/workflows/deploy-production.yml), or
-- Run **workflow_dispatch** from GitHub after each Origin merge to `main`.
+- Mirror `main` to GitHub and let **push** run [deploy-production.yml](../.github/workflows/deploy-production.yml) (**skips** deploy while `RELAY_VM_REPAIR_PAUSED=1`), or
+- Run **workflow_dispatch** with **Confirm VM repair** after each Origin merge to `main`.
 
-The workflow calls `sudo bash /opt/relay/deploy/vm-system-ready.sh` (same gate as manual ops). Origin-only remotes need a manual first run or `gcloud compute ssh … vm-system-ready.sh`.
+The workflow calls `sudo bash /opt/relay/deploy/vm-system-ready.sh` (same gate as manual ops). See [vm-repair-pause.md](../docs/operations/vm-repair-pause.md). Origin-only remotes need a deliberate first run or `gcloud compute ssh … VM_REPAIR_RUN=1 … vm-system-ready.sh`.
 
 MCP: `https://mcp.duitpoket.fun/mcp`, header `Authorization: Bearer $RELAY_MCP_HTTP_TOKEN` (falls back to `.data/mcp-http-token`).
