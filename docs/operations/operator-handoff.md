@@ -17,7 +17,7 @@
 npm run verify:sleep-mode
 ```
 
-**Last public check (5:43 PM MYT, 28 Nov 2026):** FAIL (2) — console still has no `cloud` block; `cloud-mcp` returns `relay-mcp-http`.
+**Last public check (6:13 PM MYT, 28 Nov 2026):** `verify:system-ready` — **readiness mostly green** (Stripe/Polar, platform email, public URLs, polar webhook). **Sleep mode still FAIL (2):** no `cloud` / `gitSha` on console; `cloud-mcp` returns `relay-mcp-http` (not `relay-cloud-mcp` on **4321**). Fix = one VM run: `sudo bash /opt/relay/deploy/vm-system-ready.sh` after `relay.env` + cloudflared are set.
 
 After deploy, open **`/cloud-admin` → Platform deploy (sleep mode)** or `GET /api/cloud/admin/deploy-health` on the VM for the same probes without SSH.
 
