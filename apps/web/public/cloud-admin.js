@@ -8,6 +8,30 @@ async function ensureOwnerSession() {
   if (session.role !== 'operator') window.location.replace('/admin');
 }
 
+async function loadDeployHealth() {
+  const el = $('deployHealth');
+  if (!el) return;
+  el.textContent = 'Loading…';
+  const r = await fetch('/api/cloud/admin/deploy-health', { credentials: 'same-origin' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    el.textContent = data.error || 'Could not load deploy health';
+    return;
+  }
+  const tone = data.ok ? 'ok' : 'error';
+  const lines = [
+    `<div class="${tone}" style="margin-bottom:8px;font-weight:600">${data.ok ? 'Sleep mode stack looks healthy on this host' : `${data.issues?.length ?? 0} issue(s) — see deploy/operator-handoff.md`}</div>`,
+    `<ul style="margin:0;padding-left:1.2rem;font-size:13px">`,
+    `<li>Console: ${data.console?.reachable ? 'up' : 'down'} · gitSha ${esc(data.console?.gitSha?.slice(0, 7) || '—')} · pulse ${data.console?.tenantSchedulerPulseMs ?? '—'} ms</li>`,
+    `<li>Cloud MCP: ${data.cloudMcp?.reachable ? esc(data.cloudMcp?.name || 'up') : 'down'} · gitSha ${esc(data.cloudMcp?.gitSha?.slice(0, 7) || '—')} · pulse ${data.cloudMcp?.tenantSchedulerPulseMs ?? '—'} ms</li>`,
+    `</ul>`,
+  ];
+  if (data.issues?.length) {
+    lines.push(`<ul style="margin:8px 0 0;padding-left:1.2rem;font-size:13px" class="error">${data.issues.map((issue) => `<li>${esc(issue)}</li>`).join('')}</ul>`);
+  }
+  el.innerHTML = lines.join('');
+}
+
 async function loadAutomationHealth() {
   const el = $('automationHealth');
   if (!el) return;
@@ -346,6 +370,7 @@ $('connect').addEventListener('click', async () => {
   } catch (error) { $('connectLink').textContent = error.message; }
 });
 
+$('refreshDeployHealth')?.addEventListener('click', () => { void loadDeployHealth(); });
 $('refreshAutomation')?.addEventListener('click', () => { void loadAutomationHealth(); });
 $('waitlistFilter').addEventListener('change', () => { void loadWaitlist(); });
 $('waitlist').addEventListener('click', (event) => {
@@ -357,6 +382,7 @@ $('waitlist').addEventListener('click', (event) => {
 void ensureOwnerSession().then(() => {
   void loadStatusChips();
   void loadRevenueGoal();
+  void loadDeployHealth();
   void loadAutomationHealth();
   loadCustomers().catch(error => {
     $('summary').textContent = error.message;

@@ -26,6 +26,7 @@ import {
   maybeSendOperatorRevenueDigest,
   processPendingWaitlistAutoApprovals,
   runOnboardingTopupNudges,
+  maybeEnsureBrevoInboundWebhook,
   recordTenantSchedulerPulse,
   tenantSchedulerPulseStatus,
   waitlistAutoApproveEnabled,
@@ -134,6 +135,7 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       const pulse = tenantSchedulerPulseStatus("cloud-mcp");
       return {
         name: "relay-cloud-mcp",
+        gitSha: process.env.RELAY_GIT_SHA?.trim() || null,
         cloud: {
           tenantSchedulerPulseMs: pulseMs,
           lastTenantPulseAt: pulse?.at ?? null,
@@ -268,6 +270,9 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
         try {
           const relay = await tenants.get(customer);
           await finance.reconcile(customer, relay);
+          await maybeEnsureBrevoInboundWebhook(customer, relay, ledger).catch((error: unknown) => {
+            log(`brevo webhook ensure ${customer.id}: ${errorMessage(error)}`);
+          });
         } catch (error) {
           log(`cloud reconcile error for ${customer.id}: ${error instanceof Error ? error.message : String(error)}`);
         }

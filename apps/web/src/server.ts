@@ -49,6 +49,7 @@ import {
   bootstrapCustomerAfterSetup,
   processPendingWaitlistAutoApprovals,
   runOnboardingTopupNudges,
+  maybeEnsureBrevoInboundWebhook,
   recordTenantSchedulerPulse,
   tenantSchedulerPulseStatus,
 } from "@relay/cloud";
@@ -687,6 +688,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
               };
             })()
           : { enabled: false },
+        gitSha: process.env.RELAY_GIT_SHA?.trim() || null,
         uptimeSeconds: Math.round(process.uptime()),
         timestamp: new Date().toISOString(),
       });
@@ -2033,6 +2035,17 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
             void runOnboardingTopupNudges(cloudAdmin.store, cloudAdmin.ledger, cloudAdmin.email).catch((error: unknown) =>
               logger(`onboarding top-up nudge: ${errorMessage(error)}`),
             );
+            void (async () => {
+              for (const customer of cloudAdmin.store.listCustomers()) {
+                if (customer.owner || customer.status !== "active") continue;
+                try {
+                  const tenantRelay = await tenantManager!.get(customer);
+                  await maybeEnsureBrevoInboundWebhook(customer, tenantRelay, cloudAdmin.ledger, env);
+                } catch (error: unknown) {
+                  logger(`brevo webhook ensure ${customer.id}: ${errorMessage(error)}`);
+                }
+              }
+            })().catch((error: unknown) => logger(`brevo webhook ensure pass: ${errorMessage(error)}`));
             if (tenantManager) {
               void maybeSendOperatorAutomationDigest(
                 cloudAdmin.store,

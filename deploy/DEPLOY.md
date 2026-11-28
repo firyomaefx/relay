@@ -1,10 +1,12 @@
 ﻿# Deploying Relay to a Google Cloud e2-micro
 
+**PR #61 is on `main` (Nov 2026).** Production still serves a pre-sleep-mode console until you run `deploy/deploy.sh` on the VM (see `docs/operations/operator-handoff.md`). If `/api/health` has **no `cloud` field**, the running binary predates #61.
+
 Free tier: e2-micro, 30 GB standard disk, us-central1 / us-west1 / us-east1. Ubuntu 24.04. Node >= 22.18 (24 LTS recommended).
 
 1. `sudo useradd -r -m -d /opt/relay relay`; install Node 24, git, curl, cloudflared.
 2. `sudo -u relay git clone https://origin.cursor.com/git/ttrg/relay.git /opt/relay`  
-   Older VMs may still have `ttrg/duitpoket-relay`; after **PR #61** lands on `ttrg/relay` `main`, either repoint with `git remote set-url origin https://origin.cursor.com/git/ttrg/relay.git` or cherry-pick/merge that `main` into your deploy remote before `deploy.sh`.
+   Older VMs may still have `ttrg/duitpoket-relay` (PR #1 also merged); pull **`main`** from whichever remote the VM uses before `deploy.sh`.
 3. `sudo mkdir -p /etc/relay && sudo cp deploy/.env.example /etc/relay/relay.env && sudo chmod 600 /etc/relay/relay.env`; fill it in.
    Set `RELAY_CONSOLE_URL` and `RELAY_PUBLIC_MEDIA_BASE_URL` to `https://relay.duitpoket.fun` (OAuth callbacks are built from it), `RELAY_HOST=127.0.0.1`, `RELAY_DATA_DIR=/opt/relay/.data`, `RELAY_NO_BROWSER=1`.
 4. Copy `.data/` from the laptop (accounts/tokens/queue live in `.data`); `chown -R relay`.
@@ -15,7 +17,9 @@ Free tier: e2-micro, 30 GB standard disk, us-central1 / us-west1 / us-east1. Ubu
 
 ### Sleep mode verify
 
-After merging the sleep-mode branch, run `node tools/verify-sleep-mode.mjs` on the VM or rely on CI **Production sleep monitor**.
+`DEPLOY_STRICT_SLEEP_VERIFY=1` fails the deploy on **localhost** checks (`verify-sleep-mode-local`) and the on-VM **cloudflared** config probe. Public URL verify runs as a **warning** unless `DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY=1` (use after tunnel points `cloud-mcp` at **4321**). CI **Deploy production** runs public verify in a separate step.
+
+After #61, run `node tools/verify-sleep-mode.mjs` on the VM or rely on CI **Production sleep monitor**.
 
 | Symptom | Fix |
 |---------|-----|

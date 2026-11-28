@@ -37,6 +37,28 @@ git fetch origin "$BRANCH"
 git reset --hard "origin/$BRANCH"
 NEW=$(git rev-parse HEAD)
 echo "deploy $PREV -> $NEW"
+stamp_git_sha() {
+  local sha="$1"
+  local envf="${RELAY_ENV_FILE:-/etc/relay/relay.env}"
+  [[ -f "$envf" ]] || return 0
+  run_stamp() {
+    if grep -q '^RELAY_GIT_SHA=' "$envf" 2>/dev/null; then
+      sed -i "s/^RELAY_GIT_SHA=.*/RELAY_GIT_SHA=$sha/" "$envf"
+    else
+      printf '\nRELAY_GIT_SHA=%s\n' "$sha" >>"$envf"
+    fi
+  }
+  if [[ -w "$envf" ]]; then
+    run_stamp
+  elif command -v sudo >/dev/null; then
+    if sudo grep -q '^RELAY_GIT_SHA=' "$envf" 2>/dev/null; then
+      sudo sed -i "s/^RELAY_GIT_SHA=.*/RELAY_GIT_SHA=$sha/" "$envf"
+    else
+      echo "RELAY_GIT_SHA=$sha" | sudo tee -a "$envf" >/dev/null
+    fi
+  fi
+}
+stamp_git_sha "$NEW"
 if build_and_restart && healthy; then
   if command -v node >/dev/null 2>&1 && [[ -f tools/verify-sleep-mode-local.mjs ]]; then
     if node tools/verify-sleep-mode-local.mjs; then
@@ -53,15 +75,16 @@ if build_and_restart && healthy; then
     }
   fi
   if command -v node >/dev/null 2>&1 && [[ -f tools/verify-sleep-mode.mjs ]]; then
-  VERIFY_URL="${RELAY_PUBLIC_URL:-https://relay.duitpoket.fun}"
-  if RELAY_PUBLIC_URL="$VERIFY_URL" node tools/verify-sleep-mode.mjs; then
-    echo "sleep-mode verify OK"
-  else
-    echo "WARN sleep-mode verify failed — confirm RELAY_CLOUD_TENANT_SCHEDULER_MS and merge" >&2
-    if [[ "${DEPLOY_STRICT_SLEEP_VERIFY:-0}" == "1" ]]; then
-      exit 1
+    STRICT_PUBLIC="${DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY:-0}"
+    VERIFY_URL="${RELAY_PUBLIC_URL:-https://relay.duitpoket.fun}"
+    if RELAY_PUBLIC_URL="$VERIFY_URL" node tools/verify-sleep-mode.mjs; then
+      echo "sleep-mode public verify OK"
+    else
+      echo "WARN sleep-mode public verify failed — tunnel or DNS (cloud-mcp → 4321)" >&2
+      if [[ "$STRICT_PUBLIC" == "1" ]]; then
+        exit 1
+      fi
     fi
-  fi
   fi
   echo "OK $NEW healthy"; exit 0
 fi

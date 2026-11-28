@@ -13,6 +13,8 @@ Manus is **not** integrated into the Relay repository. Use it as an external dai
 
 **Conclusion:** Keep Manus in the loop for **content research and drafts**; do not budget credits for infra or publishing automation Relay already implements on PR #61.
 
+**Operator note (Nov 2026):** Manus connected on the operator PC is sufficient — run prompts from [manus-daily-prompts.md](./manus-daily-prompts.md) and paste results into Relay. No API key or repo change is required.
+
 ## Split of work
 
 | Manus (≈300 credits/day) | Relay Cloud (24/7 on server) |

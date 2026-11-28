@@ -131,6 +131,7 @@ export function libraryEntryToDraft(entry: EmailLibraryEntry, scheduleAt?: strin
   };
   return {
     platforms: ["brevo"],
+    text: entry.subject.trim() || "Email",
     scheduleAt: scheduleAt ?? entry.scheduleAt,
     options: { brevo },
   };

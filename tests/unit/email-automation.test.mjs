@@ -12,6 +12,27 @@ test("emailAutomationEnvEnabled defaults on", () => {
   assert.equal(emailAutomationEnvEnabled({ RELAY_EMAIL_AUTOMATION_ENABLED: "false" }), false);
 });
 
+test("registerBrevoInboundWebhook is idempotent when webhook ids exist", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "relay-brevo-reg-"));
+  const store = await JsonStore.open(path.join(dir, "db.json"));
+  await store.mutate((db) => {
+    db.emailProgram = { ...emptyEmailProgramState(), brevoWebhookIds: [42] };
+  });
+  const engine = new EmailAutomationEngine({
+    store,
+    now: () => new Date().toISOString(),
+    logger: () => undefined,
+    env: {},
+    brevoApiKey: () => "key",
+    publicBaseUrl: () => "https://relay.example",
+    sendPost: async () => ({ ok: true }),
+  });
+  const result = await engine.registerBrevoInboundWebhook();
+  assert.equal(result.ok, true);
+  assert.match(result.detail, /already registered/i);
+  await rm(dir, { recursive: true, force: true });
+});
+
 test("promo save updates queued brevo jobs", async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "relay-email-"));
   const file = path.join(dir, "db.json");

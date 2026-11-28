@@ -12,7 +12,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { loadCloudConfig, CloudStore, TenantManager, CloudLedger, PriceTable, defaultPricePath, RateLimiter, loadRateConfig, runLowBalanceChecksForActiveCustomers, maybeSendOperatorAutomationDigest, maybeSendOperatorRevenueDigest, processPendingWaitlistAutoApprovals, runOnboardingTopupNudges, recordTenantSchedulerPulse, tenantSchedulerPulseStatus, waitlistAutoApproveEnabled, } from "@relay/cloud";
+import { loadCloudConfig, CloudStore, TenantManager, CloudLedger, PriceTable, defaultPricePath, RateLimiter, loadRateConfig, runLowBalanceChecksForActiveCustomers, maybeSendOperatorAutomationDigest, maybeSendOperatorRevenueDigest, processPendingWaitlistAutoApprovals, runOnboardingTopupNudges, maybeEnsureBrevoInboundWebhook, recordTenantSchedulerPulse, tenantSchedulerPulseStatus, waitlistAutoApproveEnabled, } from "@relay/cloud";
 import { loadEmailConfig } from "@relay/cloud";
 import { authenticateApiKey } from "@relay/cloud";
 import { registerTools } from "./tools.js";
@@ -119,6 +119,7 @@ export async function startCloudMcp() {
             const pulse = tenantSchedulerPulseStatus("cloud-mcp");
             return {
                 name: "relay-cloud-mcp",
+                gitSha: process.env.RELAY_GIT_SHA?.trim() || null,
                 cloud: {
                     tenantSchedulerPulseMs: pulseMs,
                     lastTenantPulseAt: pulse?.at ?? null,
@@ -240,6 +241,9 @@ export async function startCloudMcp() {
                 try {
                     const relay = await tenants.get(customer);
                     await finance.reconcile(customer, relay);
+                    await maybeEnsureBrevoInboundWebhook(customer, relay, ledger).catch((error) => {
+                        log(`brevo webhook ensure ${customer.id}: ${errorMessage(error)}`);
+                    });
                 }
                 catch (error) {
                     log(`cloud reconcile error for ${customer.id}: ${error instanceof Error ? error.message : String(error)}`);

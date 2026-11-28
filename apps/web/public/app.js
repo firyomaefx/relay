@@ -2247,6 +2247,18 @@
     els.dashStreak.textContent = `${streak} day${streak === 1 ? "" : "s"}`;
     els.dashTop.textContent = topPlatform ? PLATFORM_META[topPlatform]?.name ?? topPlatform : "—";
     els.dashAccounts.textContent = String(state.accounts.length);
+    const brevoConnected = state.accounts.some((entry) => entry.platform === "brevo");
+    if (els.dashEmailWrap) els.dashEmailWrap.hidden = !brevoConnected;
+    if (els.dashEmailProgram && brevoConnected) {
+      const health = state.emailProgram?.health;
+      els.dashEmailProgram.textContent = health
+        ? [
+            health.automationEnabled ? "Automation on" : "Automation off",
+            health.activePromo ? "promo ready" : "no promo",
+            health.webhookRegistered ? "inbound ok" : "webhook pending",
+          ].join(" · ")
+        : "Loading…";
+    }
     const hasAccounts = state.accounts.length > 0;
     if (els.homeNextTitle) els.homeNextTitle.textContent = hasAccounts ? "Your posting queue" : "Connect your first account";
     if (els.homeNextCopy) {
@@ -3154,9 +3166,23 @@
     renderActiveScreen();
   }
 
+  async function refreshEmailHomeHint() {
+    const brevoConnected = state.accounts.some((entry) => entry.platform === "brevo");
+    if (!brevoConnected) {
+      state.emailProgram = null;
+      return;
+    }
+    try {
+      state.emailProgram = await api("/api/email/program");
+    } catch {
+      state.emailProgram = null;
+    }
+  }
+
   async function refreshAll() {
     try {
       await loadState();
+      await refreshEmailHomeHint();
       if (state.session?.role) applyRole(state.session.role);
       renderChrome();
       renderActiveScreen();
@@ -3373,6 +3399,8 @@
       dashStreak: $("#dashStreak"),
       dashTop: $("#dashTop"),
       dashAccounts: $("#dashAccounts"),
+      dashEmailWrap: $("#dashEmailWrap"),
+      dashEmailProgram: $("#dashEmailProgram"),
       dashHeatmap: $("#dashHeatmap"),
       dashBreakdownTotal: $("#dashBreakdownTotal"),
       dashBreakdownBar: $("#dashBreakdownBar"),

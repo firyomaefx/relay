@@ -12,7 +12,7 @@ jobs:
     runs-on: [self-hosted, relay-prod]
     steps:
       - name: Pull, build, restart
-        run: sudo DEPLOY_STRICT_SLEEP_VERIFY=1 -u relay bash /opt/relay/deploy/deploy.sh
+        run: sudo DEPLOY_STRICT_SLEEP_VERIFY=1 DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY=0 -u relay bash /opt/relay/deploy/deploy.sh
       - name: Sleep mode verify (localhost then public)
         working-directory: /opt/relay
         env:

@@ -266,7 +266,11 @@ export async function validateDraft(
           message: `Part ${index + 1} is ${length} characters; ${limits.displayName} allows ${limits.maxTextLength}`,
         });
       }
-      if (!part.text && part.media.length === 0) {
+      const brevoOpts = platform === "brevo" ? platformOptions : undefined;
+      const brevoHasBody = Boolean(
+        brevoOpts?.brevoHtml?.trim() || brevoOpts?.brevoHtmlUrl?.trim() || brevoOpts?.brevoTemplateId,
+      );
+      if (!part.text && part.media.length === 0 && !(platform === "brevo" && brevoHasBody)) {
         addIssue({ platform, part: index, code: "part_empty", message: `Part ${index + 1} is empty` });
       }
       const blocked = findBlockedLink(part.text, options.linkGuard, platform, options.now?.() ?? Date.now());

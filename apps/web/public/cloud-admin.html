@@ -87,6 +87,13 @@
     </ol>
   </p>
 
+  <section class="card" id="deployHealthCard">
+    <h2 style="margin-bottom:6px">Platform deploy (sleep mode)</h2>
+    <p class="muted" style="margin:0 0 10px">Local 127.0.0.1 checks — same signals as <code>verify-sleep-mode-local</code>. Fix before customers rely on schedulers.</p>
+    <button type="button" id="refreshDeployHealth" class="secondary" style="margin:0 0 12px">Refresh</button>
+    <div id="deployHealth" class="muted">Loading…</div>
+  </section>
+
   <section class="card">
     <h2 style="margin-bottom:6px">Automation health</h2>
     <p class="muted" style="margin:0 0 10px">Per-customer schedulers, Brevo inbound, and queue — refresh after deploy.</p>

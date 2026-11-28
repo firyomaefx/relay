@@ -89,6 +89,8 @@ export class EmailAutomationEngine {
   }
 
   async registerBrevoInboundWebhook(): Promise<{ ok: boolean; detail: string }> {
+    const priorIds = this.options.store.read((db) => db.emailProgram.brevoWebhookIds?.length ?? 0);
+    if (priorIds > 0) return { ok: true, detail: "Inbound webhook already registered" };
     const key = this.options.brevoApiKey?.()?.trim();
     if (!key) return { ok: false, detail: "Brevo API key missing" };
     const secret = await this.ensureWebhookSecret();
@@ -273,6 +275,7 @@ export class EmailAutomationEngine {
     }
     const draft: PostDraft = {
       platforms: ["brevo"],
+      text: promo.subject.trim() || "Promo",
       options: {
         brevo: {
           brevoMode: "transactional",

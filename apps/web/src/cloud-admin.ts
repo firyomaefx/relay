@@ -1,6 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { RelayError, errorMessage } from "@relay/core";
-import { CloudLedger, CloudStore, PriceTable, defaultPricePath, effectiveFreeLimit, loadCloudConfig, summarizeAutomationHealth, type TenantManager } from "@relay/cloud";
+import {
+  CloudLedger,
+  CloudStore,
+  PriceTable,
+  defaultPricePath,
+  effectiveFreeLimit,
+  loadCloudConfig,
+  probePlatformDeployHealth,
+  summarizeAutomationHealth,
+  type TenantManager,
+} from "@relay/cloud";
 import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
 import { createPolarCheckout, loadPolarConfig, type PolarConfig } from "./polar.js";
 import {
@@ -133,6 +143,12 @@ export async function handleCloudAdmin(
   const method = (req.method ?? "GET").toUpperCase();
   const resource = segments[3] ?? "";
   try {
+    if (method === "GET" && resource === "deploy-health") {
+      const probe = await probePlatformDeployHealth(process.env);
+      send(res, 200, probe);
+      return;
+    }
+
     if (method === "GET" && resource === "automation-health") {
       if (!deps.tenants) {
         send(res, 503, { error: "Tenant manager is not available." });

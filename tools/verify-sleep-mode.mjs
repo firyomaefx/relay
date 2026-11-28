@@ -63,11 +63,13 @@ try {
     }
   } else {
     const enabledOff = health.json.cloud?.enabled === false;
+    const sha = health.json.gitSha;
+    const shaHint = typeof sha === "string" && sha ? ` (deployed gitSha ${sha.slice(0, 7)})` : " (no gitSha — console predates deploy stamp)";
     fail(
       "sleep mode build",
       enabledOff
-        ? "cloud.enabled is false — set RELAY_CLOUD_ENABLED=1 and redeploy console"
-        : "health JSON has no cloud block — merge sleep-mode branch and redeploy console",
+        ? `cloud.enabled is false — set RELAY_CLOUD_ENABLED=1 and redeploy console${shaHint}`
+        : `health JSON has no cloud block — pull main + deploy on VM (console predates PR #61 sleep mode)${shaHint}`,
     );
   }
 

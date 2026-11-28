@@ -79,6 +79,11 @@ test("manual cloud top-up records one payment and is idempotent", async () => {
     assert.equal(automation.status, 200, requestSummary(automation));
     assert.ok(Array.isArray(automation.json.customers));
 
+    const deploy = await httpJson(server.baseUrl, "/api/cloud/admin/deploy-health");
+    assert.equal(deploy.status, 200, requestSummary(deploy));
+    assert.equal(typeof deploy.json.ok, "boolean");
+    assert.ok(Array.isArray(deploy.json.issues));
+
     const page = await fetch(`${server.baseUrl}/cloud-admin.html`);
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Relay admin/);

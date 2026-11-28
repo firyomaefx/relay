@@ -1014,6 +1014,54 @@ export function registerTools(server, context) {
         }
         return errorResult("Pass job_id, campaign_id, or batch_id / message_id.", "");
     }, HINTS.cancel));
+    server.registerTool("relay_email_program", {
+        title: "Email program status",
+        description: "Read-only: active promo, automation health, stored library count, and inbound webhook URL (when RELAY_PUBLIC_URL is set).",
+        inputSchema: z.object({}),
+        annotations: { readOnlyHint: true },
+    }, async () => safely(async () => {
+        const view = await relay.getEmailProgram();
+        const lines = [
+            "Email program:",
+            `- Library entries: ${view.libraryCount}`,
+            `- Automation: ${view.health.automationEnabled ? "on" : "off"}`,
+            `- Active promo: ${view.activePromo?.subject ?? "(none)"}`,
+            `- Inbound webhook: ${view.health.webhookRegistered ? "registered" : "pending"}`,
+            view.webhookUrl ? `- Webhook URL: ${view.webhookUrl}` : "",
+        ].filter(Boolean);
+        return textResult(lines.join("\n"), view);
+    }, HINTS.history));
+    server.registerTool("relay_email_library_list", {
+        title: "List stored emails",
+        description: "Read-only: list emails in the tenant library (promo, broadcast, transactional, followup) with ids for relay_email_schedule.",
+        inputSchema: z.object({}),
+        annotations: { readOnlyHint: true },
+    }, async () => safely(async () => {
+        const library = await relay.listEmailLibrary();
+        const lines = [
+            "Email library:",
+            ...library.map((entry) => `- ${entry.id}: [${entry.kind}] ${entry.subject} (${entry.brevoMode})`),
+        ];
+        if (!library.length)
+            lines.push("(empty)");
+        return textResult(lines.join("\n"), { library });
+    }, HINTS.history));
+    server.registerTool("relay_email_schedule", {
+        title: "Schedule email from library",
+        description: "Schedule a stored library email via Brevo (transactional or campaign) using the existing relay_post queue. Requires schedule_at (ISO 8601).",
+        inputSchema: z.object({
+            library_id: z.string().min(1).describe("Library entry id from relay_email_library_list."),
+            schedule_at: z.string().min(1).describe("Future ISO 8601 datetime for the send."),
+        }),
+    }, async (args) => safely(async () => {
+        const result = await relay.scheduleEmailFromLibrary(args.library_id, args.schedule_at);
+        const lines = [
+            result.scheduled ? "Email scheduled." : "Email queued for immediate send.",
+            result.jobId ? `Job: ${result.jobId}` : "",
+            ...(result.results ?? []).map((row) => `${row.platform}: ${row.ok ? "ok" : row.error ?? "failed"}`),
+        ].filter(Boolean);
+        return textResult(lines.join("\n"), result);
+    }, HINTS.queue));
 }
 function buildClientConfig(entryPath, dataDir, consoleUrl, mock) {
     const args = [entryPath, "--data-dir", dataDir, "--console-url", consoleUrl];

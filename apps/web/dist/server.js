@@ -18,7 +18,7 @@ import { createConnectSession, lookupConnectSession, verifyConnectSession } from
 import { r2MediaConfig, uploadR2Media } from "./r2.js";
 import { createCheckoutSession, loadStripeConfig, stripeReady, topupPlan, TOPUP_PLANS, verifyStripeSignature } from "./billing.js";
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook } from "./polar.js";
-import { sendEmail, waitlistConfirmationEmail, maybeSendTopupReceiptEmail, runLowBalanceChecksForActiveCustomers, approveWaitlistAndInvite, waitlistAutoApproveEnabled, maybeSendOperatorAutomationDigest, maybeSendOperatorRevenueDigest, maybeAutoEnableThreadsAutoReply, afterCustomerTopupCredit, bootstrapCustomerAfterSetup, processPendingWaitlistAutoApprovals, runOnboardingTopupNudges, recordTenantSchedulerPulse, tenantSchedulerPulseStatus, } from "@relay/cloud";
+import { sendEmail, waitlistConfirmationEmail, maybeSendTopupReceiptEmail, runLowBalanceChecksForActiveCustomers, approveWaitlistAndInvite, waitlistAutoApproveEnabled, maybeSendOperatorAutomationDigest, maybeSendOperatorRevenueDigest, maybeAutoEnableThreadsAutoReply, afterCustomerTopupCredit, bootstrapCustomerAfterSetup, processPendingWaitlistAutoApprovals, runOnboardingTopupNudges, maybeEnsureBrevoInboundWebhook, recordTenantSchedulerPulse, tenantSchedulerPulseStatus, } from "@relay/cloud";
 import { SessionManager } from "./auth.js";
 import { CustomerAuth, LoginThrottle, hashCustomerPassword, hashInviteToken, verifyCustomerPassword, } from "./customer-auth.js";
 import { readConfig } from "./config.js";
@@ -582,6 +582,7 @@ async function handleRequest(req, res, deps) {
                         };
                     })()
                     : { enabled: false },
+                gitSha: process.env.RELAY_GIT_SHA?.trim() || null,
                 uptimeSeconds: Math.round(process.uptime()),
                 timestamp: new Date().toISOString(),
             });
@@ -1835,6 +1836,19 @@ export async function startServer(options = {}) {
                         const freeAllowance = pricing?.free_allowance_milli_usd ?? 0;
                         void runLowBalanceChecksForActiveCustomers(cloudAdmin.store, cloudAdmin.ledger, cloudAdmin.email, freeAllowance).catch((error) => logger(`low balance email pass: ${errorMessage(error)}`));
                         void runOnboardingTopupNudges(cloudAdmin.store, cloudAdmin.ledger, cloudAdmin.email).catch((error) => logger(`onboarding top-up nudge: ${errorMessage(error)}`));
+                        void (async () => {
+                            for (const customer of cloudAdmin.store.listCustomers()) {
+                                if (customer.owner || customer.status !== "active")
+                                    continue;
+                                try {
+                                    const tenantRelay = await tenantManager.get(customer);
+                                    await maybeEnsureBrevoInboundWebhook(customer, tenantRelay, cloudAdmin.ledger, env);
+                                }
+                                catch (error) {
+                                    logger(`brevo webhook ensure ${customer.id}: ${errorMessage(error)}`);
+                                }
+                            }
+                        })().catch((error) => logger(`brevo webhook ensure pass: ${errorMessage(error)}`));
                         if (tenantManager) {
                             void maybeSendOperatorAutomationDigest(cloudAdmin.store, cloudAdmin.ledger, tenantManager, cloudAdmin.email, env, "console").catch((error) => logger(`operator automation digest: ${errorMessage(error)}`));
                             void maybeSendOperatorRevenueDigest(cloudAdmin.store, cloudAdmin.ledger, tenantManager, cloudAdmin.email, cloudAdmin.pricing ?? null, env, "console").catch((error) => logger(`operator revenue digest: ${errorMessage(error)}`));
