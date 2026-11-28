@@ -1,21 +1,24 @@
 # Runs on the relay-prod VM after you register a GitHub Actions self-hosted runner
 # with labels: self-hosted, relay-prod (see deploy/DEPLOY.md).
+# Note: pushes on Origin (ttrg/relay) do not trigger GitHub Actions unless this repo
+# is mirrored on GitHub or you use workflow_dispatch from a GitHub remote.
 name: Deploy production
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      strict_public:
+        description: Require public sleep-mode URLs (cloud-mcp on 4321)
+        type: boolean
+        default: true
 
 jobs:
   deploy:
     runs-on: [self-hosted, relay-prod]
     steps:
-      - name: Pull, build, restart
-        run: sudo DEPLOY_STRICT_SLEEP_VERIFY=1 DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY=0 -u relay bash /opt/relay/deploy/deploy.sh
-      - name: Go-live verify (local 4317/4321 then public)
-        working-directory: /opt/relay
+      - name: System ready (pull, tunnel gate, deploy, go-live, verify)
         env:
-          RELAY_PUBLIC_URL: https://relay.duitpoket.fun
-          RELAY_CLOUD_MCP_URL: https://cloud-mcp.duitpoket.fun
-        run: npm run go-live:cloud
+          DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY: ${{ github.event_name == 'workflow_dispatch' && (inputs.strict_public && '1' || '0') || '1' }}
+        run: sudo bash /opt/relay/deploy/vm-system-ready.sh

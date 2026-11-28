@@ -46,6 +46,7 @@ cd /opt/relay && npm run verify:system-ready   # from laptop OK too, after tunne
 
 | Item | Purpose |
 |------|---------|
+| Self-hosted GitHub runner (`relay-prod`) | `deploy-production.yml` runs `vm-system-ready.sh` on `main` push (GitHub remote only) |
 | `RELAY_OPERATOR_ALERT_EMAIL` + Brevo/Resend | Email when automation or public sleep verify fails |
 | GitHub **Production sleep monitor** workflow | Daily public verify; no manual Actions checking |
 | `RELAY_WAITLIST_AUTO_APPROVE=1` | Waitlist → invite without admin clicks |

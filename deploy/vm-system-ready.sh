@@ -4,10 +4,10 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/relay}"
 cd "$APP_DIR"
 
-echo "== git pull main =="
-git fetch origin main
-git checkout main
-git pull origin main
+echo "== git pull main (relay user) =="
+sudo -u relay git -C "$APP_DIR" fetch origin main
+sudo -u relay git -C "$APP_DIR" checkout main
+sudo -u relay git -C "$APP_DIR" pull origin main
 
 echo "== cloudflared ingress (read-only check) =="
 node tools/check-cloudflared-sleep-mode.mjs || {
@@ -28,7 +28,7 @@ sudo DEPLOY_STRICT_SLEEP_VERIFY=1 DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY="${DEPLOY_ST
   -u relay bash deploy/deploy.sh
 
 echo "== go-live gate =="
-npm run go-live:cloud
+sudo -u relay bash -c "cd \"$APP_DIR\" && npm run go-live:cloud"
 
 echo "== system-ready (from VM; also run from laptop after public URLs green) =="
-npm run verify:system-ready
+sudo -u relay bash -c "cd \"$APP_DIR\" && npm run verify:system-ready"

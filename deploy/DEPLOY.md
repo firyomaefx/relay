@@ -36,6 +36,13 @@ gcloud compute ssh relay-prod --zone=asia-southeast1-b \
 
 ### Auto-deploy on push (optional)
 
-Register a GitHub Actions self-hosted runner on the VM with labels `self-hosted` and `relay-prod`. Pushes to `main` on **`ttrg/relay`** (Origin) then run `.github/workflows/deploy-production.yml`.
+One-time on the VM: fix `cloudflared` ingress (**4321**) and enable `relay-cloud-mcp` (see [operator-handoff.md](../docs/operations/operator-handoff.md)).
+
+Register a **GitHub Actions** self-hosted runner on `relay-prod` with labels `self-hosted` and `relay-prod`. Then either:
+
+- Mirror `main` to GitHub and let **push** run [deploy-production.yml](../.github/workflows/deploy-production.yml), or
+- Run **workflow_dispatch** from GitHub after each Origin merge to `main`.
+
+The workflow calls `sudo bash /opt/relay/deploy/vm-system-ready.sh` (same gate as manual ops). Origin-only remotes need a manual first run or `gcloud compute ssh … vm-system-ready.sh`.
 
 MCP: `https://mcp.duitpoket.fun/mcp`, header `Authorization: Bearer $RELAY_MCP_HTTP_TOKEN` (falls back to `.data/mcp-http-token`).
