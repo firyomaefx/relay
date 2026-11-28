@@ -19,7 +19,11 @@ async function loadDeployHealth() {
     return;
   }
   const tone = data.ok ? 'ok' : 'error';
+  const pauseNote = data.vmRepairPaused
+    ? '<div class="muted" style="margin-bottom:8px;font-size:13px">VM repair <strong>paused</strong> — no blind deploy until you clear RELAY_VM_REPAIR_PAUSED or use VM_REPAIR_RUN=1.</div>'
+    : '';
   const lines = [
+    pauseNote,
     `<div class="${tone}" style="margin-bottom:8px;font-weight:600">${data.ok ? 'Sleep mode stack looks healthy on this host' : `${data.issues?.length ?? 0} issue(s) — see deploy/operator-handoff.md`}</div>`,
     `<ul style="margin:0;padding-left:1.2rem;font-size:13px">`,
     `<li>Console: ${data.console?.reachable ? 'up' : 'down'} · gitSha ${esc(data.console?.gitSha?.slice(0, 7) || '—')} · pulse ${data.console?.tenantSchedulerPulseMs ?? '—'} ms</li>`,

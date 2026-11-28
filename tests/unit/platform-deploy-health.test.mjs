@@ -40,10 +40,12 @@ test("probePlatformDeployHealth passes when console and cloud MCP expose sleep m
     const out = await probePlatformDeployHealth({
       RELAY_CONSOLE_HEALTH_URL: `http://127.0.0.1:${consolePort}/api/health`,
       RELAY_CLOUD_MCP_HEALTH_URL: `http://127.0.0.1:${cloudPort}/health`,
+      RELAY_VM_REPAIR_PAUSED: "0",
     });
     assert.equal(out.ok, true, out.issues.join("; "));
     assert.equal(out.console.gitSha, "abc123def456");
     assert.equal(out.cloudMcp.name, "relay-cloud-mcp");
+    assert.equal(out.vmRepairPaused, false);
   } finally {
     consoleServer.close();
     cloudServer.close();

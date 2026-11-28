@@ -6,9 +6,18 @@
 
 import { evaluateCloudMcpHealth, evaluateConsoleSleepMode } from "./sleep-mode-eval.js";
 
+function readVmRepairPaused(env: NodeJS.ProcessEnv): boolean {
+  const raw = env.RELAY_VM_REPAIR_PAUSED;
+  if (raw === undefined || raw === "") return true;
+  const norm = raw.trim().toLowerCase();
+  if (norm === "0" || norm === "false" || norm === "no" || norm === "off") return false;
+  return true;
+}
+
 export interface PlatformDeployHealth {
   ok: boolean;
   issues: string[];
+  vmRepairPaused: boolean;
   console: {
     url: string;
     reachable: boolean;
@@ -85,9 +94,17 @@ export async function probePlatformDeployHealth(env: NodeJS.ProcessEnv = process
     }
   }
 
+  const vmRepairPaused = readVmRepairPaused(env);
+  if (vmRepairPaused && issues.length > 0) {
+    issues.push(
+      "VM repair is PAUSED (RELAY_VM_REPAIR_PAUSED=1). Finish operator-handoff steps 0–4, then set 0 or run once with VM_REPAIR_RUN=1 — docs/operations/vm-repair-pause.md",
+    );
+  }
+
   return {
     ok: issues.length === 0,
     issues,
+    vmRepairPaused,
     console: {
       url: consoleUrl,
       reachable: consoleJson != null,
