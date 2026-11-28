@@ -8,7 +8,7 @@ Manus is **not** integrated into the Relay repository. Use it as an external dai
 |----------|--------|
 | Can Manus run sleep mode, webhooks, or billing? | **No** — needs Relay on the VM. |
 | Best use of credits? | **Yes** — caption batches, promo email HTML, Threads reply tone, landing copy tests (see [manus-daily-prompts.md](./manus-daily-prompts.md)). |
-| Replaces operator deploy? | **No** — merge, tunnel `cloud-mcp` → 4321, `go-live:cloud` stay manual until green. |
+| Replaces operator deploy? | **No** — VM repair is **paused** until deliberate `vm-system-ready` ([vm-repair-pause.md](./vm-repair-pause.md)); Manus must not trigger infra. |
 | Required for system ready? | **No** — copy for email library only. |
 
 **Conclusion:** Keep Manus in the loop for **content research and drafts**; do not budget credits for infra or publishing automation Relay already implements on PR #61.

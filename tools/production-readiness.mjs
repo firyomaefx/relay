@@ -78,6 +78,9 @@ try {
 }
 failed += sleepFailed;
 
-if (failed > 0) console.log("HINT on the VM run: npm run go-live:cloud (tunnel + sleep-mode)");
+if (failed > 0) {
+  const { sleepModeRepairHintText } = await import("./verify-sleep-mode-lib.mjs");
+  console.log(sleepModeRepairHintText());
+}
 console.log(failed === 0 ? "READINESS PASS" : `READINESS FAIL (${failed})`);
 process.exit(failed === 0 ? 0 : 1);

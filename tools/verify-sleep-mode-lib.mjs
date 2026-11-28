@@ -18,6 +18,20 @@ function escapeHtml(value) {
   }[char] ?? char));
 }
 
+/** Printed when public sleep-mode verify fails — deliberate repair, not blind deploy. */
+export function sleepModeRepairHintLines() {
+  return [
+    "Next: docs/operations/operator-handoff.md steps 0–4 (relay-cloud-mcp :4321, cloudflared, relay.env)",
+    "Repair is paused by default: docs/operations/vm-repair-pause.md",
+    "When ready: VM_REPAIR_RUN=1 sudo bash deploy/vm-system-ready.sh (or clear RELAY_VM_REPAIR_PAUSED=0)",
+    "Then: npm run verify:system-ready",
+  ];
+}
+
+export function sleepModeRepairHintText() {
+  return sleepModeRepairHintLines().join("\n      ");
+}
+
 /** Operator alert when scheduled public verify fails (GitHub sleep monitor). */
 export function formatSleepDriftOperatorAlert(verifyOutput) {
   const body = verifyOutput.trim();
@@ -27,11 +41,10 @@ export function formatSleepDriftOperatorAlert(verifyOutput) {
     "",
     body,
     "",
-    "VM checklist: docs/operations/operator-handoff.md",
-    "Quick: npm run verify-sleep-mode-local on the VM, then go-live:cloud.",
+    ...sleepModeRepairHintLines(),
   ].join("\n");
   const html = `<p>Public sleep-mode verification failed.</p>
 <pre style="white-space:pre-wrap;font-size:13px;background:#f5f4ef;padding:12px;border-radius:8px">${escapeHtml(body)}</pre>
-<p>See <code>docs/operations/operator-handoff.md</code> on the deploy branch.</p>`;
+<p>See <code>docs/operations/vm-repair-pause.md</code> and <code>docs/operations/operator-handoff.md</code>.</p>`;
   return { subject, text, html };
 }

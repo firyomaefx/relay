@@ -5,6 +5,7 @@ import {
   evaluateCloudMcpHealth,
   evaluateConsoleSleepMode,
   formatSleepDriftOperatorAlert,
+  sleepModeRepairHintLines,
 } from "../../tools/verify-sleep-mode-lib.mjs";
 
 test("evaluateCloudMcpHealth accepts relay-cloud-mcp", () => {
@@ -31,6 +32,12 @@ test("formatSleepDriftOperatorAlert embeds verify output", () => {
   assert.match(msg.text, /FAIL cloud MCP/);
   assert.match(msg.html, /wrong port/);
   assert.doesNotMatch(msg.html, /<script/);
+});
+
+test("sleepModeRepairHintLines references deliberate VM repair pause", () => {
+  const lines = sleepModeRepairHintLines().join("\n");
+  assert.match(lines, /vm-repair-pause/);
+  assert.match(lines, /VM_REPAIR_RUN/);
 });
 
 test("evaluateConsoleSleepMode hints RELAY_CLOUD_ENABLED when disabled", () => {

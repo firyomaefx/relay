@@ -2,7 +2,11 @@
 /**
  * Post-deploy checks for Relay Cloud sleep mode (see docs/operations/sleep-mode-deploy.md).
  */
-import { consoleSleepModeMissing, evaluateCloudMcpHealth } from "./verify-sleep-mode-lib.mjs";
+import {
+  consoleSleepModeMissing,
+  evaluateCloudMcpHealth,
+  sleepModeRepairHintText,
+} from "./verify-sleep-mode-lib.mjs";
 
 const BASE = (process.env.RELAY_PUBLIC_URL ?? "https://relay.duitpoket.fun").replace(/\/+$/, "");
 const CLOUD_MCP = (process.env.RELAY_CLOUD_MCP_URL ?? "https://cloud-mcp.duitpoket.fun").replace(/\/+$/, "");
@@ -101,7 +105,6 @@ if (failed === 0) {
   console.log("SLEEP-MODE VERIFY PASS");
 } else {
   console.log(`SLEEP-MODE VERIFY FAIL (${failed})`);
-  console.log("Next: on the VM — docs/operations/operator-handoff.md (relay-cloud-mcp :4321, cloudflared, deploy.sh)");
-  console.log("      then npm run go-live:cloud and npm run verify:system-ready");
+  console.log(sleepModeRepairHintText());
 }
 process.exit(failed === 0 ? 0 : 1);
