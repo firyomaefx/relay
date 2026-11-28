@@ -1,58 +1,35 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RelayService } from "@relay/core";
-import type { CloudLedger, Customer } from "@relay/cloud";
+import {
+  assessThreadsAutoReply,
+  AUTOREPLY_MIN_TOPUP_MILLI_USD,
+  maybeAutoEnableThreadsAutoReply,
+  type Customer,
+  type CloudLedger,
+} from "@relay/cloud";
 
-/** Minimum single paid top-up before Cloud auto-reply can be enabled. */
-export const AUTOREPLY_MIN_TOPUP_MILLI_USD = 9900;
+export { AUTOREPLY_MIN_TOPUP_MILLI_USD };
 
-interface AutoReplyStatus {
-  eligible: boolean;
-  active: boolean;
-  minimumTopupMilliUsd: number;
-  paidTopupMilliUsd: number;
-  keyConfigured: boolean;
-  threadsConnected: boolean;
-  threadsReady: boolean;
-  missingScopes: string[];
-  enabled: boolean;
-  reason: string | null;
-}
-
-async function status(customer: Customer, relay: RelayService, ledger: CloudLedger): Promise<AutoReplyStatus> {
-  const paidTopupMilliUsd = ledger.largestTopup(customer.id);
-  const keyConfigured = Boolean(relay.getDeepSeekApiKey());
-  const enabled = relay.isThreadsAutoReplyEnabled();
-  const reports = await relay.commentsStatus();
-  const threads = reports.find((entry) => entry.platform === "threads");
-  const threadsConnected = Boolean(threads?.connected);
-  const threadsReady = Boolean(threads?.ready);
-  const missingScopes = threads?.missing_scopes ?? [];
-  const eligible = paidTopupMilliUsd >= AUTOREPLY_MIN_TOPUP_MILLI_USD && keyConfigured && threadsReady;
-  let reason: string | null = null;
-  if (paidTopupMilliUsd < AUTOREPLY_MIN_TOPUP_MILLI_USD) {
-    reason = `Make a single top-up of at least $${(AUTOREPLY_MIN_TOPUP_MILLI_USD / 1000).toFixed(2)} before enabling auto-reply. Largest paid top-up: $${(paidTopupMilliUsd / 1000).toFixed(2)}.`;
-  } else if (!keyConfigured) {
-    reason = "Add your DeepSeek API key before enabling auto-reply.";
-  } else if (!threadsConnected) {
-    reason = "Connect a Threads account before enabling auto-reply.";
-  } else if (!threadsReady) {
-    reason = `Reconnect Threads with reply permissions${missingScopes.length ? `: ${missingScopes.join(", ")}` : "."}`;
-  } else if (!enabled) {
-    reason = "Auto-reply is configured but disabled. Call action=enable.";
+async function status(customer: Customer, relay: RelayService, ledger: CloudLedger) {
+  const assessed = await assessThreadsAutoReply(customer, relay, ledger);
+  if (
+    assessed.eligible &&
+    !assessed.enabled &&
+    assessed.paidTopupMilliUsd >= assessed.minimumTopupMilliUsd
+  ) {
+    return {
+      ...assessed,
+      reason: "Auto-reply is configured but disabled. Call action=enable.",
+    };
   }
-  return {
-    eligible,
-    active: eligible && enabled,
-    minimumTopupMilliUsd: AUTOREPLY_MIN_TOPUP_MILLI_USD,
-    paidTopupMilliUsd,
-    keyConfigured,
-    threadsConnected,
-    threadsReady,
-    missingScopes,
-    enabled,
-    reason,
-  };
+  if (assessed.paidTopupMilliUsd < assessed.minimumTopupMilliUsd) {
+    return {
+      ...assessed,
+      reason: `Make a single top-up of at least $${(AUTOREPLY_MIN_TOPUP_MILLI_USD / 1000).toFixed(2)} before enabling auto-reply. Largest paid top-up: $${(assessed.paidTopupMilliUsd / 1000).toFixed(2)}.`,
+    };
+  }
+  return assessed;
 }
 
 function result(value: unknown, isError = false) {
@@ -87,6 +64,7 @@ export function registerCloudAutoReplyTool(
             return result({ ok: false, error: "api_key is required for set_key." }, true);
           }
           await relay.setDeepSeekApiKey(args.api_key.trim());
+          await maybeAutoEnableThreadsAutoReply(customer, relay, ledger);
           return result({ ok: true, ...(await status(customer, relay, ledger)) });
         }
         if (args.action === "clear_key") {

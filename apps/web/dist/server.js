@@ -18,7 +18,7 @@ import { createConnectSession, lookupConnectSession, verifyConnectSession } from
 import { r2MediaConfig, uploadR2Media } from "./r2.js";
 import { createCheckoutSession, loadStripeConfig, stripeReady, topupPlan, TOPUP_PLANS, verifyStripeSignature } from "./billing.js";
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook } from "./polar.js";
-import { sendEmail, waitlistConfirmationEmail } from "@relay/cloud";
+import { sendEmail, waitlistConfirmationEmail, maybeSendTopupReceiptEmail, runLowBalanceChecksForActiveCustomers, approveWaitlistAndInvite, waitlistAutoApproveEnabled, maybeSendOperatorAutomationDigest, maybeSendOperatorRevenueDigest, maybeAutoEnableThreadsAutoReply, afterCustomerTopupCredit, bootstrapCustomerAfterSetup, processPendingWaitlistAutoApprovals, runOnboardingTopupNudges, recordTenantSchedulerPulse, tenantSchedulerPulseStatus, } from "@relay/cloud";
 import { SessionManager } from "./auth.js";
 import { CustomerAuth, LoginThrottle, hashCustomerPassword, hashInviteToken, verifyCustomerPassword, } from "./customer-auth.js";
 import { readConfig } from "./config.js";
@@ -271,6 +271,38 @@ async function handleRequest(req, res, deps) {
         }
     }
     const requestSession = await resolveRequestSession(req, deps);
+    if (method === "POST" &&
+        segments.length === 4 &&
+        segments[0] === "api" &&
+        segments[1] === "hooks" &&
+        segments[2] === "brevo-inbound") {
+        const secret = decodeURIComponent(segments[3] ?? "").trim();
+        if (!secret)
+            throw new RelayError("Webhook secret is required", "webhook_secret_missing", undefined, 400);
+        const authHeader = req.headers.authorization ?? "";
+        const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+        if (bearer && bearer !== secret) {
+            throw new RelayError("Invalid webhook authorization", "webhook_unauthorized", undefined, 401);
+        }
+        const raw = await readJsonBody(req, 1024 * 1024);
+        const body = asRecord(raw);
+        const items = Array.isArray(raw) ? raw.map((entry) => asRecord(entry)) : Array.isArray(body.items) ? body.items.map((entry) => asRecord(entry)) : [body];
+        let relay = null;
+        if (deps.tenantManager) {
+            const match = await deps.tenantManager.findByBrevoWebhookSecret(secret);
+            relay = match?.relay ?? null;
+        }
+        else if (deps.relay().brevoInboundWebhookSecret() === secret) {
+            relay = deps.relay();
+        }
+        if (!relay)
+            throw new RelayError("Unknown Brevo inbound webhook", "webhook_unknown", undefined, 404);
+        for (const item of items) {
+            await relay.handleBrevoInboundWebhook(item);
+        }
+        sendJson(res, 200, { received: true, count: items.length });
+        return;
+    }
     // The OAuth provider redirects the browser here; the signed state parameter is
     // the protection, so this route stays reachable without a console session.
     if (isGet && segments.length === 3 && segments[0] === "auth" && segments[1] === "callback") {
@@ -302,7 +334,7 @@ async function handleRequest(req, res, deps) {
             const customerId = String(event.data.metadata?.customer_id ?? "");
             const amount = Number(event.data.metadata?.amount_milli) || centsToMilliUSD(Number(event.data.totalAmount));
             if (deps.cloudAdmin.store.getCustomer(customerId) && Number.isInteger(amount) && amount > 0) {
-                deps.cloudAdmin.ledger.recordTopup({
+                const credited = deps.cloudAdmin.ledger.recordTopup({
                     customerId,
                     amount,
                     currency: String(event.data.currency ?? deps.pricing?.currency ?? "USD").toUpperCase(),
@@ -310,6 +342,15 @@ async function handleRequest(req, res, deps) {
                     reference: event.data.id,
                     note: "Polar checkout",
                 });
+                if (!credited.paymentReplayed) {
+                    const customer = deps.cloudAdmin.store.getCustomer(customerId);
+                    if (customer) {
+                        void maybeSendTopupReceiptEmail(deps.cloudAdmin.email, customer, amount, "polar").catch(() => undefined);
+                        if (deps.tenantManager) {
+                            void afterCustomerTopupCredit(customer, deps.tenantManager, deps.cloudAdmin.ledger).catch(() => undefined);
+                        }
+                    }
+                }
             }
         }
         sendJson(res, 200, { received: true });
@@ -344,7 +385,7 @@ async function handleRequest(req, res, deps) {
                 deps.logger(`stripe webhook: session ${session.id} amount or currency mismatch; not credited`);
             }
             else if (deps.cloudAdmin.store.getCustomer(customerId) && Number.isInteger(amount) && amount > 0) {
-                deps.cloudAdmin.ledger.recordTopup({
+                const credited = deps.cloudAdmin.ledger.recordTopup({
                     customerId,
                     amount,
                     currency: deps.pricing?.currency ?? "USD",
@@ -352,6 +393,15 @@ async function handleRequest(req, res, deps) {
                     reference: session.id,
                     note: "Stripe checkout",
                 });
+                if (!credited.paymentReplayed) {
+                    const customer = deps.cloudAdmin.store.getCustomer(customerId);
+                    if (customer) {
+                        void maybeSendTopupReceiptEmail(deps.cloudAdmin.email, customer, amount, "stripe").catch(() => undefined);
+                        if (deps.tenantManager) {
+                            void afterCustomerTopupCredit(customer, deps.tenantManager, deps.cloudAdmin.ledger).catch(() => undefined);
+                        }
+                    }
+                }
             }
         }
         sendJson(res, 200, { received: true });
@@ -423,18 +473,45 @@ async function handleRequest(req, res, deps) {
                 notifyWaitlistCreated(loadWaitlistWebhookConfig(process.env), buildWaitlistCreatedPayload(result.entry, pendingTotal), (message) => deps.logger(message));
             }
             const position = deps.cloudAdmin.store.waitlistPosition(result.entry.id);
+            let status = result.entry.status;
+            let autoApproved = false;
+            let setupUrl;
+            if (!result.duplicate
+                && batch === "founding"
+                && waitlistAutoApproveEnabled(process.env)
+                && result.entry.status === "pending") {
+                try {
+                    const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+                    const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun";
+                    const invited = await approveWaitlistAndInvite(deps.cloudAdmin.store, deps.cloudAdmin.email, result.entry.id, {
+                        waitlistLimit: limit,
+                        publicBase,
+                        mcpBase,
+                    });
+                    status = invited.entry.status;
+                    setupUrl = invited.setupUrl;
+                    autoApproved = true;
+                }
+                catch (error) {
+                    deps.logger(`waitlist auto-approve failed for ${result.entry.id}: ${errorMessage(error)}`);
+                }
+            }
             const emailResult = result.duplicate
                 ? { sent: false }
-                : await sendEmail(deps.cloudAdmin.email, {
-                    ...waitlistConfirmationEmail({ name: result.entry.name, position, batch }),
-                    to: result.entry.email,
-                });
+                : autoApproved
+                    ? { sent: true }
+                    : await sendEmail(deps.cloudAdmin.email, {
+                        ...waitlistConfirmationEmail({ name: result.entry.name, position, batch }),
+                        to: result.entry.email,
+                    });
             sendJson(res, result.duplicate ? 200 : 201, {
                 ok: true,
                 position,
                 duplicate: result.duplicate,
-                status: result.entry.status,
+                status,
                 batch,
+                autoApproved,
+                ...(setupUrl ? { setupUrl } : {}),
                 emailSent: emailResult.sent,
             });
             return;
@@ -491,6 +568,20 @@ async function handleRequest(req, res, deps) {
                     polarSandbox: Boolean(deps.polar?.apiBase.includes("sandbox")),
                 },
                 emailConfigured: Boolean(deps.cloudAdmin?.email?.apiKey && deps.cloudAdmin.email.from),
+                cloud: deps.cloudAdmin
+                    ? (() => {
+                        const pulseMs = Number(process.env.RELAY_CLOUD_TENANT_SCHEDULER_MS ?? "60000");
+                        const pulse = tenantSchedulerPulseStatus("console");
+                        return {
+                            enabled: true,
+                            tenantSchedulerPulseMs: pulseMs,
+                            publicBaseConfigured: Boolean(process.env.RELAY_PUBLIC_URL?.trim() || process.env.RELAY_PUBLIC_BASE_URL?.trim()),
+                            revenueGoalMyr: Number(process.env.RELAY_REVENUE_GOAL_MYR ?? "4000"),
+                            lastTenantPulseAt: pulse?.at ?? null,
+                            lastTenantPulseCount: pulse?.tenantCount ?? null,
+                        };
+                    })()
+                    : { enabled: false },
                 uptimeSeconds: Math.round(process.uptime()),
                 timestamp: new Date().toISOString(),
             });
@@ -947,7 +1038,9 @@ async function handleApi(req, res, method, segments, url, deps, session, relay) 
     }
     if (segments[1] === "cloud" && segments[2] === "admin") {
         requireOperator(session);
-        await handleCloudAdmin(req, res, segments, url, deps.cloudAdmin);
+        await handleCloudAdmin(req, res, segments, url, deps.cloudAdmin
+            ? { ...deps.cloudAdmin, tenants: deps.tenantManager }
+            : deps.cloudAdmin);
         return;
     }
     const resource = segments[1] ?? "";
@@ -1090,21 +1183,24 @@ async function handleApi(req, res, method, segments, url, deps, session, relay) 
         sendJson(res, 200, { ok: true, enabled });
         return;
     }
-    // Save or clear the DeepSeek API key. Encrypted at rest.
+    // Save or clear the DeepSeek API key. Encrypted at rest. Cloud customers may save their own BYO key.
     if (segments.length === 3 && resource === "settings" && segments[2] === "deepseek" && method === "POST") {
-        requireOperator(session);
         const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
         const key = typeof body.apiKey === "string" ? body.apiKey : null;
         if (key !== null && key.trim().length < 10) {
             throw new RelayError("Enter a valid DeepSeek API key.", "deepseek_api_key_invalid", undefined, 400);
         }
         const configured = await relay.setDeepSeekApiKey(key);
-        sendJson(res, 200, { ok: true, configured });
+        let autoReplyEnabled = false;
+        if (configured && session.kind === "customer" && deps.cloudAdmin) {
+            const result = await maybeAutoEnableThreadsAutoReply(session.customer, relay, deps.cloudAdmin.ledger);
+            autoReplyEnabled = result.enabled;
+        }
+        sendJson(res, 200, { ok: true, configured, threadsAutoReplyEnabled: autoReplyEnabled || relay.isThreadsAutoReplyEnabled() });
         return;
     }
     // Live DeepSeek key check. Never returns the key.
     if (segments.length === 4 && resource === "settings" && segments[2] === "deepseek" && segments[3] === "test" && method === "POST") {
-        requireOperator(session);
         sendJson(res, 200, await relay.testDeepSeekKey());
         return;
     }
@@ -1182,7 +1278,13 @@ async function handleApi(req, res, method, segments, url, deps, session, relay) 
         const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
         const clientId = typeof body.clientId === "string" ? body.clientId.trim() : "";
         const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret.trim() : "";
-        await relay.saveCredentials(platform, { clientId, clientSecret });
+        if (platform === "brevo") {
+            await relay.saveCredentials(platform, { clientId: clientId || "api-key", clientSecret });
+            void relay.ensureBrevoEmailAutomation().catch(() => undefined);
+        }
+        else {
+            await relay.saveCredentials(platform, { clientId, clientSecret });
+        }
         sendJson(res, 200, { ok: true, credentials: relay.credentialInfos() });
         return;
     }
@@ -1193,6 +1295,83 @@ async function handleApi(req, res, method, segments, url, deps, session, relay) 
         await relay.removeCredentials(platform);
         sendJson(res, 200, { ok: true, credentials: relay.credentialInfos() });
         return;
+    }
+    if (resource === "email") {
+        if (segments.length === 3 && segments[2] === "program" && method === "GET") {
+            sendJson(res, 200, await relay.getEmailProgram());
+            return;
+        }
+        if (segments.length === 3 && segments[2] === "library" && method === "GET") {
+            sendJson(res, 200, { library: await relay.listEmailLibrary() });
+            return;
+        }
+        if (segments.length === 3 && segments[2] === "library" && method === "POST") {
+            const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+            const entry = await relay.saveEmailLibraryEntry({
+                kind: typeof body.kind === "string" ? body.kind : "broadcast",
+                subject: String(body.subject ?? ""),
+                htmlContent: String(body.htmlContent ?? body.html ?? ""),
+                previewText: typeof body.previewText === "string" ? body.previewText : undefined,
+                brevoMode: body.brevoMode === "campaign" ? "campaign" : "transactional",
+                sender: body.sender && typeof body.sender === "object"
+                    ? body.sender
+                    : undefined,
+                recipients: body.recipients && typeof body.recipients === "object" ? body.recipients : undefined,
+                scheduleAt: typeof body.scheduleAt === "string" ? body.scheduleAt : undefined,
+                tags: Array.isArray(body.tags) ? body.tags.filter((tag) => typeof tag === "string") : undefined,
+            });
+            sendJson(res, 200, { entry });
+            return;
+        }
+        if (segments.length === 4 && segments[2] === "library" && method === "PATCH") {
+            const id = decodeURIComponent(segments[3] ?? "");
+            const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+            const entry = await relay.saveEmailLibraryEntry({
+                kind: typeof body.kind === "string" ? body.kind : "broadcast",
+                subject: String(body.subject ?? ""),
+                htmlContent: String(body.htmlContent ?? body.html ?? ""),
+                previewText: typeof body.previewText === "string" ? body.previewText : undefined,
+                brevoMode: body.brevoMode === "campaign" ? "campaign" : "transactional",
+                sender: body.sender && typeof body.sender === "object"
+                    ? body.sender
+                    : undefined,
+                recipients: body.recipients && typeof body.recipients === "object" ? body.recipients : undefined,
+                scheduleAt: typeof body.scheduleAt === "string" ? body.scheduleAt : undefined,
+                tags: Array.isArray(body.tags) ? body.tags.filter((tag) => typeof tag === "string") : undefined,
+            }, id);
+            sendJson(res, 200, { entry });
+            return;
+        }
+        if (segments.length === 4 && segments[2] === "library" && method === "DELETE") {
+            const id = decodeURIComponent(segments[3] ?? "");
+            const removed = await relay.removeEmailLibraryEntry(id);
+            sendJson(res, 200, { ok: removed });
+            return;
+        }
+        if (segments.length === 5 && segments[2] === "library" && segments[4] === "schedule" && method === "POST") {
+            const id = decodeURIComponent(segments[3] ?? "");
+            const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
+            const scheduleAt = typeof body.scheduleAt === "string" ? body.scheduleAt : undefined;
+            const result = await relay.scheduleEmailFromLibrary(id, scheduleAt);
+            if (session.kind === "customer" && deps.cloudAdmin) {
+                settleConsoleBilling(await relay.history(5), deps.cloudAdmin, deps.pricing, session.customer.id);
+            }
+            sendJson(res, result.scheduled ? 202 : 200, result);
+            return;
+        }
+        if (segments.length === 3 && segments[2] === "scheduled" && method === "GET") {
+            sendJson(res, 200, { queue: await relay.listEmailScheduledJobs() });
+            return;
+        }
+        if (segments.length === 4 && segments[2] === "automation" && segments[3] === "log" && method === "GET") {
+            const limit = Number(url.searchParams.get("limit") ?? "100");
+            sendJson(res, 200, await relay.emailAutomationLog(Number.isFinite(limit) ? limit : 100));
+            return;
+        }
+        if (segments.length === 4 && segments[2] === "brevo" && segments[3] === "lists" && method === "GET") {
+            sendJson(res, 200, { lists: await relay.listBrevoEmailLists() });
+            return;
+        }
     }
     throw new RelayError("Not found", "not_found", undefined, 404);
 }
@@ -1334,6 +1513,13 @@ async function handleAcceptCustomerInvite(req, res, deps) {
         throw new RelayError("This link is invalid or has expired.", "invite_invalid", undefined, 400);
     }
     const updated = deps.cloudAdmin.store.setCustomerPassword(record.customer.id, await hashCustomerPassword(password));
+    if (peek.invite.purpose === "setup" && deps.tenantManager) {
+        const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+        void bootstrapCustomerAfterSetup(record.customer, deps.tenantManager, deps.cloudAdmin.store, deps.cloudAdmin.email, {
+            publicBase,
+            sendWelcome: Boolean(record.customer.email),
+        }).catch((error) => deps.logger(`post-setup bootstrap: ${errorMessage(error)}`));
+    }
     sendJsonWithCookies(res, 200, { ok: true, role: "customer", purpose: peek.invite.purpose }, [
         deps.customerAuth.cookieHeader({ customerId: updated.customer.id, sessionVersion: updated.sessionVersion }),
         deps.session.clearCookieHeader(),
@@ -1541,6 +1727,7 @@ export async function startServer(options = {}) {
     }
     let relay = null;
     let tenantManager;
+    let tenantSchedulerTimer;
     if (cloudAdmin) {
         tenantManager = new TenantManager({
             store: cloudAdmin.store,
@@ -1607,6 +1794,10 @@ export async function startServer(options = {}) {
                     await active.stopScheduler();
                     await active.close();
                 }
+                if (tenantSchedulerTimer) {
+                    clearInterval(tenantSchedulerTimer);
+                    tenantSchedulerTimer = undefined;
+                }
                 if (tenantManager) {
                     const activeTenants = tenantManager;
                     tenantManager = undefined;
@@ -1630,6 +1821,46 @@ export async function startServer(options = {}) {
             logger,
         });
         await relay.startScheduler();
+        if (tenantManager) {
+            const pulseMs = Number(env.RELAY_CLOUD_TENANT_SCHEDULER_MS ?? "60000");
+            if (Number.isFinite(pulseMs) && pulseMs > 0) {
+                const pulse = () => {
+                    void tenantManager
+                        .pulseTenantSchedulers()
+                        .then((result) => {
+                        recordTenantSchedulerPulse("console", result);
+                    })
+                        .catch((error) => logger(`cloud tenant scheduler pulse: ${errorMessage(error)}`));
+                    if (cloudAdmin) {
+                        const freeAllowance = pricing?.free_allowance_milli_usd ?? 0;
+                        void runLowBalanceChecksForActiveCustomers(cloudAdmin.store, cloudAdmin.ledger, cloudAdmin.email, freeAllowance).catch((error) => logger(`low balance email pass: ${errorMessage(error)}`));
+                        void runOnboardingTopupNudges(cloudAdmin.store, cloudAdmin.ledger, cloudAdmin.email).catch((error) => logger(`onboarding top-up nudge: ${errorMessage(error)}`));
+                        if (tenantManager) {
+                            void maybeSendOperatorAutomationDigest(cloudAdmin.store, cloudAdmin.ledger, tenantManager, cloudAdmin.email, env, "console").catch((error) => logger(`operator automation digest: ${errorMessage(error)}`));
+                            void maybeSendOperatorRevenueDigest(cloudAdmin.store, cloudAdmin.ledger, tenantManager, cloudAdmin.email, cloudAdmin.pricing ?? null, env, "console").catch((error) => logger(`operator revenue digest: ${errorMessage(error)}`));
+                        }
+                        if (waitlistAutoApproveEnabled(env)) {
+                            const mcpBase = (env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun").replace(/\/+$/, "");
+                            const publicBase = (env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+                            void processPendingWaitlistAutoApprovals(cloudAdmin.store, cloudAdmin.email, {
+                                waitlistLimit: waitlistLimit(),
+                                publicBase,
+                                mcpBase: `${mcpBase}/mcp`,
+                                env,
+                            })
+                                .then((out) => {
+                                if (out.processed > 0)
+                                    logger(`waitlist auto-invite: ${out.processed} processed, ${out.errors} errors`);
+                            })
+                                .catch((error) => logger(`waitlist auto-process: ${errorMessage(error)}`));
+                        }
+                    }
+                };
+                tenantSchedulerTimer = setInterval(pulse, pulseMs);
+                tenantSchedulerTimer.unref?.();
+                pulse();
+            }
+        }
     }
     catch (error) {
         await close().catch(() => undefined);

@@ -35,7 +35,23 @@ import { createConnectSession, lookupConnectSession, verifyConnectSession } from
 import { r2MediaConfig, uploadR2Media } from "./r2.js";
 import { createCheckoutSession, loadStripeConfig, stripeReady, topupPlan, TOPUP_PLANS, verifyStripeSignature, type StripeBillingConfig } from "./billing.js";
 import { centsToMilliUSD, createPolarCheckout, loadPolarConfig, verifyPolarWebhook, type PolarConfig, type PolarOrderPaidEvent } from "./polar.js";
-import { sendEmail, waitlistConfirmationEmail } from "@relay/cloud";
+import {
+  sendEmail,
+  waitlistConfirmationEmail,
+  maybeSendTopupReceiptEmail,
+  runLowBalanceChecksForActiveCustomers,
+  approveWaitlistAndInvite,
+  waitlistAutoApproveEnabled,
+  maybeSendOperatorAutomationDigest,
+  maybeSendOperatorRevenueDigest,
+  maybeAutoEnableThreadsAutoReply,
+  afterCustomerTopupCredit,
+  bootstrapCustomerAfterSetup,
+  processPendingWaitlistAutoApprovals,
+  runOnboardingTopupNudges,
+  recordTenantSchedulerPulse,
+  tenantSchedulerPulseStatus,
+} from "@relay/cloud";
 import { SessionManager } from "./auth.js";
 import {
   CustomerAuth,
@@ -420,7 +436,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       const customerId = String(event.data.metadata?.customer_id ?? "");
       const amount = Number(event.data.metadata?.amount_milli) || centsToMilliUSD(Number(event.data.totalAmount));
       if (deps.cloudAdmin.store.getCustomer(customerId) && Number.isInteger(amount) && amount > 0) {
-        deps.cloudAdmin.ledger.recordTopup({
+        const credited = deps.cloudAdmin.ledger.recordTopup({
           customerId,
           amount,
           currency: String(event.data.currency ?? deps.pricing?.currency ?? "USD").toUpperCase(),
@@ -428,6 +444,15 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
           reference: event.data.id,
           note: "Polar checkout",
         });
+        if (!credited.paymentReplayed) {
+          const customer = deps.cloudAdmin.store.getCustomer(customerId);
+          if (customer) {
+            void maybeSendTopupReceiptEmail(deps.cloudAdmin.email, customer, amount, "polar").catch(() => undefined);
+            if (deps.tenantManager) {
+              void afterCustomerTopupCredit(customer, deps.tenantManager, deps.cloudAdmin.ledger).catch(() => undefined);
+            }
+          }
+        }
       }
     }
     sendJson(res, 200, { received: true });
@@ -463,7 +488,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
       if (!totalMatches || !currencyMatches) {
         deps.logger(`stripe webhook: session ${session.id} amount or currency mismatch; not credited`);
       } else if (deps.cloudAdmin.store.getCustomer(customerId) && Number.isInteger(amount) && amount > 0) {
-        deps.cloudAdmin.ledger.recordTopup({
+        const credited = deps.cloudAdmin.ledger.recordTopup({
           customerId,
           amount,
           currency: deps.pricing?.currency ?? "USD",
@@ -471,6 +496,15 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
           reference: session.id,
           note: "Stripe checkout",
         });
+        if (!credited.paymentReplayed) {
+          const customer = deps.cloudAdmin.store.getCustomer(customerId);
+          if (customer) {
+            void maybeSendTopupReceiptEmail(deps.cloudAdmin.email, customer, amount, "stripe").catch(() => undefined);
+            if (deps.tenantManager) {
+              void afterCustomerTopupCredit(customer, deps.tenantManager, deps.cloudAdmin.ledger).catch(() => undefined);
+            }
+          }
+        }
       }
     }
     sendJson(res, 200, { received: true });
@@ -544,18 +578,46 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
         );
       }
       const position = deps.cloudAdmin.store.waitlistPosition(result.entry.id);
+      let status = result.entry.status;
+      let autoApproved = false;
+      let setupUrl: string | undefined;
+      if (
+        !result.duplicate
+        && batch === "founding"
+        && waitlistAutoApproveEnabled(process.env)
+        && result.entry.status === "pending"
+      ) {
+        try {
+          const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+          const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun";
+          const invited = await approveWaitlistAndInvite(deps.cloudAdmin.store, deps.cloudAdmin.email, result.entry.id, {
+            waitlistLimit: limit,
+            publicBase,
+            mcpBase,
+          });
+          status = invited.entry.status;
+          setupUrl = invited.setupUrl;
+          autoApproved = true;
+        } catch (error) {
+          deps.logger(`waitlist auto-approve failed for ${result.entry.id}: ${errorMessage(error)}`);
+        }
+      }
       const emailResult = result.duplicate
         ? { sent: false }
-        : await sendEmail(deps.cloudAdmin.email, {
-            ...waitlistConfirmationEmail({ name: result.entry.name, position, batch }),
-            to: result.entry.email,
-          });
+        : autoApproved
+          ? { sent: true }
+          : await sendEmail(deps.cloudAdmin.email, {
+              ...waitlistConfirmationEmail({ name: result.entry.name, position, batch }),
+              to: result.entry.email,
+            });
       sendJson(res, result.duplicate ? 200 : 201, {
         ok: true,
         position,
         duplicate: result.duplicate,
-        status: result.entry.status,
+        status,
         batch,
+        autoApproved,
+        ...(setupUrl ? { setupUrl } : {}),
         emailSent: emailResult.sent,
       });
       return;
@@ -609,6 +671,22 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, deps: Ha
           polarSandbox: Boolean(deps.polar?.apiBase.includes("sandbox")),
         },
         emailConfigured: Boolean(deps.cloudAdmin?.email?.apiKey && deps.cloudAdmin.email.from),
+        cloud: deps.cloudAdmin
+          ? (() => {
+              const pulseMs = Number(process.env.RELAY_CLOUD_TENANT_SCHEDULER_MS ?? "60000");
+              const pulse = tenantSchedulerPulseStatus("console");
+              return {
+                enabled: true,
+                tenantSchedulerPulseMs: pulseMs,
+                publicBaseConfigured: Boolean(
+                  process.env.RELAY_PUBLIC_URL?.trim() || process.env.RELAY_PUBLIC_BASE_URL?.trim(),
+                ),
+                revenueGoalMyr: Number(process.env.RELAY_REVENUE_GOAL_MYR ?? "4000"),
+                lastTenantPulseAt: pulse?.at ?? null,
+                lastTenantPulseCount: pulse?.tenantCount ?? null,
+              };
+            })()
+          : { enabled: false },
         uptimeSeconds: Math.round(process.uptime()),
         timestamp: new Date().toISOString(),
       });
@@ -1076,7 +1154,9 @@ async function handleApi(
   }
   if (segments[1] === "cloud" && segments[2] === "admin") {
     requireOperator(session);
-    await handleCloudAdmin(req, res, segments, url, deps.cloudAdmin);
+    await handleCloudAdmin(req, res, segments, url, deps.cloudAdmin
+      ? { ...deps.cloudAdmin, tenants: deps.tenantManager }
+      : deps.cloudAdmin);
     return;
   }
   const resource = segments[1] ?? "";
@@ -1223,22 +1303,25 @@ async function handleApi(
     return;
   }
 
-  // Save or clear the DeepSeek API key. Encrypted at rest.
+  // Save or clear the DeepSeek API key. Encrypted at rest. Cloud customers may save their own BYO key.
   if (segments.length === 3 && resource === "settings" && segments[2] === "deepseek" && method === "POST") {
-    requireOperator(session);
     const body = asRecord(await readJsonBody(req, MAX_JSON_BYTES));
     const key = typeof body.apiKey === "string" ? body.apiKey : null;
     if (key !== null && key.trim().length < 10) {
       throw new RelayError("Enter a valid DeepSeek API key.", "deepseek_api_key_invalid", undefined, 400);
     }
     const configured = await relay.setDeepSeekApiKey(key);
-    sendJson(res, 200, { ok: true, configured });
+    let autoReplyEnabled = false;
+    if (configured && session.kind === "customer" && deps.cloudAdmin) {
+      const result = await maybeAutoEnableThreadsAutoReply(session.customer, relay, deps.cloudAdmin.ledger);
+      autoReplyEnabled = result.enabled;
+    }
+    sendJson(res, 200, { ok: true, configured, threadsAutoReplyEnabled: autoReplyEnabled || relay.isThreadsAutoReplyEnabled() });
     return;
   }
 
   // Live DeepSeek key check. Never returns the key.
   if (segments.length === 4 && resource === "settings" && segments[2] === "deepseek" && segments[3] === "test" && method === "POST") {
-    requireOperator(session);
     sendJson(res, 200, await relay.testDeepSeekKey());
     return;
   }
@@ -1593,6 +1676,13 @@ async function handleAcceptCustomerInvite(req: IncomingMessage, res: ServerRespo
     throw new RelayError("This link is invalid or has expired.", "invite_invalid", undefined, 400);
   }
   const updated = deps.cloudAdmin.store.setCustomerPassword(record.customer.id, await hashCustomerPassword(password));
+    if (peek.invite.purpose === "setup" && deps.tenantManager) {
+      const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+      void bootstrapCustomerAfterSetup(record.customer, deps.tenantManager, deps.cloudAdmin.store, deps.cloudAdmin.email, {
+        publicBase,
+        sendWelcome: Boolean(record.customer.email),
+      }).catch((error: unknown) => deps.logger(`post-setup bootstrap: ${errorMessage(error)}`));
+    }
   sendJsonWithCookies(
     res,
     200,
@@ -1823,6 +1913,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   }
   let relay: RelayService | null = null;
   let tenantManager: TenantManager | undefined;
+  let tenantSchedulerTimer: NodeJS.Timeout | undefined;
   if (cloudAdmin) {
     tenantManager = new TenantManager({
       store: cloudAdmin.store,
@@ -1893,6 +1984,10 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
           await active.stopScheduler();
           await active.close();
         }
+        if (tenantSchedulerTimer) {
+          clearInterval(tenantSchedulerTimer);
+          tenantSchedulerTimer = undefined;
+        }
         if (tenantManager) {
           const activeTenants = tenantManager;
           tenantManager = undefined;
@@ -1917,6 +2012,67 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       logger,
     });
     await relay.startScheduler();
+    if (tenantManager) {
+      const pulseMs = Number(env.RELAY_CLOUD_TENANT_SCHEDULER_MS ?? "60000");
+      if (Number.isFinite(pulseMs) && pulseMs > 0) {
+        const pulse = (): void => {
+          void tenantManager!
+            .pulseTenantSchedulers()
+            .then((result) => {
+              recordTenantSchedulerPulse("console", result);
+            })
+            .catch((error: unknown) => logger(`cloud tenant scheduler pulse: ${errorMessage(error)}`));
+          if (cloudAdmin) {
+            const freeAllowance = pricing?.free_allowance_milli_usd ?? 0;
+            void runLowBalanceChecksForActiveCustomers(
+              cloudAdmin.store,
+              cloudAdmin.ledger,
+              cloudAdmin.email,
+              freeAllowance,
+            ).catch((error: unknown) => logger(`low balance email pass: ${errorMessage(error)}`));
+            void runOnboardingTopupNudges(cloudAdmin.store, cloudAdmin.ledger, cloudAdmin.email).catch((error: unknown) =>
+              logger(`onboarding top-up nudge: ${errorMessage(error)}`),
+            );
+            if (tenantManager) {
+              void maybeSendOperatorAutomationDigest(
+                cloudAdmin.store,
+                cloudAdmin.ledger,
+                tenantManager,
+                cloudAdmin.email,
+                env,
+                "console",
+              ).catch((error: unknown) => logger(`operator automation digest: ${errorMessage(error)}`));
+              void maybeSendOperatorRevenueDigest(
+                cloudAdmin.store,
+                cloudAdmin.ledger,
+                tenantManager,
+                cloudAdmin.email,
+                cloudAdmin.pricing ?? null,
+                env,
+                "console",
+              ).catch((error: unknown) => logger(`operator revenue digest: ${errorMessage(error)}`));
+            }
+            if (waitlistAutoApproveEnabled(env)) {
+              const mcpBase = (env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun").replace(/\/+$/, "");
+              const publicBase = (env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+              void processPendingWaitlistAutoApprovals(cloudAdmin.store, cloudAdmin.email, {
+                waitlistLimit: waitlistLimit(),
+                publicBase,
+                mcpBase: `${mcpBase}/mcp`,
+                env,
+              })
+                .then((out) => {
+                  if (out.processed > 0) logger(`waitlist auto-invite: ${out.processed} processed, ${out.errors} errors`);
+                })
+                .catch((error: unknown) => logger(`waitlist auto-process: ${errorMessage(error)}`));
+            }
+          }
+        };
+        tenantSchedulerTimer = setInterval(pulse, pulseMs);
+        tenantSchedulerTimer.unref?.();
+        pulse();
+      }
+    }
   } catch (error) {
     await close().catch(() => undefined);
     throw error;

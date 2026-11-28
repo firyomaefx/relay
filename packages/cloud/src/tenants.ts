@@ -20,7 +20,8 @@ export interface TenantManagerOptions {
 /**
  * Per-customer RelayService backed by an isolated data directory. The owner
  * customer points at the existing RELAY_DATA_DIR, so the current setup remains
- * exactly where it is. No tenant starts the scheduler here.
+ * exactly where it is. Customer schedulers are started via console sessions or
+ * {@link pulseTenantSchedulers} from the cloud host process.
  */
 export class TenantManager {
   private readonly services = new Map<string, Promise<RelayService>>();
@@ -143,6 +144,25 @@ export class TenantManager {
     for (const record of history) this.options.store.recordPostOwner(customer.id, record.id, customer.owner ? "owner" : "cloud");
   }
 
+  /** Keep schedulers running for active cloud customers without an open console session. */
+  async pulseTenantSchedulers(): Promise<{ tenants: number; errors: number }> {
+    let tenants = 0;
+    let errors = 0;
+    for (const customer of this.options.store.listCustomers()) {
+      if (customer.owner || customer.status !== "active") continue;
+      try {
+        const relay = await this.get(customer);
+        await relay.startScheduler().catch((error: unknown) => {
+          this.logger(`[tenant ${customer.id}] scheduler pulse failed: ${String(error)}`);
+        });
+        tenants += 1;
+      } catch (error) {
+        errors += 1;
+        this.logger(`[tenant ${customer.id}] scheduler pulse open failed: ${String(error)}`);
+      }
+    }
+    return { tenants, errors };
+  }
   async findByBrevoWebhookSecret(secret: string): Promise<{ customer: Customer; relay: RelayService } | null> {
     const trimmed = secret.trim();
     if (!trimmed) return null;

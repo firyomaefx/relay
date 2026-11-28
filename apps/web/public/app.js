@@ -2581,7 +2581,11 @@
             <button class="ghost-btn" id="testDeepseekKey" type="button">Test</button>
             <button class="ghost-btn" id="saveDeepseekKey" type="button">Save</button>
           </div>
-          <p class="autoreply-remark" id="deepseekKeyRemark">${autoReplyConfigured ? "Configured. Replies use deepseek-chat. Test the key to confirm it is accepted." : "Not configured. Auto-reply will skip comments until a key is saved."}</p>
+          <p class="autoreply-remark" id="deepseekKeyRemark">${autoReplyConfigured
+            ? "Configured. Replies use deepseek-chat. Test the key to confirm it is accepted."
+            : state.role === "customer"
+              ? "Add your own DeepSeek API key here so Threads auto-reply and smarter email replies run while you are offline."
+              : "Not configured. Auto-reply will skip comments until a key is saved."}</p>
         </div>
       </div>
     `;

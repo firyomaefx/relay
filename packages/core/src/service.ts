@@ -272,6 +272,25 @@ export class RelayService {
     await adapter.updateCampaign(this.adapterContext(), campaignId, patch);
   }
 
+  /** One starter promo row when the library is empty (post-invite onboarding). */
+  async ensureOnboardingEmailDefaults(): Promise<{ seeded: boolean }> {
+    const empty = this.store.read((db) => db.emailLibrary.length === 0);
+    if (!empty) return { seeded: false };
+    await upsertEmailLibraryEntry(
+      this.store,
+      undefined,
+      {
+        kind: "promo",
+        subject: "[Edit me] Promo follow-up",
+        htmlContent:
+          "<p>Replace this HTML with your promo. This entry is the active promo template for inbound reply automation once Brevo is connected.</p>",
+        previewText: "Edit this starter template in the Email tab before going live.",
+        metadata: { starter: "true" },
+      },
+      this.now().toISOString(),
+    );
+    return { seeded: true };
+  }
   async getEmailProgram(): Promise<EmailProgramView> {
     await this.store.refresh();
     return this.store.read((db) => {

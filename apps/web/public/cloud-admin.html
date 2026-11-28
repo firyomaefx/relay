@@ -71,6 +71,13 @@
 
   <div class="chips" id="statusChips" aria-live="polite"></div>
 
+  <section class="card" id="revenueGoalCard">
+    <h2 style="margin-bottom:6px">Revenue goal</h2>
+    <div class="muted" id="revenueGoalSummary">Loading…</div>
+    <div class="balance" id="revenueGoalMyr" style="margin-top:8px;font-size:22px">—</div>
+    <div class="muted" id="revenueGoalDetail" style="margin-top:6px"></div>
+  </section>
+
   <p class="help" id="ownerHelp">
     <strong>Approve flow:</strong>
     <ol>
@@ -79,6 +86,13 @@
       <li>They sign in at <strong>/login</strong> (email + password) and use the composer at <strong>/</strong>.</li>
     </ol>
   </p>
+
+  <section class="card">
+    <h2 style="margin-bottom:6px">Automation health</h2>
+    <p class="muted" style="margin:0 0 10px">Per-customer schedulers, Brevo inbound, and queue — refresh after deploy.</p>
+    <button type="button" id="refreshAutomation" class="secondary" style="margin:0 0 12px">Refresh</button>
+    <div id="automationHealth" class="muted">Loading…</div>
+  </section>
 
   <section class="card">
     <div class="waitlist-toolbar">

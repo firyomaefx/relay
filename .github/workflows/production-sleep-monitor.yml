@@ -1,0 +1,29 @@
+# Public drift check after sleep-mode is on main. Fails until console + cloud-mcp
+# are deployed with RELAY_CLOUD_TENANT_SCHEDULER_MS (see tools/verify-sleep-mode.mjs).
+name: Production sleep monitor
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install and build (for operator alert email)
+        run: npm ci && npm run build
+      - name: Verify sleep mode and email operator on drift
+        env:
+          RELAY_PUBLIC_URL: https://relay.duitpoket.fun
+          RELAY_CLOUD_MCP_URL: https://cloud-mcp.duitpoket.fun
+          RELAY_OPERATOR_ALERT_EMAIL: ${{ secrets.RELAY_OPERATOR_ALERT_EMAIL }}
+          RELAY_BREVO_API_KEY: ${{ secrets.RELAY_BREVO_API_KEY }}
+          RELAY_EMAIL_FROM: ${{ secrets.RELAY_EMAIL_FROM }}
+          RELAY_EMAIL_PROVIDER: brevo
+        run: node tools/production-sleep-verify.mjs

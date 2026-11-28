@@ -89,6 +89,30 @@ test("insufficient balance, idempotency and the last-balance race are safe", asy
   }
 });
 
+test("operator payment revenue excludes owner and respects since", async () => {
+  const dir = await makeTempDir("relay-cloud-revenue-");
+  const dbPath = path.join(dir, "cloud.sqlite");
+  const store = CloudStore.open(dbPath);
+  const owner = store.ensureOwnerCustomer("Operator");
+  const customer = store.createCustomer({ displayName: "Paying Customer" });
+  store.close();
+  const ledger = new CloudLedger(dbPath);
+  try {
+    ledger.recordTopup({ customerId: owner.id, amount: 5000, reference: "owner-1" });
+    ledger.recordTopup({ customerId: customer.id, amount: 10_000, reference: "cust-1" });
+    ledger.recordTopup({ customerId: customer.id, amount: 2500, reference: "cust-2" });
+    const all = ledger.operatorPaymentRevenue();
+    assert.equal(all.succeededCount, 2);
+    assert.equal(all.totalMilliUsd, 12_500);
+    const future = ledger.operatorPaymentRevenue({ since: "2099-01-01T00:00:00.000Z" });
+    assert.equal(future.succeededCount, 0);
+    assert.equal(future.totalMilliUsd, 0);
+  } finally {
+    ledger.close();
+    await cleanupTempDir(dir);
+  }
+});
+
 test("operator free credit is $10 after normal allowance usage", async () => {
   const dir = await makeTempDir("relay-cloud-operator-");
   const dbPath = path.join(dir, "cloud.sqlite");

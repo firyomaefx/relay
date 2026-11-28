@@ -125,6 +125,12 @@ export class CloudLedger {
         UNIQUE(provider, provider_payment_id)
       );
       CREATE INDEX IF NOT EXISTS payment_events_customer ON payment_events(customer_id, created_at);
+      CREATE TABLE IF NOT EXISTS billing_alerts (
+        customer_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        sent_at TEXT NOT NULL,
+        PRIMARY KEY (customer_id, kind)
+      );
     `);
     const columns = new Set((this.db.prepare("PRAGMA table_info(reservations)").all() as Array<{ name: string }>).map((column) => column.name));
     if (!columns.has("free_units")) this.db.exec("ALTER TABLE reservations ADD COLUMN free_units INTEGER NOT NULL DEFAULT 0");
@@ -159,6 +165,40 @@ export class CloudLedger {
       "SELECT COALESCE(MAX(amount), 0) AS largest FROM payment_events WHERE customer_id = ? AND status = 'succeeded'",
     ).get(customerId) as { largest: number };
     return Number(row.largest);
+  }
+
+  lastBillingAlertAt(customerId: string, kind: string): string | null {
+    const row = this.db.prepare(
+      "SELECT sent_at FROM billing_alerts WHERE customer_id = ? AND kind = ?",
+    ).get(customerId, kind) as { sent_at: string } | undefined;
+    return row ? String(row.sent_at) : null;
+  }
+
+  recordBillingAlert(customerId: string, kind: string, sentAt: string): void {
+    this.db.prepare(
+      "INSERT INTO billing_alerts (customer_id, kind, sent_at) VALUES (?, ?, ?) ON CONFLICT(customer_id, kind) DO UPDATE SET sent_at = excluded.sent_at",
+    ).run(customerId, kind, sentAt);
+  }
+
+  /** Successful customer top-ups since a timestamp, excluding the owner account. Amounts are milliUSD. */
+  operatorPaymentRevenue(options: { since?: string } = {}): {
+    since: string | null;
+    succeededCount: number;
+    totalMilliUsd: number;
+  } {
+    const since = options.since?.trim() || null;
+    const row = this.db.prepare(
+      `SELECT COALESCE(SUM(p.amount), 0) AS total, COUNT(*) AS count
+       FROM payment_events p
+       INNER JOIN customers c ON c.id = p.customer_id
+       WHERE p.status = 'succeeded' AND c.owner = 0
+         AND (? IS NULL OR p.created_at >= ?)`,
+    ).get(since, since) as { total: number; count: number };
+    return {
+      since,
+      succeededCount: Number(row.count),
+      totalMilliUsd: Number(row.total),
+    };
   }
 
   private balanceInTransaction(customerId: string): number {

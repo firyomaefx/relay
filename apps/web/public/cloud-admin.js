@@ -8,6 +8,73 @@ async function ensureOwnerSession() {
   if (session.role !== 'operator') window.location.replace('/admin');
 }
 
+async function loadAutomationHealth() {
+  const el = $('automationHealth');
+  if (!el) return;
+  el.textContent = 'Loading…';
+  const r = await fetch('/api/cloud/admin/automation-health', { credentials: 'same-origin' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    el.textContent = data.error || 'Could not load automation health';
+    return;
+  }
+  const pulse = data.tenantSchedulerPulseMs ?? 0;
+  const rows = data.customers || [];
+  const issueCount = data.issueCount ?? rows.reduce((sum, row) => sum + (row.issues?.length ?? (row.error ? 1 : 0)), 0);
+  if (!rows.length) {
+    el.textContent = `Pulse interval ${pulse} ms · no active customers yet.`;
+    return;
+  }
+  el.innerHTML = `<div class="muted" style="margin-bottom:8px">Host pulse every ${pulse} ms · <strong>${issueCount}</strong> issue(s)${issueCount ? ' — operator digest email when RELAY_OPERATOR_ALERT_EMAIL is set' : ''}</div>
+    <table><thead><tr>
+      <th>Customer</th><th>Scheduler</th><th>Brevo</th><th>DS</th><th>Webhook</th><th>Threads AR</th><th>Queue</th><th>Balance</th><th>Issues</th>
+    </tr></thead><tbody>${rows.map((row) => {
+      const issues = row.issues?.length ? row.issues : row.error ? [row.error] : [];
+      if (row.error && !row.displayName) return `<tr><td colspan="9" class="error">${esc(row.error)}</td></tr>`;
+      const sched = row.schedulerRunning
+        ? (row.schedulerOwned ? 'running here' : 'running elsewhere')
+        : 'off';
+      const issueCell = issues.length
+        ? `<span class="error" style="font-size:12px">${esc(issues.join('; '))}</span>`
+        : '<span class="ok">ok</span>';
+      return `<tr>
+        <td>${esc(row.displayName)}</td>
+        <td>${esc(sched)}</td>
+        <td>${row.brevoConnected ? 'yes' : '—'}</td>
+        <td>${row.deepSeek ? 'yes' : '—'}</td>
+        <td>${row.webhookRegistered ? 'ok' : '—'}</td>
+        <td>${row.threadsAutoreplyActive ? 'on' : row.threadsConnected ? 'idle' : '—'}</td>
+        <td>${row.queuePending ?? 0}</td>
+        <td>${money(row.balance ?? 0)}</td>
+        <td>${issueCell}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+async function loadRevenueGoal() {
+  const summary = $('revenueGoalSummary');
+  const myr = $('revenueGoalMyr');
+  const detail = $('revenueGoalDetail');
+  if (!summary) return;
+  const r = await fetch('/api/cloud/admin/revenue-summary', { credentials: 'same-origin' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    summary.textContent = data.error || 'Could not load revenue summary';
+    return;
+  }
+  const goal = data.goal?.amountMyr ?? 4000;
+  const est = data.estimatedMyr;
+  const pct = data.progressPercent;
+  summary.textContent = `Customer payments since ${new Date(data.since).toLocaleDateString()} · goal RM ${goal.toLocaleString()} by ${data.goal?.deadline ?? '31 Dec 2026'}`;
+  if (est != null) {
+    myr.textContent = `RM ${est.toLocaleString(undefined, { maximumFractionDigits: 0 })} collected (${pct != null ? pct.toFixed(1) : '—'}%)`;
+    detail.textContent = `${data.succeededCount} payments · $${(data.totalMilliUsd / 1000).toFixed(2)} USD at rate ${data.usdMyrRate ?? '—'}`;
+  } else {
+    myr.textContent = `$${(data.totalMilliUsd / 1000).toFixed(2)} USD`;
+    detail.textContent = `${data.succeededCount} customer payments (set usd_myr_rate in cloud-prices for RM estimate)`;
+  }
+}
+
 async function loadStatusChips() {
   const el = $('statusChips');
   if (!el) return;
@@ -279,6 +346,7 @@ $('connect').addEventListener('click', async () => {
   } catch (error) { $('connectLink').textContent = error.message; }
 });
 
+$('refreshAutomation')?.addEventListener('click', () => { void loadAutomationHealth(); });
 $('waitlistFilter').addEventListener('change', () => { void loadWaitlist(); });
 $('waitlist').addEventListener('click', (event) => {
   const button = event.target.closest('[data-waitlist-action]');
@@ -288,6 +356,8 @@ $('waitlist').addEventListener('click', (event) => {
 
 void ensureOwnerSession().then(() => {
   void loadStatusChips();
+  void loadRevenueGoal();
+  void loadAutomationHealth();
   loadCustomers().catch(error => {
     $('summary').textContent = error.message;
     $('summary').className = 'error';

@@ -94,12 +94,13 @@ async function prepareTikTokVideo(
       audio = String(probe.stdout ?? "").trim();
     } catch (error) {
       const code = typeof error === "object" && error !== null && "code" in error ? (error as { code?: string }).code : undefined;
-      if (code === "ENOENT" || code === "EPERM") {
-        ctx.logger("TikTok audio preparation skipped: ffmpeg/ffprobe is not available on this host.");
+      const message = error instanceof Error ? error.message : String(error);
+      if (code === "ENOENT" || code === "EPERM" || /Invalid data found when processing input/i.test(message)) {
+        ctx.logger("TikTok audio preparation skipped: ffmpeg/ffprobe unavailable or media not decodable.");
         return original;
       }
       throw new RelayError(
-        `Could not inspect the TikTok video audio: ${error instanceof Error ? error.message : String(error)}`,
+        `Could not inspect the TikTok video audio: ${message}`,
         "tiktok_ffmpeg_error",
         undefined,
         500,

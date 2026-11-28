@@ -1,0 +1,15 @@
+[Unit]
+Description=Relay Cloud MCP (tenant schedulers + finance, port 4321)
+After=network-online.target relay-console.service
+Wants=relay-console.service
+
+[Service]
+User=relay
+WorkingDirectory=/opt/relay
+EnvironmentFile=/etc/relay/relay.env
+ExecStart=/usr/bin/node apps/mcp/dist/cloud-entry.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -2,7 +2,50 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
-import { customerPasswordResetEmail, loadEmailConfig, sendEmail, waitlistConfirmationEmail } from "../../packages/cloud/dist/email.js";
+import {
+  customerLowBalanceEmail,
+  operatorAutomationDigestEmail,
+  customerPasswordResetEmail,
+  customerTopupReceiptEmail,
+  customerWelcomeEmail,
+  loadEmailConfig,
+  sendEmail,
+  waitlistConfirmationEmail,
+} from "../../packages/cloud/dist/email.js";
+
+test("operator automation digest lists issues", () => {
+  const message = operatorAutomationDigestEmail({
+    issues: ["Aina: webhook missing"],
+    adminUrl: "https://relay.example/cloud-admin",
+    issueCount: 1,
+  });
+  assert.match(message.subject, /automation issue/i);
+  assert.match(message.text, /webhook missing/);
+});
+
+test("billing emails include top-up links", () => {
+  const low = customerLowBalanceEmail({ name: "Aina", availableMilliUsd: 400, topupUrl: "https://relay.example/topup" });
+  assert.match(low.subject, /low/i);
+  assert.match(low.text, /top-up|topup/i);
+  const receipt = customerTopupReceiptEmail({ name: "Aina", amountMilliUsd: 9900, provider: "stripe", consoleUrl: "https://relay.example" });
+  assert.match(receipt.text, /9\.90/);
+});
+
+test("welcome email points to email tab and DeepSeek", () => {
+  const message = customerWelcomeEmail({ name: "Aina", consoleUrl: "https://relay.example" });
+  assert.match(message.subject, /welcome/i);
+  assert.match(message.text, /Email tab/i);
+  assert.match(message.text, /DeepSeek/i);
+  assert.match(message.text, /top up/i);
+  assert.match(message.html, /\/login/);
+  const withTopup = customerWelcomeEmail({
+    name: "Aina",
+    consoleUrl: "https://relay.example",
+    topupUrl: "https://relay.example/topup",
+  });
+  assert.match(withTopup.html, /https:\/\/relay\.example\/topup/);
+  assert.match(withTopup.html, /Top up balance/);
+});
 
 test("password reset email contains only a user-chosen link", () => {
   const message = customerPasswordResetEmail({ name: "Aina", resetUrl: "https://relay.example/reset-password?token=abc" });

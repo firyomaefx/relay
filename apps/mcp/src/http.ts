@@ -35,6 +35,8 @@ export interface HttpServerOptions {
   authorize?: (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
   /** Optional cloud-only REST routes. Existing callers omit this. */
   handleExtra?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>;
+  /** Merged into GET /health (e.g. cloud MCP pulse telemetry). */
+  healthDetails?: () => Record<string, unknown>;
   createServer: (req?: IncomingMessage) => McpServer | Promise<McpServer>;
   log: (message: string) => void;
 }
@@ -130,7 +132,8 @@ export async function startHttpServer(options: HttpServerOptions): Promise<Runni
     const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? options.host}`);
 
     if (requestUrl.pathname === "/health") {
-      sendJson(res, 200, { ok: true, name: "relay-mcp-http", transport: "streamable-http" });
+      const extra = options.healthDetails?.() ?? {};
+      sendJson(res, 200, { ok: true, name: "relay-mcp-http", transport: "streamable-http", ...extra });
       return;
     }
 

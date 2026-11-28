@@ -12,17 +12,36 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { loadCloudConfig, CloudStore, TenantManager, CloudLedger, PriceTable, defaultPricePath, RateLimiter, loadRateConfig } from "@relay/cloud";
+import {
+  loadCloudConfig,
+  CloudStore,
+  TenantManager,
+  CloudLedger,
+  PriceTable,
+  defaultPricePath,
+  RateLimiter,
+  loadRateConfig,
+  runLowBalanceChecksForActiveCustomers,
+  maybeSendOperatorAutomationDigest,
+  maybeSendOperatorRevenueDigest,
+  processPendingWaitlistAutoApprovals,
+  runOnboardingTopupNudges,
+  recordTenantSchedulerPulse,
+  tenantSchedulerPulseStatus,
+  waitlistAutoApproveEnabled,
+} from "@relay/cloud";
+import { loadEmailConfig } from "@relay/cloud";
 import { authenticateApiKey } from "@relay/cloud";
 import { registerTools } from "./tools.js";
 import { startHttpServer, type RunningHttpServer } from "./http.js";
 import { createOAuthProvider } from "./oauth.js";
 import { createCloudApi } from "./cloud-api.js";
 import { CloudFinance } from "./cloud-finance.js";
-import { AUTOREPLY_MIN_TOPUP_MILLI_USD, registerCloudAutoReplyTool } from "./cloud-autoreply.js";
+import { registerCloudAutoReplyTool } from "./cloud-autoreply.js";
 import { prepareAccountConnect, registerCloudAccountsTool } from "./cloud-accounts.js";
 import { registerOwnerWaitlistTools } from "./cloud-waitlist.js";
 import { registerOwnerBonusTools } from "./cloud-bonus.js";
+import { errorMessage } from "@relay/core";
 
 const OAUTH_FAILURES_PER_WINDOW = 8;
 const OAUTH_FAILURE_WINDOW_MS = 15 * 60 * 1000;
@@ -110,6 +129,18 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
       return true;
     },
     handleExtra,
+    healthDetails: () => {
+      const pulseMs = Number(process.env.RELAY_CLOUD_TENANT_SCHEDULER_MS ?? "60000");
+      const pulse = tenantSchedulerPulseStatus("cloud-mcp");
+      return {
+        name: "relay-cloud-mcp",
+        cloud: {
+          tenantSchedulerPulseMs: pulseMs,
+          lastTenantPulseAt: pulse?.at ?? null,
+          lastTenantPulseCount: pulse?.tenantCount ?? null,
+        },
+      };
+    },
     createServer: async (req) => {
       const identity = req ? customerFromRequest(store, req) : null;
       let customer = identity?.customer;
@@ -219,31 +250,69 @@ export async function startCloudMcp(): Promise<RunningHttpServer> {
   });
 
   log(`cloud MCP listening on ${running.url}`);
+  const pulseMs = Number(process.env.RELAY_CLOUD_TENANT_SCHEDULER_MS ?? "60000");
   const scheduler = setInterval(() => {
     void (async () => {
+      if (pulseMs > 0) {
+        await tenants
+          .pulseTenantSchedulers()
+          .then((result) => {
+            recordTenantSchedulerPulse("cloud-mcp", result);
+          })
+          .catch((error: unknown) => {
+            log(`tenant scheduler pulse: ${errorMessage(error)}`);
+          });
+      }
       for (const customer of store.listCustomers()) {
-        if (customer.owner) continue; // The owner scheduler remains the console/MCP owner process.
+        if (customer.owner || customer.status !== "active") continue;
         try {
           const relay = await tenants.get(customer);
-          await relay.runDueJobs();
-          const paidTopups = ledger.largestTopup(customer.id);
-          const comments = await relay.commentsStatus();
-          const threads = comments.find((entry) => entry.platform === "threads");
-          if (
-            paidTopups >= AUTOREPLY_MIN_TOPUP_MILLI_USD &&
-            relay.getDeepSeekApiKey() &&
-            relay.isThreadsAutoReplyEnabled() &&
-            threads?.ready
-          ) {
-            await relay.runThreadsAutoReplyTick();
-          }
           await finance.reconcile(customer, relay);
         } catch (error) {
-          log(`cloud scheduler error for ${customer.id}: ${error instanceof Error ? error.message : String(error)}`);
+          log(`cloud reconcile error for ${customer.id}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
+      const freeAllowance = prices.list().free_allowance_milli_usd ?? 0;
+      const emailConfig = loadEmailConfig(process.env);
+      await runLowBalanceChecksForActiveCustomers(store, ledger, emailConfig, freeAllowance).catch((error: unknown) => {
+        log(`low balance email pass: ${errorMessage(error)}`);
+      });
+      await runOnboardingTopupNudges(store, ledger, emailConfig).catch((error: unknown) => {
+        log(`onboarding top-up nudge: ${errorMessage(error)}`);
+      });
+      await maybeSendOperatorAutomationDigest(store, ledger, tenants, emailConfig, process.env, "cloud-mcp").catch(
+        (error: unknown) => {
+          log(`operator automation digest: ${errorMessage(error)}`);
+        },
+      );
+      await maybeSendOperatorRevenueDigest(
+        store,
+        ledger,
+        tenants,
+        emailConfig,
+        prices,
+        process.env,
+        "cloud-mcp",
+      ).catch((error: unknown) => {
+        log(`operator revenue digest: ${errorMessage(error)}`);
+      });
+      if (waitlistAutoApproveEnabled(process.env)) {
+        const limit = Number(process.env.RELAY_WAITLIST_LIMIT ?? "100");
+        const waitlistLimit = Number.isInteger(limit) && limit > 0 ? limit : 100;
+        const mcpBase = (process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun").replace(/\/+$/, "");
+        const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
+        await processPendingWaitlistAutoApprovals(store, emailConfig, {
+          waitlistLimit,
+          publicBase,
+          mcpBase: `${mcpBase}/mcp`,
+        })
+          .then((out) => {
+            if (out.processed > 0) log(`waitlist auto-invite: ${out.processed} processed, ${out.errors} errors`);
+          })
+          .catch((error: unknown) => log(`waitlist auto-process: ${errorMessage(error)}`));
+      }
     })();
-  }, 15000);
+  }, Math.max(1000, pulseMs > 0 ? pulseMs : 60000));
   return {
     ...running,
     close: async () => {

@@ -12,4 +12,12 @@ jobs:
     runs-on: [self-hosted, relay-prod]
     steps:
       - name: Pull, build, restart
-        run: sudo -u relay bash /opt/relay/deploy/deploy.sh
+        run: sudo DEPLOY_STRICT_SLEEP_VERIFY=1 -u relay bash /opt/relay/deploy/deploy.sh
+      - name: Sleep mode verify (localhost then public)
+        working-directory: /opt/relay
+        env:
+          RELAY_PUBLIC_URL: https://relay.duitpoket.fun
+          RELAY_CLOUD_MCP_URL: https://cloud-mcp.duitpoket.fun
+        run: |
+          node tools/verify-sleep-mode-local.mjs
+          node tools/verify-sleep-mode.mjs

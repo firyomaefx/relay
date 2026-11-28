@@ -6,7 +6,7 @@ The waitlist is the normal-customer entry point. It is an **early-access request
 
 - Prospect: `/waitlist`
 - Existing customer: `/login`
-- Invited customer: private `/connect?token=...` link from the admin approval email
+- Invited customer: private `/connect?token=...` link from the admin approval email (configure MCP after password setup using the **welcome email** link — setup rotates the token)
 - Operator: `/admin`
 
 ## Positioning

@@ -1,9 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { RelayError, errorMessage } from "@relay/core";
-import { CloudLedger, CloudStore, PriceTable, defaultPricePath, effectiveFreeLimit, loadCloudConfig } from "@relay/cloud";
+import { CloudLedger, CloudStore, PriceTable, defaultPricePath, effectiveFreeLimit, loadCloudConfig, summarizeAutomationHealth, type TenantManager } from "@relay/cloud";
 import { createCheckoutSession, loadStripeConfig, type StripeBillingConfig } from "./billing.js";
 import { createPolarCheckout, loadPolarConfig, type PolarConfig } from "./polar.js";
-import { issueCustomerInvite, loadEmailConfig, type EmailConfig } from "@relay/cloud";
+import {
+  issueCustomerInvite,
+  approveWaitlistAndInvite,
+  loadEmailConfig,
+  afterCustomerTopupCredit,
+  type EmailConfig,
+} from "@relay/cloud";
 
 export interface CloudAdminDeps {
   store: CloudStore;
@@ -13,6 +19,7 @@ export interface CloudAdminDeps {
   billing?: StripeBillingConfig;
   polar?: PolarConfig;
   email?: EmailConfig;
+  tenants?: TenantManager;
   close(): Promise<void>;
 }
 
@@ -126,6 +133,42 @@ export async function handleCloudAdmin(
   const method = (req.method ?? "GET").toUpperCase();
   const resource = segments[3] ?? "";
   try {
+    if (method === "GET" && resource === "automation-health") {
+      if (!deps.tenants) {
+        send(res, 503, { error: "Tenant manager is not available." });
+        return;
+      }
+      const summary = await summarizeAutomationHealth(deps.store, deps.ledger, deps.tenants);
+      send(res, 200, {
+        tenantSchedulerPulseMs: summary.tenantSchedulerPulseMs,
+        issueCount: summary.issueCount,
+        customers: summary.customers,
+      });
+      return;
+    }
+
+    if (method === "GET" && resource === "revenue-summary") {
+      const since = url.searchParams.get("since")?.trim()
+        || process.env.RELAY_REVENUE_GOAL_SINCE?.trim()
+        || "2026-01-01T00:00:00.000Z";
+      const goalMyr = Number(process.env.RELAY_REVENUE_GOAL_MYR ?? "4000");
+      const goalDeadline = process.env.RELAY_REVENUE_GOAL_DEADLINE?.trim() || "2026-12-31";
+      const rate = deps.pricing?.list().usd_myr_rate ?? null;
+      const currency = deps.pricing?.list().display_currency ?? "MYR";
+      const revenue = deps.ledger.operatorPaymentRevenue({ since });
+      const estimatedMyr = rate && rate > 0 ? (revenue.totalMilliUsd / 1000) * rate : null;
+      send(res, 200, {
+        since: revenue.since ?? since,
+        goal: { amountMyr: goalMyr, deadline: goalDeadline, currency },
+        succeededCount: revenue.succeededCount,
+        totalMilliUsd: revenue.totalMilliUsd,
+        estimatedMyr,
+        usdMyrRate: rate,
+        progressPercent: estimatedMyr != null && goalMyr > 0 ? Math.min(100, (estimatedMyr / goalMyr) * 100) : null,
+      });
+      return;
+    }
+
     if (method === "GET" && resource === "billing") {
       const owner = deps.store.ensureOwnerCustomer("Owner");
       const baseFreeLimit = deps.pricing?.list().free_allowance_milli_usd ?? 0;
@@ -258,27 +301,23 @@ export async function handleCloudAdmin(
       if (entry.status === "invited" || entry.status === "active") {
         throw new RelayError("This entry is already invited. Create a new invite link instead.", "waitlist_already_invited", undefined, 409);
       }
-      const accepted = deps.store.waitlistAcceptedCount();
       const limit = waitlistLimit();
-      if (accepted >= limit) {
-        throw new RelayError(`The first batch is full (${limit}). Raise RELAY_WAITLIST_LIMIT to approve more.`, "waitlist_full", undefined, 409);
-      }
-      const customer = deps.store.createCustomer({ displayName: entry.name, email: entry.email });
-      const created = deps.store.createConnectToken(customer.id, `Waitlist invite: ${entry.email}`);
-      const invited = deps.store.approveWaitlist(id, customer.id);
-      const setup = await createCustomerSetupInvite(deps, customer);
       const publicBase = (process.env.RELAY_PUBLIC_URL?.trim() || "https://relay.duitpoket.fun").replace(/\/+$/, "");
-      const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun/mcp";
-      const connectUrl = `${publicBase}/connect?token=${encodeURIComponent(created.token)}`;
+      const mcpBase = process.env.RELAY_CLOUD_PUBLIC_MCP_URL?.trim() || "https://cloud-mcp.duitpoket.fun";
+      const invited = await approveWaitlistAndInvite(deps.store, deps.email, id, {
+        waitlistLimit: limit,
+        publicBase,
+        mcpBase,
+      });
       send(res, 201, {
         ok: true,
-        entry: invited,
-        customer: { id: customer.id, displayName: customer.displayName },
-        setupUrl: setup.url,
-        connectUrl,
-        mcpUrl: `${mcpBase}?token=${encodeURIComponent(created.token)}`,
-        emailSent: setup.emailSent,
-        emailError: setup.emailSent ? undefined : setup.emailError,
+        entry: invited.entry,
+        customer: { id: invited.customer.id, displayName: invited.customer.displayName },
+        setupUrl: invited.setupUrl,
+        connectUrl: invited.connectUrl,
+        mcpUrl: invited.mcpUrl,
+        emailSent: invited.emailSent,
+        emailError: invited.emailSent ? undefined : invited.emailError,
       });
       return;
     }
@@ -341,6 +380,9 @@ export async function handleCloudAdmin(
         currency: "MYR",
         provider: "manual",
       });
+      if (!result.paymentReplayed && deps.tenants) {
+        void afterCustomerTopupCredit(customer, deps.tenants, deps.ledger).catch(() => undefined);
+      }
       send(res, 200, {
         ...result,
         balance: deps.ledger.balanceWithHold(customerId),

@@ -35,6 +35,12 @@ try {
   } else {
     console.log(`INFO payments ${JSON.stringify(health.payments)}`);
     if (health.payments.polarSandbox) console.log("WARN Polar sandbox is configured; public checkout must remain disabled");
+    if (health.cloud?.enabled) {
+      const pulse = health.cloud.tenantSchedulerPulseMs;
+      console.log(`INFO cloud sleep mode pulseMs=${pulse} publicBase=${health.cloud.publicBaseConfigured ? "yes" : "NO"}`);
+      if (!pulse || pulse <= 0) console.log("WARN RELAY_CLOUD_TENANT_SCHEDULER_MS is 0; customer schedulers may stop without console login");
+      if (!health.cloud.publicBaseConfigured) console.log("WARN RELAY_PUBLIC_URL or RELAY_PUBLIC_BASE_URL unset; Brevo inbound webhooks may fail");
+    }
   }
 } catch (error) {
   console.log(`FAIL payment readiness ${error.message}`);
@@ -56,5 +62,22 @@ try {
   failed += 1;
 }
 
+let sleepFailed = 0;
+try {
+  const { spawnSync } = await import("node:child_process");
+  const probe = spawnSync(process.execPath, ["tools/verify-sleep-mode.mjs"], {
+    cwd: new URL("..", import.meta.url).pathname,
+    encoding: "utf8",
+  });
+  if (probe.stdout) process.stderr.write(probe.stdout);
+  if (probe.stderr) process.stderr.write(probe.stderr);
+  sleepFailed = probe.status === 0 ? 0 : 1;
+} catch (error) {
+  console.log(`FAIL sleep-mode verify ${error instanceof Error ? error.message : String(error)}`);
+  sleepFailed = 1;
+}
+failed += sleepFailed;
+
+if (failed > 0) console.log("HINT on the VM run: npm run go-live:cloud (tunnel + sleep-mode)");
 console.log(failed === 0 ? "READINESS PASS" : `READINESS FAIL (${failed})`);
 process.exit(failed === 0 ? 0 : 1);
