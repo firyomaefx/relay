@@ -18,9 +18,15 @@ npm run verify:system-ready
 
 ## VM deploy (required once)
 
-Follow [operator-handoff.md](./operator-handoff.md) steps 0–6. Merge PR **#65** on `main` for `verify:system-ready` and system-ready docs (no code conflict).
+Follow [operator-handoff.md](./operator-handoff.md) steps 0–6 (`verify:system-ready` is on `main` since PR **#65**).
 
-**Copy-paste on the VM (after `relay.env` + cloudflared → 4321 are set):**
+**On the VM (after `relay.env` + cloudflared → 4321 are set):**
+
+```bash
+sudo bash /opt/relay/deploy/vm-system-ready.sh
+```
+
+Or step-by-step:
 
 ```bash
 cd /opt/relay && git fetch origin main && git checkout main && git pull origin main
