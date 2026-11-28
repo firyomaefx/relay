@@ -30,7 +30,7 @@ Use Relay MCP tools for posting; do not substitute shell or browser automation.
 - **Sleep mode:** `RELAY_CLOUD_TENANT_SCHEDULER_MS` on **console** and **`relay-cloud-mcp`**; tenants pulse without an open browser. **System ready** when `npm run verify:system-ready` passes — see `docs/operations/system-ready-checklist.md`. VM gate: `npm run go-live:cloud` (local 4317/4321 then public URLs + cloudflared). Daily **Production sleep monitor** emails on drift when repo secrets are set. Operator checklist: `docs/operations/operator-handoff.md`.
 - **Regression:** `npm run test:sleep-mode` (~47 tests); full gate `npm run verify:system-ready`.
 - **Operator:** `sleep-mode-deploy.md`, `manus-relay.md` + `manus-daily-prompts.md`; optional revenue tracking in `rm4000-cloud-runbook.md`.
-- **Deploy:** sleep-mode stack is on `main` (#61/#64); production still fails until the VM pulls `main`, enables `relay-cloud-mcp` on **4321**, and fixes cloudflared.
+- **Deploy:** sleep-mode stack is on `main`; prod fails until deliberate VM repair (`docs/operations/vm-repair-pause.md`) — default **RELAY_VM_REPAIR_PAUSED=1**; cloud agents must not blind-run `vm-system-ready` or gcloud SSH; operator clears pause or `VM_REPAIR_RUN=1` after handoff steps 0–4.
 
 ## Safety
 
