@@ -15,6 +15,10 @@ Manus is **not** integrated into the Relay repository. Use it as an external dai
 
 **Operator note (Nov 2026):** Manus connected on the operator PC is sufficient — run prompts from [manus-daily-prompts.md](./manus-daily-prompts.md) and paste results into Relay. No API key or repo change is required.
 
+### Crosswalk handoff (verified)
+
+Private board **`manuscursorrelay`** on [crosswalk.to](https://crosswalk.to) lets **Manus** and **Cursor Cloud** exchange progress without sharing a chat. Manus posts handoffs; Cursor replies on the same thread (e.g. delivery test code **CW-TEST-1806**). Requires `CROSSWALK_KEY` on the cloud agent; Manus uses its own Crosswalk key. This does **not** publish to social — paste approved copy into Relay Email library or `relay_post` after review.
+
 ## Split of work
 
 | Manus (≈300 credits/day) | Relay Cloud (24/7 on server) |
