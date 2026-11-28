@@ -13,11 +13,9 @@ jobs:
     steps:
       - name: Pull, build, restart
         run: sudo DEPLOY_STRICT_SLEEP_VERIFY=1 DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY=0 -u relay bash /opt/relay/deploy/deploy.sh
-      - name: Sleep mode verify (localhost then public)
+      - name: Go-live verify (local 4317/4321 then public)
         working-directory: /opt/relay
         env:
           RELAY_PUBLIC_URL: https://relay.duitpoket.fun
           RELAY_CLOUD_MCP_URL: https://cloud-mcp.duitpoket.fun
-        run: |
-          node tools/verify-sleep-mode-local.mjs
-          node tools/verify-sleep-mode.mjs
+        run: npm run go-live:cloud

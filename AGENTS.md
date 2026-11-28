@@ -25,10 +25,10 @@ Use Relay MCP tools for posting; do not substitute shell or browser automation.
 
 ### Relay Cloud (multi-tenant)
 
-- **Sleep mode:** `RELAY_CLOUD_TENANT_SCHEDULER_MS` on **console** and **`relay-cloud-mcp`**; tenants pulse without an open browser. Verify: `npm run go-live:cloud` (cloudflared ingress + public `verify-sleep-mode`). After merge to `main`, the **Production sleep monitor** workflow alerts if prod drifts. Operator checklist: `docs/operations/operator-handoff.md`.
-- **Regression:** `npm run test:sleep-mode` (29 tests) on PR CI.
-- **Operator:** docs in `docs/operations/rm4000-cloud-runbook.md`, `sleep-mode-deploy.md`, `manus-relay.md` + `manus-daily-prompts.md`. Revenue goal is **ledger top-ups**, not in-repo revenue.
-- **Branch:** sleep-mode work ships on PR #61 (`cursor/brevo-email-scheduling-67db`) until merged to `main` and deployed to `relay.duitpoket.fun`.
+- **Sleep mode:** `RELAY_CLOUD_TENANT_SCHEDULER_MS` on **console** and **`relay-cloud-mcp`**; tenants pulse without an open browser. **System ready** when `npm run verify:system-ready` passes — see `docs/operations/system-ready-checklist.md`. VM gate: `npm run go-live:cloud` (local 4317/4321 then public URLs + cloudflared). Daily **Production sleep monitor** emails on drift when repo secrets are set. Operator checklist: `docs/operations/operator-handoff.md`.
+- **Regression:** `npm run test:sleep-mode` (~47 tests); full gate `npm run verify:system-ready`.
+- **Operator:** `sleep-mode-deploy.md`, `manus-relay.md` + `manus-daily-prompts.md`; optional revenue tracking in `rm4000-cloud-runbook.md`.
+- **Deploy:** sleep-mode stack is on `main` (#61/#64); production still fails until the VM pulls `main`, enables `relay-cloud-mcp` on **4321**, and fixes cloudflared.
 
 ## Safety
 

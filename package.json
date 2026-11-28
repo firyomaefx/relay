@@ -21,6 +21,7 @@
     "test": "node --test \"tests/**/*.test.mjs\"",
     "test:sleep-mode": "node --test tests/e2e/waitlist*.mjs tests/e2e/sleep-mode-health.test.mjs tests/e2e/cloud-admin.test.mjs tests/unit/cloud-ledger.test.mjs tests/unit/billing-notify.test.mjs tests/unit/email-automation.test.mjs tests/unit/email.test.mjs tests/unit/threads-autoreply-eligibility.test.mjs tests/unit/waitlist-auto-process.test.mjs tests/unit/operator-revenue-digest.test.mjs tests/unit/onboarding-nudge.test.mjs tests/unit/pulse-telemetry.test.mjs tests/unit/customer-onboarding-bootstrap.test.mjs tests/unit/operator-notify-leader.test.mjs tests/unit/verify-sleep-mode-lib.test.mjs tests/unit/check-cloudflared-sleep-mode.test.mjs tests/unit/brevo-webhook-ensure.test.mjs tests/unit/platform-deploy-health.test.mjs",
     "verify:sleep-mode": "node tools/verify-sleep-mode.mjs",
+    "verify:system-ready": "npm run test:sleep-mode && node tools/production-readiness.mjs",
     "verify:sleep-mode-local": "node tools/verify-sleep-mode-local.mjs",
     "check:cloudflared-sleep": "node tools/check-cloudflared-sleep-mode.mjs",
     "go-live:cloud": "node tools/cloud-go-live.mjs",

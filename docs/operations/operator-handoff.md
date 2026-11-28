@@ -1,15 +1,15 @@
 # Operator handoff — Relay Cloud automation
 
-**PR #61 merged to `main`** (~3:24 PM MYT on 28 Nov 2026). **Goal not complete until production verify passes and RM4,000 is earned from customer top-ups.**
+**PR #61 and go-live stack #64 are on `main`.** **System ready** when `npm run verify:system-ready` passes (see [system-ready-checklist.md](./system-ready-checklist.md)). Revenue targets are optional.
 
 ## Repo status (agent-verified)
 
 | Check | Result |
 |-------|--------|
-| `npm run test:sleep-mode` | 47 tests (`cursor/cloud-go-live-stack-67db` = #62 + #63 + main + deploy-health) |
-| `npm test` | 307 tests on stack branch |
+| `npm run test:sleep-mode` | 47 tests (`main` includes deploy-health + email program stack) |
+| `npm test` | 314 tests on `main` after latest doc/script updates |
 | Manus evaluation | `docs/operations/manus-relay.md` |
-| **Shipped** | [#61](https://cursor.com/codebase/ttrg/relay/pull/61) on `main`; merge [#62](https://cursor.com/codebase/ttrg/relay/pull/62) + [#63](https://cursor.com/codebase/ttrg/relay/pull/63) or one **go-live stack** PR before VM pull |
+| **Shipped** | [#61](https://cursor.com/codebase/ttrg/relay/pull/61), [#64](https://cursor.com/codebase/ttrg/relay/pull/64) on `main` |
 
 ## Production status (live URLs, re-check anytime)
 
@@ -36,7 +36,7 @@ Expected failures **until** you deploy:
 5. **Deploy build** (picks up #61 console + MCP): `sudo DEPLOY_STRICT_SLEEP_VERIFY=1 -u relay bash /opt/relay/deploy/deploy.sh` after steps 2–4 (public URL verify is warn-only until tunnel is fixed). (public URL is warn-only unless `DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY=1`)
    - When tunnel is fixed: `sudo DEPLOY_STRICT_SLEEP_VERIFY=1 DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY=1 -u relay bash /opt/relay/deploy/deploy.sh` or `npm run go-live:cloud`
 6. **Pass gate:** `npm run verify:sleep-mode-local`, then `npm run go-live:cloud` (on the VM this auto-runs local 4317/4321 probes first) and `node tools/production-readiness.mjs`.
-7. **Revenue:** drive waitlist → setup → top-up; monitor `/cloud-admin` and weekly operator email (`RELAY_REVENUE_GOAL_MYR=4000`).
+7. **Optional:** set `RELAY_OPERATOR_ALERT_EMAIL` + Brevo so drift emails fire; use `/cloud-admin` for automation health (revenue card is tracking only).
 
 ## Manus (≈300 credits/day)
 

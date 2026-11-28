@@ -1,8 +1,10 @@
-# RM4,000 Relay Cloud runbook (by 31 Dec 2026)
+# Relay Cloud revenue runbook (optional RM goal)
 
-Technical automation lives on branch **PR #61** (`cursor/brevo-email-scheduling-67db`). Revenue itself is **customer payments**; the repo tracks, nudges, and emails progress.
+**Deploy gate:** use [system-ready-checklist.md](./system-ready-checklist.md) — not revenue.
 
-**Evidence gate:** production is not on sleep mode until `GET https://relay.duitpoket.fun/api/health` includes a `cloud` object with `tenantSchedulerPulseMs` and a recent `lastTenantPulseAt` after deploy.
+This doc is for **optional** sales tracking (`RELAY_REVENUE_GOAL_MYR`). Customer payments are outside the repo; the app tracks progress and sends digests.
+
+**Sleep mode live:** `GET https://relay.duitpoket.fun/api/health` includes `cloud.tenantSchedulerPulseMs` and recent `lastTenantPulseAt` after VM deploy.
 
 ## Go live (once)
 

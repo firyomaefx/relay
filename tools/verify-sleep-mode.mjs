@@ -97,5 +97,11 @@ try {
   fail("fetch", error instanceof Error ? error.message : String(error));
 }
 
-console.log(failed === 0 ? "SLEEP-MODE VERIFY PASS" : `SLEEP-MODE VERIFY FAIL (${failed})`);
+if (failed === 0) {
+  console.log("SLEEP-MODE VERIFY PASS");
+} else {
+  console.log(`SLEEP-MODE VERIFY FAIL (${failed})`);
+  console.log("Next: on the VM — docs/operations/operator-handoff.md (relay-cloud-mcp :4321, cloudflared, deploy.sh)");
+  console.log("      then npm run go-live:cloud and npm run verify:system-ready");
+}
 process.exit(failed === 0 ? 0 : 1);

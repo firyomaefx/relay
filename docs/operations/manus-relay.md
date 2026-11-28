@@ -9,7 +9,7 @@ Manus is **not** integrated into the Relay repository. Use it as an external dai
 | Can Manus run sleep mode, webhooks, or billing? | **No** — needs Relay on the VM. |
 | Best use of credits? | **Yes** — caption batches, promo email HTML, Threads reply tone, landing copy tests (see [manus-daily-prompts.md](./manus-daily-prompts.md)). |
 | Replaces operator deploy? | **No** — merge, tunnel `cloud-mcp` → 4321, `go-live:cloud` stay manual until green. |
-| Moves RM4k goal? | **Indirect** — faster content for customers you already onboard; revenue still from Stripe/Polar top-ups. |
+| Required for system ready? | **No** — copy for email library only. |
 
 **Conclusion:** Keep Manus in the loop for **content research and drafts**; do not budget credits for infra or publishing automation Relay already implements on PR #61.
 
@@ -31,12 +31,12 @@ Copy-paste prompts: [manus-daily-prompts.md](./manus-daily-prompts.md).
 1. **Manus:** produce a batch of captions + one promo email HTML snippet + optional Threads reply tone notes.
 2. **You or MCP:** paste into Relay composer, Email library, or `relay_post` with `schedule_at`.
 3. **Relay:** `RELAY_CLOUD_TENANT_SCHEDULER_MS` keeps tenant schedulers alive on console + cloud MCP — no browser required.
-4. **Operator:** with `RELAY_WAITLIST_AUTO_APPROVE=1`, signups auto-invite (pulse clears backlog). Weekly email to `RELAY_OPERATOR_ALERT_EMAIL` tracks RM goal progress; daily digest on automation issues only when something breaks.
+4. **Operator:** with `RELAY_WAITLIST_AUTO_APPROVE=1`, signups auto-invite (pulse clears backlog). Email to `RELAY_OPERATOR_ALERT_EMAIL` on automation drift (and optional weekly revenue digest if you set a goal).
 5. **Customers:** low-balance and top-up receipt emails fire automatically when `RELAY_EMAIL_*` is configured.
 
-## Revenue goal (RM4,000 by 31 Dec 2026)
+## Optional revenue tracking
 
-Prepaid top-ups are tracked in USD (milliUSD). Use `GET /api/cloud/admin/revenue-summary` or the admin Revenue goal card. Manus does not replace sales — it accelerates content and outreach you feed into Relay.
+Prepaid top-ups are tracked in USD (milliUSD). Use `GET /api/cloud/admin/revenue-summary` or the admin Revenue goal card if you set `RELAY_REVENUE_GOAL_MYR`. Manus does not replace sales — it accelerates content you feed into Relay.
 
 ## When not to use Manus for Relay
 
