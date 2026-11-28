@@ -33,6 +33,7 @@ cd /opt/relay && git fetch origin main && git checkout main && git pull origin m
 sudo DEPLOY_STRICT_SLEEP_VERIFY=1 DEPLOY_STRICT_PUBLIC_SLEEP_VERIFY=1 -u relay bash /opt/relay/deploy/deploy.sh
 cd /opt/relay && npm run go-live:cloud
 cd /opt/relay && npm run verify:system-ready   # from laptop OK too, after tunnel is green
+# optional from laptop while VM deploys: npm run wait:system-ready
 ```
 
 1. Pull merged `main` (#64 stack; #65 adds docs gate).

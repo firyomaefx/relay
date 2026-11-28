@@ -25,6 +25,7 @@
     "verify:sleep-mode-local": "node tools/verify-sleep-mode-local.mjs",
     "check:cloudflared-sleep": "node tools/check-cloudflared-sleep-mode.mjs",
     "go-live:cloud": "node tools/cloud-go-live.mjs",
+    "wait:system-ready": "node tools/wait-for-system-ready.mjs",
     "smoke": "node tests/smoke.mjs",
     "batch": "node tools/relay-batch.mjs",
     "youtube-max": "node tools/youtube-max-upload.mjs",
